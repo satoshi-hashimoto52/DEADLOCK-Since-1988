@@ -10,47 +10,9 @@ using UnityEngine.TestTools;
 
 namespace Deadlock.Tests
 {
-    /// <summary>
-    /// Plays the prototype scene with simulated devices (Input System test fixture):
-    /// desktop keyboard/mouse and multi-finger touch go through the same paths as real input.
-    /// </summary>
-    public class FiringRangeSceneTests : InputTestFixture
+    /// <summary>Movement, shooting, pickups and touch input in the prototype scene.</summary>
+    public class FiringRangeSceneTests : FiringRangeTestBase
     {
-        const string SceneName = "Proto_FiringRange";
-
-        Keyboard keyboard;
-        Mouse mouse;
-        GameObject player;
-        PlayerInputRouter router;
-        FirstPersonMotor motor;
-        GunController gun;
-        ProjectileSystem projectiles;
-
-        IEnumerator LoadScene(InputMode mode)
-        {
-            keyboard = InputSystem.AddDevice<Keyboard>();
-            mouse = InputSystem.AddDevice<Mouse>();
-            SceneManager.LoadScene(SceneName);
-            yield return null;
-            yield return null; // let Start() run
-
-            player = GameObject.Find("Player");
-            router = player.GetComponent<PlayerInputRouter>();
-            motor = player.GetComponent<FirstPersonMotor>();
-            gun = player.GetComponent<GunController>();
-            projectiles = Object.FindAnyObjectByType<ProjectileSystem>();
-            router.RequireCursorLock = false; // no focused game view in batch runs
-            router.SetMode(mode);
-            yield return null;
-        }
-
-        IEnumerator Wait(float seconds)
-        {
-            float end = Time.time + seconds;
-            while (Time.time < end)
-                yield return null;
-        }
-
         [UnityTest]
         public IEnumerator Desktop_MoveSprintJumpLook()
         {
@@ -483,22 +445,6 @@ namespace Deadlock.Tests
             Assert.AreEqual(InputMode.Desktop, router.Mode);
             Assert.IsFalse(UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance != null
                            && UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance.enabled);
-        }
-
-        void Teleport(Vector3 position)
-        {
-            var controller = player.GetComponent<CharacterController>();
-            controller.enabled = false;
-            player.transform.position = position;
-            controller.enabled = true;
-            Physics.SyncTransforms();
-        }
-
-        static Vector2 ScreenCenter(RectTransform rect)
-        {
-            var corners = new Vector3[4];
-            rect.GetWorldCorners(corners); // overlay canvas: world == screen
-            return (corners[0] + corners[2]) * 0.5f;
         }
     }
 }
