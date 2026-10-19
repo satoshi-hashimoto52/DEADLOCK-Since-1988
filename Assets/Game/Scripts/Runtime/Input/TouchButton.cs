@@ -17,12 +17,17 @@ namespace Deadlock.Input
         [SerializeField] TouchLookArea dragLooksWith;
         [SerializeField] Color normalColor = new Color(1f, 1f, 1f, 0.35f);
         [SerializeField] Color pressedColor = new Color(1f, 0.85f, 0.4f, 0.75f);
+        [SerializeField] Color disabledColor = new Color(0.4f, 0.4f, 0.4f, 0.18f);
 
         int pointerId = NoPointer;
         int pressCount;
         bool latched;
+        bool interactable = true;
 
         public bool IsHeld => pointerId != NoPointer;
+        public bool Interactable => interactable;
+        /// <summary>Time.time when the current press began.</summary>
+        public float PressStartTime { get; private set; }
 
         void OnDisable()
         {
@@ -46,14 +51,29 @@ namespace Deadlock.Input
             RefreshColor();
         }
 
+        /// <summary>Disabled buttons look greyed out and ignore new presses (a held press is released).</summary>
+        public void SetInteractable(bool value)
+        {
+            if (interactable == value)
+                return;
+            interactable = value;
+            if (!value)
+            {
+                pointerId = NoPointer;
+                pressCount = 0;
+            }
+            RefreshColor();
+        }
+
         public void OnInitializePotentialDrag(PointerEventData eventData) => eventData.useDragThreshold = false;
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (IsHeld || !TouchControls.IsTouch(eventData))
+            if (IsHeld || !interactable || !TouchControls.IsTouch(eventData))
                 return;
             pointerId = eventData.pointerId;
             pressCount++;
+            PressStartTime = Time.time;
             RefreshColor();
         }
 
@@ -74,7 +94,7 @@ namespace Deadlock.Input
         void RefreshColor()
         {
             if (graphic != null)
-                graphic.color = IsHeld || latched ? pressedColor : normalColor;
+                graphic.color = !interactable ? disabledColor : IsHeld || latched ? pressedColor : normalColor;
         }
     }
 }

@@ -1,13 +1,14 @@
 using Deadlock.Combat;
 using Deadlock.Input;
+using Deadlock.Player;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Deadlock.UI
 {
     /// <summary>
-    /// Minimal prototype HUD: crosshair (gap follows spread), ammo counter, reload progress, hit marker.
-    /// Reads combat state only; never changes it.
+    /// Minimal prototype HUD: crosshair (gap follows spread), ammo counter / weapon name, reload progress, hit marker,
+    /// posture and sprint state. Reads player state only; never changes it.
     /// </summary>
     public sealed class HudController : MonoBehaviour
     {
@@ -25,6 +26,8 @@ namespace Deadlock.UI
         [SerializeField] Image reloadBar;
         [SerializeField] Graphic hitMarker;
         [SerializeField] Text helpText;
+        [Tooltip("Posture / sprint / 'no room to stand' line under the ammo counter.")]
+        [SerializeField] Text stanceText;
 
         [Header("Tuning")]
         [SerializeField] float minGap = 6f;
@@ -32,17 +35,42 @@ namespace Deadlock.UI
         [SerializeField] Color killMarkerColor = new Color(1f, 0.3f, 0.2f);
 
         float hitMarkerUntil;
+        WeaponSwitcher weapons;
+        MeleeWeapon melee;
+        PostureController posture;
+        FirstPersonMotor motor;
+        int stanceState = -1;
+
+        void Awake()
+        {
+            weapons = gun.GetComponent<WeaponSwitcher>();
+            melee = gun.GetComponent<MeleeWeapon>();
+            posture = gun.GetComponent<PostureController>();
+            motor = gun.GetComponent<FirstPersonMotor>();
+        }
 
         void OnEnable()
         {
             projectiles.Hit += OnProjectileHit;
             input.ModeChanged += OnModeChanged;
+            if (melee != null)
+                melee.Hit += OnMeleeHit;
         }
 
         void OnDisable()
         {
             projectiles.Hit -= OnProjectileHit;
             input.ModeChanged -= OnModeChanged;
+            if (melee != null)
+                melee.Hit -= OnMeleeHit;
+        }
+
+        void OnMeleeHit(Collider target, DamageResult result)
+        {
+            if (result == DamageResult.Ignored)
+                return;
+            hitMarkerUntil = Time.time + hitMarkerTime;
+            hitMarker.color = result == DamageResult.Destroyed ? killMarkerColor : Color.white;
         }
 
         void OnProjectileHit(ProjectileHit hit)
@@ -57,6 +85,7 @@ namespace Deadlock.UI
         const string DesktopHelp =
             "入力モード：PC（キーボード／マウス）　F2：タッチモードへ\n" +
             "Space：ジャンプ　／　WASD：移動　／　Shift：ダッシュ　／　マウス：視点\n" +
+            "C：しゃがみ　／　Z：伏せ　／　1：銃　／　2：ナイフ\n" +
             "左クリック：射撃　／　右クリック長押し：ADS\n" +
             "R：リロード　／　Esc：カーソル解放";
         const string DesktopNotCaptured = "\n▶ Game Viewをクリックすると操作できます";
@@ -102,10 +131,14 @@ namespace Deadlock.UI
         void LateUpdate()
         {
             UpdateHelp();
+            UpdateStance();
             AmmoState ammo = gun.Ammo;
-            ammoText.text = $"{ammo.Loaded} / {ammo.Reserve}";
+            bool meleeOut = weapons != null && weapons.Current == WeaponSlot.Melee;
+            ammoText.text = meleeOut ? melee.Definition.displayName : $"{ammo.Loaded} / {ammo.Reserve}";
 
-            if (gun.IsReloading)
+            if (meleeOut)
+                statusText.text = "";
+            else if (gun.IsReloading)
                 statusText.text = "RELOADING";
             else if (ammo.IsCompletelyEmpty)
                 statusText.text = "NO AMMO";
@@ -119,6 +152,28 @@ namespace Deadlock.UI
 
             UpdateCrosshair();
             hitMarker.enabled = Time.time < hitMarkerUntil;
+        }
+
+        void UpdateStance()
+        {
+            if (stanceText == null || posture == null)
+                return;
+            bool blocked = Time.time - posture.LastBlockedTime < 1.2f;
+            int state = (int)posture.Current * 4 + (motor.IsSprinting ? 1 : 0) + (blocked ? 2 : 0);
+            if (state == stanceState)
+                return;
+            stanceState = state;
+            string name = posture.Current switch
+            {
+                Posture.Crouching => "しゃがみ",
+                Posture.Prone => "伏せ",
+                _ => "立ち",
+            };
+            if (motor.IsSprinting)
+                name += "　ダッシュ";
+            if (blocked)
+                name += "\n頭上が塞がっています";
+            stanceText.text = name;
         }
 
         void UpdateCrosshair()
