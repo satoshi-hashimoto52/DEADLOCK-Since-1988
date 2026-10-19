@@ -312,7 +312,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(0f, gun.AdsBlend, 0.001f);
 
             // Keyboard/mouse must not act while touch mode is active (no double input).
-            // Checked last: a physical mouse click can disturb the next UI touch (see docs/PROGRESS.md known issues).
+            // Touches after a mouse click are covered by Touch_ButtonsStillWork_WithPhysicalMouse.
             Vector3 position = player.transform.position;
             Press(keyboard.wKey, queueEventOnly: true);
             Press(mouse.leftButton, queueEventOnly: true);
@@ -322,6 +322,167 @@ namespace Deadlock.Tests
             Assert.AreEqual(position.x, player.transform.position.x, 0.01f);
             Assert.AreEqual(position.z, player.transform.position.z, 0.01f);
             Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded);
+        }
+
+        public enum MouseInterference
+        {
+            /// <summary>Mouse click, then (a few frames later) touches.</summary>
+            ClickThenTouch,
+            /// <summary>Mouse button release and a new touch arrive in the same input update.</summary>
+            ReleaseInSameUpdateAsTouchBegin,
+            /// <summary>A touch begins while the mouse button is held; the mouse is released first.</summary>
+            TouchWhileMouseHeld,
+            /// <summary>The mouse button is pressed during a held touch and released after the touch ends.</summary>
+            MouseClickDuringHeldTouch,
+        }
+
+        /// <summary>
+        /// Regression: in touch mode a physical mouse (e.g. iPad + mouse, or a desktop player) must neither act
+        /// itself nor disturb the touch buttons, whatever the timing between mouse and finger.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Touch_ButtonsStillWork_WithPhysicalMouse([Values] MouseInterference order)
+        {
+            yield return LoadScene(InputMode.Touch);
+            var touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return null;
+            var controls = Object.FindAnyObjectByType<TouchControls>();
+            var adsButton = GameObject.Find("AdsButton").GetComponent<TouchButton>();
+            var fireButton = GameObject.Find("FireButton").GetComponent<TouchButton>();
+            var reloadButton = GameObject.Find("ReloadButton").GetComponent<TouchButton>();
+            Vector2 adsPoint = ScreenCenter((RectTransform)adsButton.transform);
+            Vector2 firePoint = ScreenCenter((RectTransform)fireButton.transform);
+            Vector2 reloadPoint = ScreenCenter((RectTransform)reloadButton.transform);
+            int fired = 0;
+            gun.Fired += () => fired++;
+            Vector3 position = player.transform.position;
+
+            // The physical mouse hovers over the FIRE button: the worst place for it to be clicked.
+            Set(mouse.position, firePoint, queueEventOnly: true);
+            yield return null;
+
+            bool expectAdsOn;
+            switch (order)
+            {
+                case MouseInterference.ClickThenTouch:
+                    Press(mouse.leftButton, queueEventOnly: true);
+                    yield return Wait(0.2f);
+                    Release(mouse.leftButton, queueEventOnly: true);
+                    yield return null;
+                    yield return null;
+                    expectAdsOn = false;
+                    break;
+                case MouseInterference.ReleaseInSameUpdateAsTouchBegin:
+                    Press(mouse.leftButton, queueEventOnly: true);
+                    yield return Wait(0.2f);
+                    Release(mouse.leftButton, queueEventOnly: true);
+                    BeginTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    Assert.IsTrue(adsButton.IsHeld, "Touch beginning with the mouse release must reach the button");
+                    EndTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    yield return null;
+                    expectAdsOn = true;
+                    break;
+                case MouseInterference.TouchWhileMouseHeld:
+                    Press(mouse.leftButton, queueEventOnly: true);
+                    yield return null;
+                    BeginTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    Release(mouse.leftButton, queueEventOnly: true);
+                    yield return null;
+                    Assert.IsTrue(adsButton.IsHeld, "Releasing the mouse must not release the finger's button");
+                    EndTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    yield return null;
+                    expectAdsOn = true;
+                    break;
+                default: // MouseClickDuringHeldTouch
+                    BeginTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    Press(mouse.leftButton, queueEventOnly: true);
+                    yield return null;
+                    EndTouch(10, adsPoint, queueEventOnly: true, screen: touchscreen);
+                    yield return null;
+                    Release(mouse.leftButton, queueEventOnly: true);
+                    yield return null;
+                    yield return null;
+                    expectAdsOn = true;
+                    break;
+            }
+
+            Assert.IsFalse(adsButton.IsHeld, "Lifting the finger must release the button");
+            Assert.IsFalse(fireButton.IsHeld, "The mouse must not hold the FIRE button");
+            Assert.AreEqual(expectAdsOn, controls.AdsToggled);
+            Assert.AreEqual(0, fired, "The mouse must not shoot in touch mode");
+            Assert.AreEqual(position.x, player.transform.position.x, 0.01f);
+            Assert.AreEqual(position.z, player.transform.position.z, 0.01f);
+
+            // The next touches all work.
+            BeginTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            Assert.IsTrue(adsButton.IsHeld, "Next touch must reach the ADS button");
+            EndTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(adsButton.IsHeld);
+            Assert.AreEqual(!expectAdsOn, controls.AdsToggled, "ADS must toggle on the next tap");
+
+            BeginTouch(2, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.35f);
+            Assert.IsTrue(fireButton.IsHeld);
+            Assert.Greater(fired, 0, "Touch FIRE must shoot");
+            EndTouch(2, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(fireButton.IsHeld);
+            int firedAtRelease = fired;
+            yield return Wait(0.3f);
+            Assert.AreEqual(firedAtRelease, fired, "Lifting the finger must stop firing");
+
+            BeginTouch(3, reloadPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            EndTouch(3, reloadPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            Assert.IsTrue(gun.IsReloading, "Touch RELOAD must start a reload");
+        }
+
+        /// <summary>Editor F2 path: the mouse drives a simulated touchscreen, which must still reach the touch buttons.</summary>
+        [UnityTest]
+        public IEnumerator F2_TouchSimulation_MouseClickReachesTouchButtons()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            var controls = Object.FindAnyObjectByType<TouchControls>(FindObjectsInactive.Include);
+            var adsButton = GameObject.Find("AdsButton");
+            Assert.IsNull(adsButton, "Touch controls are hidden in desktop mode");
+
+            Press(keyboard.f2Key, queueEventOnly: true);
+            yield return null;
+            Release(keyboard.f2Key, queueEventOnly: true);
+            yield return null;
+            Assert.AreEqual(InputMode.Touch, router.Mode);
+            Assert.IsTrue(UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance != null
+                          && UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance.enabled);
+
+            Vector2 adsPoint = ScreenCenter((RectTransform)GameObject.Find("AdsButton").transform);
+            Set(mouse.position, adsPoint, queueEventOnly: true);
+            yield return null;
+            Press(mouse.leftButton, queueEventOnly: true);
+            yield return null;
+            yield return null;
+            Release(mouse.leftButton, queueEventOnly: true);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(controls.AdsToggled, "A simulated touch from the mouse must press ADS");
+            Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded, "The click must not also fire via desktop input");
+
+            Press(keyboard.f2Key, queueEventOnly: true);
+            yield return null;
+            Release(keyboard.f2Key, queueEventOnly: true);
+            yield return null;
+            Assert.AreEqual(InputMode.Desktop, router.Mode);
+            Assert.IsFalse(UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance != null
+                           && UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance.enabled);
         }
 
         void Teleport(Vector3 position)

@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
+using UnityEngine.InputSystem.UI;
 
 namespace Deadlock.Input
 {
@@ -12,7 +14,12 @@ namespace Deadlock.Input
     [DefaultExecutionOrder(-100)]
     public sealed class PlayerInputRouter : MonoBehaviour
     {
+        // Binding group of the touch bindings in the UI module's actions (DefaultInputActions).
+        const string TouchBindingGroup = "Touch";
+
         [SerializeField] TouchControls touchControls;
+        [Tooltip("UI module that drives the touch controls. In touch mode its bindings are limited to touch.")]
+        [SerializeField] InputSystemUIInputModule uiInputModule;
         [Tooltip("Start in touch mode in the Editor / desktop player (mouse simulates touches).")]
         [SerializeField] bool startInTouchMode;
         [SerializeField, Min(0.001f)] float mouseDegreesPerPixel = 0.1f;
@@ -47,12 +54,14 @@ namespace Deadlock.Input
             desktop.Disable();
             SetTouchSimulation(false);
             SetCursorLocked(false);
+            SetUiPointerFilter(InputMode.Desktop);
         }
 
         public void SetMode(InputMode mode, bool simulateTouchWithMouse = false)
         {
             Mode = mode;
             SetTouchSimulation(mode == InputMode.Touch && simulateTouchWithMouse && !Application.isMobilePlatform);
+            SetUiPointerFilter(mode);
             if (touchControls != null)
                 touchControls.SetVisible(mode == InputMode.Touch);
             SetCursorLocked(mode == InputMode.Desktop && RequireCursorLock);
@@ -100,6 +109,21 @@ namespace Deadlock.Input
                 TouchSimulation.Enable();
             else
                 TouchSimulation.Disable();
+        }
+
+        /// <summary>
+        /// The default UI actions feed mouse and touch through the same Point/Click actions. When a physical mouse
+        /// button and a finger overlap (or change in the same input update) the UI module mixes them up: the touch-down
+        /// is lost, or the finger's release is never delivered and a button stays held. In touch mode the UI therefore
+        /// listens to touch bindings only; desktop mode restores all bindings.
+        /// </summary>
+        void SetUiPointerFilter(InputMode mode)
+        {
+            if (uiInputModule == null || uiInputModule.actionsAsset == null)
+                return;
+            uiInputModule.actionsAsset.bindingMask = mode == InputMode.Touch
+                ? InputBinding.MaskByGroup(TouchBindingGroup)
+                : (InputBinding?)null;
         }
 
         static void SetCursorLocked(bool locked)

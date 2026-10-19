@@ -261,6 +261,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Input.PlayerInputRouter
   touchControls: {fileID: 786737501}
+  uiInputModule: {fileID: 754616173}
   startInTouchMode: 0
   mouseDegreesPerPixel: 0.1
 --- !u!114 &9054099

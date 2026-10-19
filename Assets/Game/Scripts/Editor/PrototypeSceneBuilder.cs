@@ -44,6 +44,14 @@ namespace Deadlock.Editor
             Build();
         }
 
+        /// <summary>Opens the prototype scene (also usable as -executeMethod when launching the Editor).</summary>
+        [MenuItem("DEADLOCK/Prototype/Open Firing Range")]
+        public static void OpenScene()
+        {
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                EditorSceneManager.OpenScene(ScenePath);
+        }
+
         public static void Build()
         {
             int playerLayer = EnsureLayer(PlayerLayerName, 6);
@@ -476,7 +484,8 @@ namespace Deadlock.Editor
         {
             var esGo = new GameObject("EventSystem");
             esGo.AddComponent<EventSystem>();
-            esGo.AddComponent<InputSystemUIInputModule>();
+            var uiModule = esGo.AddComponent<InputSystemUIInputModule>();
+            Set(player.Input, "uiInputModule", uiModule);
 
             var canvasGo = new GameObject("Canvas", typeof(RectTransform));
             var canvas = canvasGo.AddComponent<Canvas>();
