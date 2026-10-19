@@ -24,5 +24,13 @@ namespace Deadlock.Input
         public bool FirePressed;
         public bool AdsActive;
         public bool ReloadPressed;
+        /// <summary>Stand ⇄ crouch (from prone: crouch).</summary>
+        public bool CrouchPressed;
+        /// <summary>Go prone (from prone: stand).</summary>
+        public bool PronePressed;
+        public bool SelectGunPressed;
+        public bool SelectMeleePressed;
+        /// <summary>Switch to the other weapon (mobile single button).</summary>
+        public bool ToggleWeaponPressed;
     }
 }

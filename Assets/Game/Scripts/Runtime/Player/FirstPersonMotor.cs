@@ -30,6 +30,7 @@ namespace Deadlock.Player
         [SerializeField, Min(0f)] float recoilRecovery = 9f;
 
         CharacterController controller;
+        PostureController posture;
         Vector3 horizontalVelocity;
         float verticalVelocity;
         float yaw;
@@ -52,7 +53,18 @@ namespace Deadlock.Player
         void Awake()
         {
             controller = GetComponent<CharacterController>();
+            posture = GetComponent<PostureController>();
             yaw = transform.eulerAngles.y;
+        }
+
+        /// <summary>Sets the view direction directly (spawn / teleport). Clears pending recoil.</summary>
+        public void SetYawPitch(float yawDegrees, float pitchDegrees)
+        {
+            yaw = yawDegrees;
+            pitch = Mathf.Clamp(pitchDegrees, -maxPitch, maxPitch);
+            recoil = recoveryRemaining = Vector2.zero;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            cameraPivot.localRotation = Quaternion.Euler(-pitch, 0f, 0f);
         }
 
         /// <summary>Kicks the aim. Positive pitch is upward. Part of it recovers over time.</summary>
@@ -96,8 +108,11 @@ namespace Deadlock.Player
             IsGrounded = controller.isGrounded;
 
             Vector2 move = Vector2.ClampMagnitude(frame.Move, 1f);
-            IsSprinting = frame.Sprint && !SprintBlocked && move.y > 0.5f;
-            float speed = (IsSprinting ? sprintSpeed : walkSpeed) * (IsSprinting ? 1f : MoveSpeedMultiplier);
+            // Sprint: standing only, forward only; crouch/prone never stand up by themselves.
+            bool postureAllowsSprint = posture == null || posture.CanSprint;
+            IsSprinting = frame.Sprint && !SprintBlocked && postureAllowsSprint && move.y > 0.5f;
+            float postureSpeed = posture != null ? posture.SpeedMultiplier : 1f;
+            float speed = IsSprinting ? sprintSpeed : walkSpeed * MoveSpeedMultiplier * postureSpeed;
             Vector3 target = (transform.right * move.x + transform.forward * move.y) * speed;
 
             float accel = acceleration * (IsGrounded ? 1f : airControl);
@@ -107,7 +122,9 @@ namespace Deadlock.Player
             {
                 if (verticalVelocity < 0f)
                     verticalVelocity = -2f; // keep the controller pressed to the ground
-                if (frame.JumpPressed)
+                // From crouch/prone the press is a stand-up request (handled by PostureController), not a jump.
+                bool postureAllowsJump = posture == null || (posture.CanJump && !posture.JumpConsumed);
+                if (frame.JumpPressed && postureAllowsJump)
                     verticalVelocity = Mathf.Sqrt(2f * jumpHeight * -gravity);
             }
             verticalVelocity += gravity * dt;
