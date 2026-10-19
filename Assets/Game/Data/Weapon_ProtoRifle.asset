@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 826172c5c8e6340fb96f89aeda997e00, type: 3}
+  m_Name: Weapon_ProtoRifle
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponDefinition
+  weaponId: proto_rifle
+  displayName: PROTO RIFLE
+  damage: 25
+  fireInterval: 0.1
+  automatic: 1
+  magazineSize: 30
+  startReserve: 90
+  reserveMax: 180
+  reloadTime: 1.8
+  projectileSpeed: 250
+  maxRange: 200
+  hipSpreadDegrees: 1.6
+  adsSpreadDegrees: 0.15
+  recoilPitchDegrees: 0.7
+  recoilYawDegrees: 0.25
+  adsRecoilMultiplier: 0.55
+  hipFov: 75
+  adsFov: 55
+  adsTime: 0.18
+  adsMoveSpeedMultiplier: 0.6
+  adsLookSensitivityMultiplier: 0.65
