@@ -22,6 +22,7 @@
 | com.unity.inputsystem | 1.20.0 |
 | com.unity.ugui | 2.0.0 |
 | com.unity.test-framework | 1.6.0 |
+| com.unity.ai.navigation | 2.0.14（トレーニングのゾンビの経路。テンプレートに含まれていたもの） |
 
 正確な依存関係は `Packages/packages-lock.json` を正とする。
 
@@ -82,9 +83,11 @@ open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
 | ADS | 右クリック長押し | ADS（トグル） |
 | リロード | R | R（ナイフ装備中は無効） |
 | しゃがみ | C（立ち⇄しゃがみ。伏せ中はしゃがみへ） | 姿勢ボタンを短押し |
+| スライディング | ダッシュ中にC | ダッシュ中に姿勢ボタンを押す（押した瞬間に開始。押し続けても伏せにならない） |
 | 伏せ | Z（伏せ。伏せ中は立ちへ） | 姿勢ボタンを長押し（0.45秒） |
 | 武器 | 1：銃、2：ナイフ | 武器ボタン（銃⇄ナイフ） |
 | 近接攻撃 | ナイフ装備中に左クリック | ナイフ装備中にFIRE |
+| メニュー | Tab | 画面上部中央の「メニュー」 |
 
 ボタンから始めたドラッグは視点に流れない。ただし**FIREボタンだけは例外**で、押しながらドラッグすると照準を動かせる。これは試作用の操作であり、製品版の確定操作ではない（PROGRESS.md 試作条件を参照）。
 
@@ -93,6 +96,16 @@ open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
 画面左上に現在の入力モードと操作案内が出る（Editor／PCのみ。モバイル実機では表示しない）。PCモードでキーが効かないときは、Game Viewをクリックしてフォーカスとカーソルを取得する（案内に「Game Viewをクリックすると操作できます」と出る）。タッチモード中はSpaceなどのPCキーは効かない。
 
 Editor上でタッチ操作を確認するときは **F2** でタッチモードへ切り替える（マウスが1本指のタッチとして扱われる。マウス自体の入力は無効化される）。2本指の同時操作は、Editorでは自動テストでのみ確認できる。実機確認が必要。
+
+### メニュー・操作レイアウト
+
+メニュー：再開／再挑戦（最初から。トレーニングのみ）／射撃場へ・トレーニングへ／設定 → 操作レイアウト。1人用のシーンでは、メニューを開いている間ゲームが止まる（オンライン対戦では止めない設計。DECISIONS D-032）。
+
+操作レイアウト：ボタン（または移動の操作開始領域）をドラッグで移動、タップで選んで − ＋ で大きさ。「適用」で端末に保存、「キャンセル」で保存済みに戻す、「初期配置に戻す」は表示のみ（適用で保存）。置けない配置（重なり、画面外、上端の帯）は理由が表示され、動かない。PC入力モードでも開ける（ハンドルはマウスで動かせる）。保存先は PlayerPrefs（キー `deadlock.touchLayout.v1`）。Editorで保存を消すには Edit → Clear All PlayerPrefs。
+
+### トレーニングシーン
+
+`Assets/Game/Scenes/Proto_Training.unity`（メニュー DEADLOCK → Prototype → Open Training、またはゲーム内メニューの「トレーニングへ」）。ゾンビ3体を全滅させるとクリア、HPが0になると失敗。結果画面またはメニューから再挑戦。ゾンビの経路（NavMesh）はシーン生成時にベイクされ `Assets/Game/Generated/NavMesh_Training.asset` に保存される。
 
 ### テストステージの確認場所
 
@@ -111,20 +124,20 @@ Editor上でタッチ操作を確認するときは **F2** でタッチモード
 | 項目 | 内容 |
 | --- | --- |
 | 入力 | Input System 1.20.0（Active Input Handling = Input System Package）。デスクトップはコード定義のInputAction、タッチはuGUI（InputSystemUIInputModule）上の部品。Editorのタッチ確認は EnhancedTouch の TouchSimulation |
-| 描画 | URP。ワールド用のBaseカメラ＋手元武器用のOverlayカメラ（Camera Stack）。レイヤー `Player`(6)・`ViewModel`(7) |
+| 描画 | URP。ワールド用のBaseカメラ＋手元武器用のOverlayカメラ（Camera Stack）。レイヤー `Player`(6)・`ViewModel`(7)・`Enemy`(8) |
 | UI | uGUI（Screen Space Overlay、基準1920×1080、高さ基準でスケール）。テキストは組み込みのLegacyRuntimeフォント |
 | データ | 武器パラメータは ScriptableObject `WeaponDefinition`（`Assets/Game/Data/Weapon_ProtoRifle.asset`） |
 
 主なフォルダ：
 
-- `Assets/Game/Scripts/Runtime/`（`Deadlock.Runtime`）：Input／Player／Combat／View／UI
+- `Assets/Game/Scripts/Runtime/`（`Deadlock.Runtime`）：Input／Player／Combat／View／UI／Game（シーン切り替え・トレーニングの進行・1人用の一時停止）
 - `Assets/Game/Scripts/Editor/`（`Deadlock.Editor`）：シーン生成、仮素材生成、iOS書き出し
 - `Assets/Game/Tests/`：EditMode／PlayModeテスト
 - `Assets/Game/Art/Generated/`、`Assets/Game/Materials/`、`Assets/Game/Generated/Meshes/`：生成した仮素材
 
 ## 7. シーン・仮素材の再生成
 
-メニュー **DEADLOCK → Prototype → Rebuild Firing Range**。シーンと仮素材（テクスチャ・マテリアル・メッシュ）を作り直す。`Weapon_ProtoRifle.asset` は既存の値を保持する。シーンを手作業で編集した場合、再生成で上書きされる点に注意。
+メニュー **DEADLOCK → Prototype → Rebuild Firing Range**。射撃場とトレーニングの2シーン、仮素材（テクスチャ・マテリアル・メッシュ・ゾンビのスプライト）、トレーニングのNavMeshを作り直し、ビルド設定に2シーンを登録する。`Weapon_ProtoRifle.asset` は既存の値を保持する。シーンを手作業で編集した場合、再生成で上書きされる点に注意。
 
 batchmodeの場合（Editorを閉じてから）：
 
