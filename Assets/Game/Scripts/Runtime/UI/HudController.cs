@@ -53,17 +53,55 @@ namespace Deadlock.UI
             hitMarker.color = hit.Result == DamageResult.Destroyed ? killMarkerColor : Color.white;
         }
 
+        // Editor / desktop check guidance only. Never shown on mobile devices.
+        const string DesktopHelp =
+            "入力モード：PC（キーボード／マウス）　F2：タッチモードへ\n" +
+            "Space：ジャンプ　／　WASD：移動　／　Shift：ダッシュ　／　マウス：視点\n" +
+            "左クリック：射撃　／　右クリック長押し：ADS\n" +
+            "R：リロード　／　Esc：カーソル解放";
+        const string DesktopNotCaptured = "\n▶ Game Viewをクリックすると操作できます";
+        const string TouchHelp =
+            "入力モード：タッチ（マウスで1本指を再現）\n" +
+            "このモードではPCのキー操作は効きません　／　F2：PC操作へ戻る";
+
+        bool helpVisible;
+        int helpState = -1;
+        float helpLayoutWidth = -1f;
+
         void OnModeChanged(InputMode mode)
         {
-            if (helpText == null)
+            helpVisible = helpText != null && !Application.isMobilePlatform;
+            if (helpText != null)
+                helpText.enabled = helpVisible;
+            helpState = -1;
+        }
+
+        void UpdateHelp()
+        {
+            if (!helpVisible)
                 return;
-            helpText.text = mode == InputMode.Desktop
-                ? "WASD move / Mouse look / Shift sprint / Space jump\nLMB fire / RMB (hold) ADS / R reload / Esc cursor / F2 touch mode"
-                : Application.isMobilePlatform ? "" : "TOUCH MODE (mouse simulates one finger) / F2 desktop mode";
+            int state = input.Mode == InputMode.Touch ? 2 : input.DesktopInputActive ? 1 : 0;
+            if (state != helpState)
+            {
+                helpState = state;
+                helpText.text = state == 2 ? TouchHelp : state == 1 ? DesktopHelp : DesktopHelp + DesktopNotCaptured;
+            }
+
+            // Wrap inside the space left of the ammo counter so the two never overlap (narrow 4:3 screens).
+            var helpRect = helpText.rectTransform;
+            float width = ((RectTransform)helpRect.parent).rect.width;
+            if (Mathf.Approximately(width, helpLayoutWidth))
+                return;
+            helpLayoutWidth = width;
+            helpText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            float available = width - helpRect.anchoredPosition.x
+                              - ammoText.rectTransform.sizeDelta.x + ammoText.rectTransform.anchoredPosition.x - 24f;
+            helpRect.sizeDelta = new Vector2(Mathf.Max(200f, available), helpRect.sizeDelta.y);
         }
 
         void LateUpdate()
         {
+            UpdateHelp();
             AmmoState ammo = gun.Ammo;
             ammoText.text = $"{ammo.Loaded} / {ammo.Reserve}";
 

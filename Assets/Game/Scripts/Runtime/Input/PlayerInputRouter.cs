@@ -33,6 +33,10 @@ namespace Deadlock.Input
         /// <summary>When true (default), desktop input is ignored until the cursor is captured by a click.</summary>
         public bool RequireCursorLock { get; set; } = true;
 
+        /// <summary>True when keyboard/mouse actually drive the player (desktop mode and, if required, cursor captured).</summary>
+        public bool DesktopInputActive =>
+            Mode == InputMode.Desktop && (!RequireCursorLock || Cursor.lockState == CursorLockMode.Locked);
+
         public event Action<InputMode> ModeChanged;
 
         void Awake()
