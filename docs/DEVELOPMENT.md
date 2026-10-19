@@ -1,6 +1,6 @@
 # 開発環境・起動・検証手順
 
-最終更新：2026-10-19
+最終更新：2026-10-19（入力修正の反映）
 
 ## 1. 開発環境（2026-10-19 確認）
 
@@ -44,7 +44,14 @@
 
 1. Unity Hub →「Add」→「Add project from disk」でリポジトリ直下（`DEADLOCK-Since-1988/`）を選ぶ。
 2. Editorは **6000.3.23f1** を使う（別バージョンへのアップグレードを促されても行わない）。
-3. `Assets/Game/Scenes/Proto_FiringRange.unity` を開いてPlayする。
+3. `Assets/Game/Scenes/Proto_FiringRange.unity` を開いてPlayする（メニュー **DEADLOCK → Prototype → Open Firing Range** でも開ける）。
+
+コマンドラインから起動してシーンを開く場合（同じプロジェクトのEditorが起動していないことを確認してから）：
+
+```sh
+open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
+  -projectPath "$PWD" -executeMethod Deadlock.Editor.PrototypeSceneBuilder.OpenScene
+```
 
 同じプロジェクトを複数のEditorで同時に開かない。batchmodeでテスト等を実行する場合もEditorを閉じてから行う。
 
@@ -59,6 +66,10 @@
 | 射撃 | 左クリック | FIRE |
 | ADS | 右クリック長押し | ADS（トグル） |
 | リロード | R | R |
+
+ボタンから始めたドラッグは視点に流れない。ただし**FIREボタンだけは例外**で、押しながらドラッグすると照準を動かせる。これは試作用の操作であり、製品版の確定操作ではない（PROGRESS.md 試作条件を参照）。
+
+タッチモード中は物理キーボード・マウスはゲーム操作に作用せず、UI入力モジュールも Touch バインディングだけを受け付ける。
 
 Editor上でタッチ操作を確認するときは **F2** でタッチモードへ切り替える（マウスが1本指のタッチとして扱われる。マウス自体の入力は無効化される）。2本指の同時操作は、Editorでは自動テストでのみ確認できる。実機確認が必要。
 
