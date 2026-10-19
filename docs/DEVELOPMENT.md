@@ -71,6 +71,8 @@ open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
 
 タッチモード中は物理キーボード・マウスはゲーム操作に作用せず、UI入力モジュールも Touch バインディングだけを受け付ける。
 
+画面左上に現在の入力モードと操作案内が出る（Editor／PCのみ。モバイル実機では表示しない）。PCモードでキーが効かないときは、Game Viewをクリックしてフォーカスとカーソルを取得する（案内に「Game Viewをクリックすると操作できます」と出る）。タッチモード中はSpaceなどのPCキーは効かない。
+
 Editor上でタッチ操作を確認するときは **F2** でタッチモードへ切り替える（マウスが1本指のタッチとして扱われる。マウス自体の入力は無効化される）。2本指の同時操作は、Editorでは自動テストでのみ確認できる。実機確認が必要。
 
 ## 6. 構成
@@ -100,6 +102,24 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 "$UNITY" -batchmode -quit -projectPath "$PWD" \
   -executeMethod Deadlock.Editor.PrototypeSceneBuilder.Build -logFile Logs/build-scene.log
 ```
+
+### 手元武器スプライトのベイク
+
+メニュー **DEADLOCK → Prototype → Bake Weapon Sprites**（シーン再生成時にも自動で実行）。`WeaponSpriteBaker` が簡易3Dモデルを一時シーンに組み、腰だめ・ADSを描画してスプライトに変換する。
+
+| 出力 | 扱い |
+| --- | --- |
+| `Assets/Game/Art/Generated/Spr_WeaponHip.png`、`Spr_WeaponAds.png` | 生成物。ベイクのたびに上書きされる。手作業で編集しない |
+| `Assets/Game/Data/WeaponView_ProtoRifle.asset` | スプライト・ピボット由来の値（`hipSprite`、`adsSprite`、`hipMuzzlePosition`、`adsMuzzleOffset`、`referenceAspect`）はベイクで上書き。構え・反動・揺れ・リロード動作の値は手調整用で、ベイクでは変更しない |
+| `Assets/Game/Data/Weapon_ProtoRifle.asset` | `viewProfile` の参照だけを設定する。戦闘値は変更しない |
+
+手作業で制作した武器素材に置き換えるときは `Assets/Game/Art/Weapons/` など `Generated` 以外に置き、`WeaponViewProfile` のスプライトとピボット値を差し替える（その武器ではベイクを実行しない）。生成処理は `Art/Generated` 以外を書き換えない。
+
+batchmode：`-batchmode -quit -executeMethod Deadlock.Editor.WeaponSpriteBaker.BakeFromCommandLine`
+
+### Editorを開いたままbatchmodeで作業する場合
+
+同じプロジェクトを2つのUnityで開けないため、プロジェクトのコピー（Assets／Packages／ProjectSettings／Library）で実行し、生成物だけを戻す。コピーした `Library/ilpp.pid` は**必ず削除する**（残っていると、コピー側のUnityが元のEditorのIL Post Processingプロセスを終了させる）。新規ファイルの `.meta` は、両方のUnityが別々のGUIDを作らないよう、先に作成してから両方へ置く。
 
 ## 8. テスト
 
