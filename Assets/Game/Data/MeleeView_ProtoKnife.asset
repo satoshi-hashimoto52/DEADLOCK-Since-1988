@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0645c10ae0408469887331a53314274b, type: 3}
+  m_Name: MeleeView_ProtoKnife
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.MeleeViewProfile
+  sprite: {fileID: 21300000, guid: 81ca27e3b2976455abdef7382255caf8, type: 3}
+  gripPosition: {x: 0.42499995, y: -0.37499997}
+  referenceAspect: 1.7777778
+  rightEdgeFollow: 0.5
+  windupOffset: {x: 0.12, y: 0.06}
+  windupRoll: -30
+  strikeOffset: {x: -0.46, y: 0.12}
+  strikeRoll: 60
+  strikeScale: 1.2
+  lowered: 0.35
+  bobAmount: 0.008

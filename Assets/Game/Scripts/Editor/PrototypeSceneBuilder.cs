@@ -82,12 +82,15 @@ namespace Deadlock.Editor
             WeaponDefinition weapon = LoadOrCreateWeapon();
             weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
             EditorUtility.SetDirty(weapon);
+            MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
+            melee.viewProfile = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath);
+            EditorUtility.SetDirty(melee);
 
             SetupLighting();
 
             BuildEnvironment(mats);
             var projectiles = BuildProjectiles(mats, playerLayer, viewModelLayer);
-            var player = BuildPlayer(weapon, projectiles, playerLayer, viewModelLayer);
+            var player = BuildPlayer(weapon, melee, projectiles, playerLayer, viewModelLayer);
             BuildTargets();
             BuildPickups(mats);
             BuildUi(player, projectiles);
@@ -141,6 +144,16 @@ namespace Deadlock.Editor
             AssetDatabase.DeleteAsset("Assets/Scenes/SampleScene.unity");
             if (AssetDatabase.IsValidFolder("Assets/Scenes") && AssetDatabase.FindAssets("", new[] { "Assets/Scenes" }).Length == 0)
                 AssetDatabase.DeleteAsset("Assets/Scenes");
+        }
+
+        static T LoadOrCreate<T>(string path) where T : ScriptableObject
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null)
+                return asset; // keep hand-tuned values
+            asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+            return asset;
         }
 
         static WeaponDefinition LoadOrCreateWeapon()
@@ -204,6 +217,8 @@ namespace Deadlock.Editor
             public PlayerInputRouter Input;
             public GunController Gun;
             public Camera WorldCamera;
+            public PostureController Posture;
+            public WeaponSwitcher Weapons;
         }
 
         static void SetupLighting()
@@ -246,6 +261,16 @@ namespace Deadlock.Editor
             // Fully hides Target_Hidden from the start position: shots must stop here.
             Box(root, "OccluderWall", new Vector3(-2f, 1.75f, 26f), new Vector3(4f, 3.5f, 0.5f), m.Wall);
             Box(root, "Crate_D", new Vector3(3f, 0.5f, 40f), new Vector3(1f, 1f, 1f), m.Crate);
+
+            // Posture course along the right wall (x 5.2..8): crouch tunnel (1.35 m clearance), then prone tunnel (0.85 m).
+            Box(root, "CrouchTunnel_Ceiling", new Vector3(6.6f, 1.45f, 12f), new Vector3(2.8f, 0.2f, 4f), m.Concrete);
+            Box(root, "CrouchTunnel_Wall", new Vector3(5.1f, 0.775f, 12f), new Vector3(0.2f, 1.55f, 4f), m.Concrete);
+            Box(root, "ProneTunnel_Ceiling", new Vector3(6.6f, 0.95f, 18f), new Vector3(2.8f, 0.2f, 4f), m.Concrete);
+            Box(root, "ProneTunnel_Wall", new Vector3(5.1f, 0.525f, 18f), new Vector3(0.2f, 1.05f, 4f), m.Concrete);
+            // Head-bump check above the jump platform (2.2 m above its top: standing fits, a jump hits it).
+            Box(root, "JumpCeiling", new Vector3(5.5f, 3.1f, 5f), new Vector3(2f, 0.2f, 2f), m.Concrete);
+            // Thin wall in front of MeleeTarget_BehindWall: a knife swing must not reach through it.
+            Box(root, "MeleeBlockWall", new Vector3(-6.2f, 1f, 3.2f), new Vector3(1.6f, 2f, 0.12f), m.Wall);
         }
 
         static GameObject Box(Transform parent, string name, Vector3 center, Vector3 size, Material material)
@@ -322,7 +347,7 @@ namespace Deadlock.Editor
             return system;
         }
 
-        static PlayerRig BuildPlayer(WeaponDefinition weapon, ProjectileSystem projectiles, int playerLayer, int viewModelLayer)
+        static PlayerRig BuildPlayer(WeaponDefinition weapon, MeleeDefinition meleeDefinition, ProjectileSystem projectiles, int playerLayer, int viewModelLayer)
         {
             var root = new GameObject("Player") { layer = playerLayer };
             root.transform.position = new Vector3(0f, 0.05f, 0f);
@@ -335,8 +360,11 @@ namespace Deadlock.Editor
             controller.minMoveDistance = 0f; // small per-frame steps at high frame rates must not be dropped
 
             var router = root.AddComponent<PlayerInputRouter>();
+            var posture = root.AddComponent<PostureController>();
             var motor = root.AddComponent<FirstPersonMotor>();
             var gun = root.AddComponent<GunController>();
+            var melee = root.AddComponent<MeleeWeapon>();
+            var weapons = root.AddComponent<WeaponSwitcher>();
 
             var pivot = new GameObject("CameraPivot");
             pivot.transform.SetParent(root.transform, false);
@@ -387,7 +415,31 @@ namespace Deadlock.Editor
             Set(gun, "aimOrigin", camGo.transform);
             Set(gun, "projectiles", projectiles);
 
-            return new PlayerRig { Root = root, Input = router, Gun = gun, WorldCamera = cam };
+            // Everything that can block the body or a swing: all layers except the player, view model, UI and triggers' layer.
+            int solid = ~((1 << playerLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI")));
+            Set(posture, "input", router);
+            Set(posture, "cameraPivot", pivot.transform);
+            SetMask(posture, "obstacleMask", solid);
+            Set(melee, "definition", meleeDefinition);
+            Set(melee, "input", router);
+            Set(melee, "aimOrigin", camGo.transform);
+            melee.HitMask = solid;
+            Set(weapons, "input", router);
+            Set(weapons, "gun", gun);
+            Set(weapons, "melee", melee);
+
+            var knifeView = new GameObject("KnifeView") { layer = viewModelLayer };
+            knifeView.transform.SetParent(vmGo.transform, false);
+            var knifeSprite = SpriteChild(knifeView.transform, "Knife", WeaponSpriteBaker.KnifeSpritePath, viewModelLayer, 0);
+            knifeSprite.GetComponent<SpriteRenderer>().enabled = false;
+            var meleeView = knifeView.AddComponent<MeleeViewModel>();
+            Set(meleeView, "melee", melee);
+            Set(meleeView, "switcher", weapons);
+            Set(meleeView, "motor", motor);
+            Set(meleeView, "worldCamera", cam);
+            Set(meleeView, "sprite", knifeSprite.GetComponent<SpriteRenderer>());
+
+            return new PlayerRig { Root = root, Input = router, Gun = gun, WorldCamera = cam, Posture = posture, Weapons = weapons };
         }
 
         static GameObject BuildWeaponView(Transform parent, int layer)
@@ -431,6 +483,9 @@ namespace Deadlock.Editor
                 ("Target_Far", new Vector3(4f, 0f, 37f)),
                 ("Target_End_A", new Vector3(0f, 0f, 48f)),
                 ("Target_End_B", new Vector3(-5f, 0f, 45f)),
+                // Melee checks near the start: one in the open, one right behind a thin wall (must not be hit).
+                ("MeleeTarget_Open", new Vector3(-1.6f, 0f, 3.2f)),
+                ("MeleeTarget_BehindWall", new Vector3(-6.2f, 0f, 3.8f)),
             };
             foreach (var (name, pos) in positions)
             {
@@ -538,6 +593,9 @@ namespace Deadlock.Editor
             var ads = Button(safe, "AdsButton", "ADS", new Vector2(-520f, 170f), 160f, null);
             var reload = Button(safe, "ReloadButton", "R", new Vector2(-170f, 540f), 140f, null);
             var jump = Button(safe, "JumpButton", "JUMP", new Vector2(-470f, 430f), 140f, null);
+            // Posture (tap: crouch, hold: prone) and weapon switch, kept clear of FIRE / ADS / R / JUMP.
+            var postureButton = Button(safe, "PostureButton", "立ち", new Vector2(-765f, 150f), 130f, null);
+            var weaponButton = Button(safe, "WeaponButton", "銃", new Vector2(-170f, 730f), 130f, null);
 
             Set(controls, "moveStick", stick);
             Set(controls, "lookArea", lookArea);
@@ -545,6 +603,13 @@ namespace Deadlock.Editor
             Set(controls, "adsButton", ads);
             Set(controls, "reloadButton", reload);
             Set(controls, "jumpButton", jump);
+            Set(controls, "postureButton", postureButton);
+            Set(controls, "weaponButton", weaponButton);
+            Set(controls, "posture", player.Posture);
+            Set(controls, "weapons", player.Weapons);
+            Set(controls, "postureLabel", postureButton.transform.Find("Label").GetComponent<Text>());
+            Set(controls, "weaponLabel", weaponButton.transform.Find("Label").GetComponent<Text>());
+            Set(controls, "sprintIndicator", knob.GetComponent<Image>());
             Set(player.Input, "touchControls", controls);
         }
 
@@ -620,6 +685,13 @@ namespace Deadlock.Editor
             barImage.fillMethod = Image.FillMethod.Horizontal;
             barImage.enabled = false;
 
+            var stance = AddText(Rect("StanceText", safe), "立ち", 30, TextAnchor.UpperRight);
+            var stanceRect = (RectTransform)stance.transform;
+            stanceRect.anchorMin = stanceRect.anchorMax = stanceRect.pivot = new Vector2(1f, 1f);
+            stanceRect.anchoredPosition = new Vector2(-48f, -126f);
+            stanceRect.sizeDelta = new Vector2(420f, 80f);
+            stance.color = new Color(1f, 1f, 1f, 0.85f);
+
             var help = AddText(Rect("HelpText", safe), "", 24, TextAnchor.UpperLeft);
             var helpRect = (RectTransform)help.transform;
             helpRect.anchorMin = helpRect.anchorMax = helpRect.pivot = new Vector2(0f, 1f);
@@ -640,6 +712,7 @@ namespace Deadlock.Editor
             Set(hud, "reloadBar", barImage);
             Set(hud, "hitMarker", hitImage);
             Set(hud, "helpText", help);
+            Set(hud, "stanceText", stance);
         }
 
         static RectTransform Rect(string name, Transform parent)
@@ -697,6 +770,13 @@ namespace Deadlock.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
             if (prop.objectReferenceValue != value)
                 throw new System.InvalidOperationException($"Could not assign {value} to {target.GetType().Name}.{field}.");
+        }
+
+        static void SetMask(Object target, string field, int mask)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).intValue = mask;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static void SetArray(Object target, string field, Object[] values)
