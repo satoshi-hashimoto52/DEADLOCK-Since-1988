@@ -28,6 +28,7 @@ namespace Deadlock.View
         [SerializeField] SpriteRenderer adsMuzzleFlash;
 
         WeaponViewProfile profile;
+        WeaponSwitcher switcher;
         float kick;
         float bobPhase;
         float flashUntil;
@@ -35,6 +36,7 @@ namespace Deadlock.View
         void Awake()
         {
             profile = gun.Definition.viewProfile;
+            switcher = gun.GetComponent<WeaponSwitcher>();
             hipSprite.sprite = profile.hipSprite;
             adsSprite.sprite = profile.adsSprite;
             // Flashes sit on the muzzle of the sprite they belong to (hip pivot = muzzle).
@@ -75,6 +77,15 @@ namespace Deadlock.View
 
             worldCamera.fieldOfView = Mathf.Lerp(def.hipFov, def.adsFov, t);
 
+            // Put away / drawn while switching to the melee weapon.
+            float presence = switcher != null ? switcher.Presence(WeaponSlot.Gun) : 1f;
+            if (presence <= 0.001f)
+            {
+                hipSprite.enabled = adsSprite.enabled = hipMuzzleFlash.enabled = adsMuzzleFlash.enabled = false;
+                return;
+            }
+            Vector2 holster = new Vector2(0.05f, -0.45f) * (1f - Smooth(presence));
+
             // Keep the hip weapon in the lower right on narrower (iPad 4:3) and wider (tall-phone) screens.
             float aspect = worldCamera.aspect;
             float edgeShift = (aspect - p.referenceAspect) * HalfHeight * p.hipRightEdgeFollow;
@@ -99,7 +110,7 @@ namespace Deadlock.View
             Quaternion rotation = Quaternion.Euler(0f, 0f, p.reloadRollDegrees * reloadCurve + p.kickRollDegrees * kickWeight);
             float scale = 1f + p.kickScale * kickWeight;
 
-            Vector2 shared = bob + kickOffset + reloadOffset;
+            Vector2 shared = bob + kickOffset + reloadOffset + holster;
 
             Vector2 hipRest = p.hipMuzzlePosition + new Vector2(edgeShift, 0f);
             Vector2 hip = Vector2.Lerp(hipRest, p.hipToAdsMuzzlePosition, t) + shared;

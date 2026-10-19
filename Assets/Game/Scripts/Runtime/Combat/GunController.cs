@@ -22,10 +22,13 @@ namespace Deadlock.Combat
         float nextFireTime;
         float reloadStartTime;
         float lastFireTime = -10f;
+        bool waitForTriggerRelease;
 
         public WeaponDefinition Definition => definition;
         public AmmoState Ammo => ammo;
         public bool IsReloading { get; private set; }
+        /// <summary>False while the melee weapon is out or a switch is in progress (set by <see cref="WeaponSwitcher"/>).</summary>
+        public bool IsEquipped { get; private set; } = true;
         public float ReloadProgress => IsReloading ? Mathf.Clamp01((Time.time - reloadStartTime) / definition.reloadTime) : 0f;
         /// <summary>0 = hip, 1 = fully aimed.</summary>
         public float AdsBlend { get; private set; }
@@ -36,6 +39,7 @@ namespace Deadlock.Combat
         public event Action DryFired;
         public event Action ReloadStarted;
         public event Action ReloadFinished;
+        public event Action ReloadCanceled;
         public event Action AmmoChanged;
 
         void Awake()
@@ -43,13 +47,44 @@ namespace Deadlock.Combat
             ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
         }
 
+        /// <summary>
+        /// Putting the gun away cancels a reload in progress: no rounds are moved, and the reload is not resumed when the
+        /// gun comes back (provisional rule). After drawing, the trigger must be released before the gun fires again.
+        /// </summary>
+        public void SetEquipped(bool equipped)
+        {
+            if (equipped == IsEquipped)
+                return;
+            IsEquipped = equipped;
+            if (!equipped && IsReloading)
+            {
+                IsReloading = false;
+                ReloadCanceled?.Invoke();
+            }
+            if (equipped)
+                waitForTriggerRelease = true;
+        }
+
         void Update()
         {
             PlayerInputFrame frame = input.Current;
             float now = Time.time;
 
+            if (!IsEquipped)
+            {
+                AdsRequested = false;
+                AdsBlend = Mathf.MoveTowards(AdsBlend, 0f, Time.deltaTime / definition.adsTime);
+                motor.SprintBlocked = false;
+                motor.MoveSpeedMultiplier = Mathf.Lerp(1f, definition.adsMoveSpeedMultiplier, AdsBlend);
+                motor.LookSensitivityMultiplier = Mathf.Lerp(1f, definition.adsLookSensitivityMultiplier, AdsBlend);
+                return;
+            }
+
             if (IsReloading && now - reloadStartTime >= definition.reloadTime)
                 FinishReload();
+
+            if (waitForTriggerRelease && !frame.FireHeld)
+                waitForTriggerRelease = false;
 
             AdsRequested = frame.AdsActive;
             AdsBlend = Mathf.MoveTowards(AdsBlend, AdsRequested ? 1f : 0f, Time.deltaTime / definition.adsTime);
@@ -58,7 +93,7 @@ namespace Deadlock.Combat
                 TryStartReload();
 
             bool trigger = definition.automatic ? frame.FireHeld : frame.FirePressed;
-            if (trigger)
+            if (trigger && !waitForTriggerRelease)
                 TryFire(now, frame.FirePressed);
 
             // Applied by the motor next frame.
@@ -79,7 +114,7 @@ namespace Deadlock.Combat
 
         public bool TryStartReload()
         {
-            if (IsReloading || !ammo.CanReload)
+            if (!IsEquipped || IsReloading || !ammo.CanReload)
                 return false;
             IsReloading = true;
             reloadStartTime = Time.time;
