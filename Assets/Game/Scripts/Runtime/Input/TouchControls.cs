@@ -71,6 +71,22 @@ namespace Deadlock.Input
             }
         }
 
+        /// <summary>
+        /// Lets go of every finger the widgets are tracking. Used when the app is backgrounded / loses focus:
+        /// the release of a finger held at that moment may never arrive, which would leave FIRE or the stick held.
+        /// The ADS toggle is a state, not a held press, and is kept.
+        /// </summary>
+        public void ReleaseAll()
+        {
+            moveStick.Release();
+            lookArea.Release();
+            foreach (var button in new[] { fireButton, adsButton, reloadButton, jumpButton, postureButton, weaponButton })
+                if (button != null)
+                    button.Release();
+            sprintLatched = false;
+            postureWasHeld = postureLongFired = false;
+        }
+
         public PlayerInputFrame Read()
         {
             bool gunOut = weapons == null || (weapons.Current == WeaponSlot.Gun && !weapons.IsSwitching);

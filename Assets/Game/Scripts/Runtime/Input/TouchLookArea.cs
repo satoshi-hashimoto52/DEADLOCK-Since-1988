@@ -16,7 +16,10 @@ namespace Deadlock.Input
 
         public bool IsActive => pointerId != NoPointer;
 
-        void OnDisable()
+        void OnDisable() => Release();
+
+        /// <summary>Drops the tracked finger and any pending drag (also used when the app loses focus).</summary>
+        public void Release()
         {
             pointerId = NoPointer;
             pendingDelta = Vector2.zero;

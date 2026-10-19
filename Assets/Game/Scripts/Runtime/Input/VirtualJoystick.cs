@@ -60,7 +60,8 @@ namespace Deadlock.Input
                 Release();
         }
 
-        void Release()
+        /// <summary>Drops the tracked finger (also used when the app loses focus).</summary>
+        public void Release()
         {
             pointerId = NoPointer;
             Value = Vector2.zero;

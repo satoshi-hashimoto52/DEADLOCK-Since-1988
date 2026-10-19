@@ -29,7 +29,10 @@ namespace Deadlock.Input
         /// <summary>Time.time when the current press began.</summary>
         public float PressStartTime { get; private set; }
 
-        void OnDisable()
+        void OnDisable() => Release();
+
+        /// <summary>Drops the held finger and pending presses (also used when the app loses focus).</summary>
+        public void Release()
         {
             pointerId = NoPointer;
             pressCount = 0;

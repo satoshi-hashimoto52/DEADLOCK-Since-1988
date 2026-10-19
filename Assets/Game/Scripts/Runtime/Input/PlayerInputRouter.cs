@@ -61,6 +61,27 @@ namespace Deadlock.Input
             SetUiPointerFilter(InputMode.Desktop);
         }
 
+        // Backgrounding (home button, notification, call) can swallow the release of fingers and keys held at that
+        // moment. Drop all held input so nothing keeps firing, moving or pressing after returning.
+        void OnApplicationPause(bool paused)
+        {
+            if (paused)
+                ReleaseHeldInput();
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused)
+                ReleaseHeldInput();
+        }
+
+        public void ReleaseHeldInput()
+        {
+            if (touchControls != null)
+                touchControls.ReleaseAll();
+            Current = default;
+        }
+
         public void SetMode(InputMode mode, bool simulateTouchWithMouse = false)
         {
             Mode = mode;

@@ -306,6 +306,53 @@ namespace Deadlock.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator Touch_Backgrounding_ReleasesHeldFireAndStick()
+        {
+            yield return LoadScene(InputMode.Touch);
+            var touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return null;
+            var fireButton = GameObject.Find("FireButton").GetComponent<TouchButton>();
+            var stick = Object.FindAnyObjectByType<VirtualJoystick>();
+            Vector2 firePoint = ScreenCenter((RectTransform)fireButton.transform);
+            Vector2 stickPoint = ScreenCenter((RectTransform)stick.transform) * 0.6f;
+            int fired = 0;
+            gun.Fired += () => fired++;
+
+            BeginTouch(1, stickPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            MoveTouch(1, stickPoint + new Vector2(0f, Screen.height * 0.06f), queueEventOnly: true, screen: touchscreen);
+            BeginTouch(2, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.25f);
+            Assert.IsTrue(fireButton.IsHeld);
+            Assert.IsTrue(stick.IsActive);
+            Assert.Greater(fired, 0);
+
+            // App goes to the background while both fingers are down; their release never arrives.
+            router.SendMessage("OnApplicationPause", true);
+            yield return null;
+            router.SendMessage("OnApplicationPause", false);
+            yield return null;
+            Assert.IsFalse(fireButton.IsHeld, "FIRE must not stay held after backgrounding");
+            Assert.IsFalse(stick.IsActive, "Stick must not stay held after backgrounding");
+            int firedAfterResume = fired;
+            Vector3 position = player.transform.position;
+            yield return Wait(0.4f);
+            Assert.AreEqual(firedAfterResume, fired, "No firing after returning");
+            Assert.Less(Vector3.Distance(position, player.transform.position), 0.1f, "No movement after returning");
+
+            // The stale fingers ending later changes nothing; a fresh tap works.
+            EndTouch(1, stickPoint, queueEventOnly: true, screen: touchscreen);
+            EndTouch(2, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            BeginTouch(3, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.2f);
+            Assert.IsTrue(fireButton.IsHeld, "A new touch on FIRE works after returning");
+            Assert.Greater(fired, firedAfterResume);
+            EndTouch(3, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+        }
+
         // ------------------------------------------------------------------ weapons
 
         IEnumerator SwitchTo(UnityEngine.InputSystem.Controls.ButtonControl key)
