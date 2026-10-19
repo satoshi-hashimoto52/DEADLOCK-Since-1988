@@ -1,3 +1,4 @@
+using Deadlock.View;
 using UnityEngine;
 
 namespace Deadlock.Combat
@@ -12,6 +13,8 @@ namespace Deadlock.Combat
         [Header("Identity")]
         public string weaponId = "proto_rifle";
         public string displayName = "PROTO RIFLE";
+        [Tooltip("First-person sprites and their motion. Presentation only.")]
+        public WeaponViewProfile viewProfile;
 
         [Header("Damage / Fire")]
         [Min(0f)] public float damage = 25f;

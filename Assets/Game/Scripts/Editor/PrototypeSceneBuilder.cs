@@ -61,6 +61,7 @@ namespace Deadlock.Editor
             Directory.CreateDirectory(MaterialFolder);
             Directory.CreateDirectory(MeshFolder);
             Directory.CreateDirectory(DataFolder);
+            WeaponSpriteBaker.Bake(); // uses its own temporary scene
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
 
             // Open the new scene before loading assets: NewScene unloads unreferenced assets,
@@ -79,6 +80,8 @@ namespace Deadlock.Editor
                 Tracer = UnlitMaterial("Mat_Tracer", null, new Color(1f, 0.85f, 0.4f)),
             };
             WeaponDefinition weapon = LoadOrCreateWeapon();
+            weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
+            EditorUtility.SetDirty(weapon);
 
             SetupLighting();
 
@@ -393,17 +396,12 @@ namespace Deadlock.Editor
             view.transform.SetParent(parent, false);
 
             var hip = SpriteChild(view.transform, "Hip", PlaceholderArtGenerator.WeaponHip, layer, 0);
+            // Flash positions/scales come from the weapon's WeaponViewProfile at runtime.
             var hipFlash = SpriteChild(hip.transform, "MuzzleFlash", PlaceholderArtGenerator.MuzzleFlash, layer, 1);
-            Vector2 muzzle = PlaceholderArtGenerator.HipMuzzlePixel;
-            hipFlash.transform.localPosition = new Vector3((muzzle.x - 512f) / PlaceholderArtGenerator.HipPixelsPerUnit,
-                (256f - muzzle.y) / PlaceholderArtGenerator.HipPixelsPerUnit, -0.01f);
-            hipFlash.transform.localScale = Vector3.one * 0.6f;
             hipFlash.GetComponent<SpriteRenderer>().enabled = false;
 
             var ads = SpriteChild(view.transform, "Ads", PlaceholderArtGenerator.WeaponAds, layer, 0);
             var adsFlash = SpriteChild(ads.transform, "MuzzleFlash", PlaceholderArtGenerator.MuzzleFlash, layer, -1);
-            adsFlash.transform.localPosition = new Vector3(0f, 0.012f, 0.01f);
-            adsFlash.transform.localScale = Vector3.one * 0.5f;
             adsFlash.GetComponent<SpriteRenderer>().enabled = false;
             ads.GetComponent<SpriteRenderer>().enabled = false;
             return view;

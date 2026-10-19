@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -8,8 +7,8 @@ namespace Deadlock.Editor
 {
     /// <summary>
     /// Generates the placeholder art for the prototype procedurally (no external assets):
-    /// low-resolution point-filtered world textures and high-resolution bilinear weapon sprites,
-    /// matching the intended contrast between a coarse world and a crisp first-person weapon.
+    /// low-resolution point-filtered world textures, target sprite, muzzle flash and UI shapes.
+    /// The first-person weapon sprites are pre-rendered separately by <see cref="WeaponSpriteBaker"/>.
     /// </summary>
     public static class PlaceholderArtGenerator
     {
@@ -23,6 +22,7 @@ namespace Deadlock.Editor
         public static string ImpactWall => $"{Folder}/Tex_ImpactWall.png";
         public static string ImpactTarget => $"{Folder}/Tex_ImpactTarget.png";
         public static string TargetSprite => $"{Folder}/Spr_Target.png";
+        /// <summary>First-person weapon sprites, written by <see cref="WeaponSpriteBaker"/> (not by this class).</summary>
         public static string WeaponHip => $"{Folder}/Spr_WeaponHip.png";
         public static string WeaponAds => $"{Folder}/Spr_WeaponAds.png";
         public static string MuzzleFlash => $"{Folder}/Spr_MuzzleFlash.png";
@@ -30,14 +30,6 @@ namespace Deadlock.Editor
         public static string UiRing => $"{Folder}/Ui_Ring.png";
         public static string UiHitMarker => $"{Folder}/Ui_HitMarker.png";
         public static string UiWhite => $"{Folder}/Ui_White.png";
-
-        /// <summary>Pixels per unit of the hip sprite (1024 px wide =&gt; 1 unit at the view-model camera).</summary>
-        public const float HipPixelsPerUnit = 1024f;
-        public const float AdsPixelsPerUnit = 1150f;
-        /// <summary>Muzzle position in the hip sprite, in pixels from the top-left.</summary>
-        public static readonly Vector2 HipMuzzlePixel = new Vector2(58f, 281f);
-        /// <summary>Front-sight tip in the ADS sprite (pixels from the top-left). Used as the sprite pivot = aim point.</summary>
-        public static readonly Vector2 AdsSightTipPixel = new Vector2(512f, 400f);
 
         public static void GenerateAll()
         {
@@ -52,9 +44,6 @@ namespace Deadlock.Editor
             SaveWorldTexture(ImpactTarget, SolidNoise(8, new Color32(200, 40, 30, 255), 30, 2));
 
             SaveSprite(TargetSprite, TargetTexture(), 32f, new Vector2(0.5f, 0.5f), FilterMode.Point);
-            SaveSprite(WeaponHip, HipWeaponTexture(), HipPixelsPerUnit, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
-            SaveSprite(WeaponAds, AdsWeaponTexture(), AdsPixelsPerUnit,
-                new Vector2(AdsSightTipPixel.x / 1024f, 1f - AdsSightTipPixel.y / 1024f), FilterMode.Bilinear);
             SaveSprite(MuzzleFlash, MuzzleFlashTexture(), 1024f, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
             SaveSprite(UiCircle, CircleTexture(128, 0f), 100f, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
             SaveSprite(UiRing, CircleTexture(256, 0.82f), 100f, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
@@ -302,214 +291,7 @@ namespace Deadlock.Editor
             return tex;
         }
 
-        // ---------------------------------------------------------------- high-res sprites
-
-        /// <summary>
-        /// Tiny vector rasterizer: shapes are painted in order into an ID buffer at 2x resolution,
-        /// boundaries between different shapes become dark outlines, then the result is box-filtered down (anti-aliasing).
-        /// Coordinates are in output pixels with the origin at the top-left.
-        /// </summary>
-        sealed class Canvas2x
-        {
-            readonly int w, h;
-            readonly int[] ids;
-            readonly List<Func<float, float, Color>> shaders = new List<Func<float, float, Color>>();
-            readonly List<bool> outlined = new List<bool>();
-
-            public Canvas2x(int width, int height)
-            {
-                w = width * 2;
-                h = height * 2;
-                ids = new int[w * h];
-                for (int i = 0; i < ids.Length; i++) ids[i] = -1;
-            }
-
-            public void Polygon(Vector2[] points, Func<float, float, Color> shader, bool outline = true)
-            {
-                int id = Register(shader, outline);
-                float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-                foreach (var p in points)
-                {
-                    minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
-                    minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
-                }
-                int x0 = Mathf.Max(0, Mathf.FloorToInt(minX * 2)), x1 = Mathf.Min(w - 1, Mathf.CeilToInt(maxX * 2));
-                int y0 = Mathf.Max(0, Mathf.FloorToInt(minY * 2)), y1 = Mathf.Min(h - 1, Mathf.CeilToInt(maxY * 2));
-                for (int y = y0; y <= y1; y++)
-                for (int x = x0; x <= x1; x++)
-                    if (InsidePolygon(points, (x + 0.5f) / 2f, (y + 0.5f) / 2f))
-                        ids[y * w + x] = id;
-            }
-
-            public void Ellipse(Vector2 center, Vector2 radius, Func<float, float, Color> shader, bool outline = true, float innerScale = 0f)
-            {
-                int id = Register(shader, outline);
-                int x0 = Mathf.Max(0, (int)((center.x - radius.x) * 2)), x1 = Mathf.Min(w - 1, (int)((center.x + radius.x) * 2) + 1);
-                int y0 = Mathf.Max(0, (int)((center.y - radius.y) * 2)), y1 = Mathf.Min(h - 1, (int)((center.y + radius.y) * 2) + 1);
-                for (int y = y0; y <= y1; y++)
-                for (int x = x0; x <= x1; x++)
-                {
-                    float dx = ((x + 0.5f) / 2f - center.x) / radius.x;
-                    float dy = ((y + 0.5f) / 2f - center.y) / radius.y;
-                    float d = dx * dx + dy * dy;
-                    if (d <= 1f && d >= innerScale * innerScale)
-                        ids[y * w + x] = id;
-                }
-            }
-
-            int Register(Func<float, float, Color> shader, bool outline)
-            {
-                shaders.Add(shader);
-                outlined.Add(outline);
-                return shaders.Count - 1;
-            }
-
-            static bool InsidePolygon(Vector2[] poly, float x, float y)
-            {
-                bool inside = false;
-                for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
-                {
-                    if ((poly[i].y > y) != (poly[j].y > y) &&
-                        x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
-                        inside = !inside;
-                }
-                return inside;
-            }
-
-            public Texture2D Resolve(Color outlineColor, int outlineWidth = 3)
-            {
-                var full = new Color[w * h];
-                for (int y = 0; y < h; y++)
-                for (int x = 0; x < w; x++)
-                {
-                    int id = ids[y * w + x];
-                    if (id < 0) { full[y * w + x] = Color.clear; continue; }
-                    Color c = shaders[id]((x + 0.5f) / 2f, (y + 0.5f) / 2f);
-                    if (outlined[id] && IsNearBoundary(x, y, id, outlineWidth))
-                        c = new Color(outlineColor.r, outlineColor.g, outlineColor.b, c.a);
-                    full[y * w + x] = c;
-                }
-
-                int ow = w / 2, oh = h / 2;
-                var tex = NewTexture(ow, oh);
-                var pixels = new Color[ow * oh];
-                for (int y = 0; y < oh; y++)
-                for (int x = 0; x < ow; x++)
-                {
-                    Color sum = Color.clear;
-                    for (int sy = 0; sy < 2; sy++)
-                    for (int sx = 0; sx < 2; sx++)
-                    {
-                        Color c = full[(y * 2 + sy) * w + x * 2 + sx];
-                        sum += new Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a); // premultiplied average
-                    }
-                    Color avg = sum / 4f;
-                    Color straight = avg.a > 0f ? new Color(avg.r / avg.a, avg.g / avg.a, avg.b / avg.a, avg.a) : Color.clear;
-                    pixels[(oh - 1 - y) * ow + x] = straight; // flip: canvas origin is top-left
-                }
-                tex.SetPixels(pixels);
-                tex.Apply();
-                return tex;
-            }
-
-            bool IsNearBoundary(int x, int y, int id, int radius)
-            {
-                for (int dy = -radius; dy <= radius; dy += radius)
-                for (int dx = -radius; dx <= radius; dx += radius)
-                {
-                    int nx = x + dx, ny = y + dy;
-                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                    int other = ids[ny * w + nx];
-                    // Only outline against shapes painted below (or empty space), so overlapping parts read as layered.
-                    if (other != id && (other < id))
-                        return true;
-                }
-                return false;
-            }
-        }
-
-        static Vector2[] P(params float[] xy)
-        {
-            var points = new Vector2[xy.Length / 2];
-            for (int i = 0; i < points.Length; i++) points[i] = new Vector2(xy[i * 2], xy[i * 2 + 1]);
-            return points;
-        }
-
-        /// <summary>Metal with a top-lit vertical gradient between y0 and y1 plus a fine brushed noise.</summary>
-        static Func<float, float, Color> Metal(Color baseColor, float y0, float y1, float light = 0.35f) => (x, y) =>
-        {
-            float t = Mathf.InverseLerp(y0, y1, y);
-            float n = Mathf.PerlinNoise(x * 0.08f, y * 0.9f) * 0.06f;
-            float f = 1f + light * (1f - t) - light * 0.6f * t + n;
-            return new Color(baseColor.r * f, baseColor.g * f, baseColor.b * f, 1f);
-        };
-
-        static Func<float, float, Color> Cloth(Color baseColor, float scale = 0.05f) => (x, y) =>
-        {
-            float n = Mathf.PerlinNoise(x * scale, y * scale) * 0.25f + Mathf.PerlinNoise(x * 0.6f, y * 0.6f) * 0.06f;
-            float f = 0.88f + n;
-            return new Color(baseColor.r * f, baseColor.g * f, baseColor.b * f, 1f);
-        };
-
-        static Func<float, float, Color> Flat(Color c) => (x, y) => c;
-
-        static readonly Color GunMetal = new Color(0.25f, 0.26f, 0.28f);
-        static readonly Color GunDark = new Color(0.13f, 0.13f, 0.15f);
-        static readonly Color Polymer = new Color(0.20f, 0.19f, 0.17f);
-        static readonly Color Glove = new Color(0.30f, 0.24f, 0.17f);
-        static readonly Color Sleeve = new Color(0.27f, 0.31f, 0.20f);
-        static readonly Color OutlineColor = new Color(0.04f, 0.04f, 0.05f);
-
-        static Texture2D HipWeaponTexture()
-        {
-            // 1024x512. Rifle seen from behind-right, muzzle toward the upper-left (screen centre).
-            var c = new Canvas2x(1024, 512);
-            c.Polygon(P(760, 512, 870, 420, 1024, 395, 1024, 512), Cloth(Sleeve));                      // right sleeve
-            c.Polygon(P(690, 512, 700, 380, 830, 330, 1024, 300, 1024, 512), Metal(Polymer, 300, 512, 0.25f)); // stock / grip
-            c.Polygon(P(560, 400, 660, 388, 640, 512, 528, 512), Metal(GunDark, 388, 512, 0.2f));        // magazine
-            c.Polygon(P(420, 300, 820, 248, 870, 330, 720, 420, 460, 395), Metal(GunMetal, 248, 420));  // receiver
-            c.Polygon(P(600, 300, 720, 285, 725, 310, 605, 325), Flat(GunDark));                         // ejection port
-            c.Polygon(P(240, 298, 470, 268, 490, 372, 270, 382), Metal(Polymer, 268, 382));              // handguard
-            for (int i = 0; i < 4; i++)                                                                     // handguard vents
-            {
-                float x = 290 + i * 45;
-                c.Polygon(P(x, 318 - i * 5, x + 25, 315 - i * 5, x + 27, 340 - i * 5, x + 2, 343 - i * 5), Flat(GunDark), false);
-            }
-            c.Polygon(P(52, 268, 250, 284, 252, 302, 54, 292), Metal(GunMetal, 268, 302, 0.5f));          // barrel
-            c.Polygon(P(40, 262, 92, 266, 94, 298, 42, 296), Metal(GunDark, 262, 298, 0.4f));             // muzzle device
-            c.Polygon(P(118, 236, 134, 236, 140, 276, 116, 276), Metal(GunDark, 236, 276));              // front sight post
-            c.Polygon(P(520, 252, 770, 222, 776, 244, 526, 274), Metal(GunDark, 222, 274, 0.4f));        // top rail
-            c.Polygon(P(700, 222, 760, 214, 768, 246, 708, 254), Metal(GunDark, 214, 254, 0.3f));        // rear sight
-            c.Ellipse(new Vector2(360, 384), new Vector2(88, 52), Cloth(Glove, 0.04f));                  // support hand
-            c.Polygon(P(300, 400, 420, 380, 470, 512, 320, 512), Cloth(Sleeve));                        // support sleeve
-            c.Polygon(P(700, 395, 770, 360, 840, 400, 820, 470, 730, 470), Cloth(Glove, 0.04f));         // firing hand
-            c.Polygon(P(64, 270, 248, 285, 248, 288, 64, 273), Flat(new Color(0.55f, 0.57f, 0.6f)), false); // barrel highlight
-            c.Polygon(P(430, 302, 815, 252, 818, 258, 433, 308), Flat(new Color(0.45f, 0.47f, 0.5f)), false); // receiver highlight
-            return c.Resolve(OutlineColor);
-        }
-
-        static Texture2D AdsWeaponTexture()
-        {
-            // 1024x1024 sight picture. The front sight post tip is at AdsSightTipPixel (= sprite pivot = aim point).
-            var c = new Canvas2x(1024, 1024);
-            c.Polygon(P(0, 1024, 0, 800, 200, 740, 330, 800, 320, 1024), Cloth(Glove, 0.03f));            // support hand
-            c.Polygon(P(720, 1024, 780, 890, 1024, 850, 1024, 1024), Cloth(Sleeve));                    // firing sleeve
-            c.Polygon(P(290, 1024, 440, 560, 584, 560, 734, 1024), Metal(GunMetal, 560, 1024, 0.45f));   // receiver / handguard top
-            c.Polygon(P(470, 560, 554, 560, 600, 1024, 424, 1024), Metal(GunDark, 560, 1024, 0.3f));    // rail
-            for (int i = 0; i < 7; i++)                                                                     // rail slots
-            {
-                float y = 600 + i * 60, half = 46 + i * 7;
-                c.Polygon(P(512 - half, y, 512 + half, y, 512 + half + 4, y + 16, 512 - half - 4, y + 16), Flat(new Color(0.08f, 0.08f, 0.09f)), false);
-            }
-            c.Polygon(P(462, 470, 562, 470, 584, 560, 440, 560), Metal(GunDark, 470, 560));               // front sight base
-            c.Polygon(P(448, 470, 470, 382, 486, 382, 480, 470), Metal(GunDark, 382, 470));              // left ear
-            c.Polygon(P(576, 470, 554, 382, 538, 382, 544, 470), Metal(GunDark, 382, 470));              // right ear
-            c.Polygon(P(504, 400, 520, 400, 523, 472, 501, 472), Flat(new Color(0.05f, 0.05f, 0.06f)));   // front post (tip at 512,400)
-            c.Polygon(P(360, 690, 664, 690, 720, 860, 304, 860), Metal(GunDark, 690, 860, 0.25f));        // rear sight base
-            // Rear aperture: large, close to the eye, centred on the front post tip.
-            c.Ellipse(new Vector2(512, 400), new Vector2(330, 330), Metal(new Color(0.09f, 0.09f, 0.1f), 70, 730, 0.25f), true, 0.7f);
-            return c.Resolve(OutlineColor);
-        }
+        // ---------------------------------------------------------------- high-res sprites (weapon sprites: WeaponSpriteBaker)
 
         static Texture2D MuzzleFlashTexture()
         {
