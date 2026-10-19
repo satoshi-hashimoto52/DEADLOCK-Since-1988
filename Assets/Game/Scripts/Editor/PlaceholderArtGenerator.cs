@@ -30,6 +30,10 @@ namespace Deadlock.Editor
         public static string UiRing => $"{Folder}/Ui_Ring.png";
         public static string UiHitMarker => $"{Folder}/Ui_HitMarker.png";
         public static string UiWhite => $"{Folder}/Ui_White.png";
+        public static string ZombieWalkA => $"{Folder}/Spr_Zombie_WalkA.png";
+        public static string ZombieWalkB => $"{Folder}/Spr_Zombie_WalkB.png";
+        public static string ZombieAttack => $"{Folder}/Spr_Zombie_Attack.png";
+        public static string ZombieDead => $"{Folder}/Spr_Zombie_Dead.png";
 
         public static void GenerateAll()
         {
@@ -49,6 +53,11 @@ namespace Deadlock.Editor
             SaveSprite(UiRing, CircleTexture(256, 0.82f), 100f, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
             SaveSprite(UiHitMarker, HitMarkerTexture(), 100f, new Vector2(0.5f, 0.5f), FilterMode.Bilinear);
             SaveSprite(UiWhite, SolidNoise(4, new Color32(255, 255, 255, 255), 0, 0), 100f, new Vector2(0.5f, 0.5f), FilterMode.Point);
+            // Zombies: 32 px per metre like the targets, feet at the pivot.
+            SaveSprite(ZombieWalkA, ZombieTexture(ZombiePose.WalkA), 32f, new Vector2(0.5f, 0f), FilterMode.Point);
+            SaveSprite(ZombieWalkB, ZombieTexture(ZombiePose.WalkB), 32f, new Vector2(0.5f, 0f), FilterMode.Point);
+            SaveSprite(ZombieAttack, ZombieTexture(ZombiePose.Attack), 32f, new Vector2(0.5f, 0f), FilterMode.Point);
+            SaveSprite(ZombieDead, ZombieDeadTexture(), 32f, new Vector2(0.5f, 0f), FilterMode.Point);
         }
 
         // ---------------------------------------------------------------- import
@@ -245,6 +254,124 @@ namespace Deadlock.Editor
                 tex.SetPixel(x, y, Vary(rng, color, amount));
             tex.Apply();
             return tex;
+        }
+
+        enum ZombiePose { WalkA, WalkB, Attack }
+
+        static readonly Color32 ZSkin = new Color32(118, 146, 104, 255);
+        static readonly Color32 ZSkinDark = new Color32(84, 108, 74, 255);
+        static readonly Color32 ZShirt = new Color32(62, 66, 84, 255);
+        static readonly Color32 ZPants = new Color32(72, 56, 44, 255);
+        static readonly Color32 ZEye = new Color32(230, 50, 30, 255);
+        static readonly Color32 ZBlood = new Color32(120, 20, 18, 255);
+        static readonly Color32 ZOutline = new Color32(18, 22, 18, 255);
+
+        /// <summary>Small pixel painter: fill shapes into a buffer, then outline every filled pixel next to empty space.</summary>
+        sealed class Pixels
+        {
+            public readonly int W, H;
+            readonly Color32?[] px;
+
+            public Pixels(int w, int h)
+            {
+                W = w;
+                H = h;
+                px = new Color32?[w * h];
+            }
+
+            public void Rect(int x0, int y0, int x1, int y1, Color32 c)
+            {
+                for (int y = Mathf.Max(0, y0); y <= Mathf.Min(H - 1, y1); y++)
+                for (int x = Mathf.Max(0, x0); x <= Mathf.Min(W - 1, x1); x++)
+                    px[y * W + x] = c;
+            }
+
+            public void Ellipse(float cx, float cy, float rx, float ry, Color32 c)
+            {
+                for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float dx = (x + 0.5f - cx) / rx, dy = (y + 0.5f - cy) / ry;
+                    if (dx * dx + dy * dy <= 1f)
+                        px[y * W + x] = c;
+                }
+            }
+
+            public void Dot(int x, int y, Color32 c)
+            {
+                if (x >= 0 && y >= 0 && x < W && y < H)
+                    px[y * W + x] = c;
+            }
+
+            public Texture2D ToTexture()
+            {
+                var tex = NewTexture(W, H);
+                bool Filled(int x, int y) => x >= 0 && y >= 0 && x < W && y < H && px[y * W + x].HasValue;
+                for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    if (!Filled(x, y)) { tex.SetPixel(x, y, new Color32(0, 0, 0, 0)); continue; }
+                    bool edge = !Filled(x - 1, y) || !Filled(x + 1, y) || !Filled(x, y - 1) || !Filled(x, y + 1);
+                    tex.SetPixel(x, y, edge ? ZOutline : px[y * W + x].Value);
+                }
+                tex.Apply();
+                return tex;
+            }
+        }
+
+        /// <summary>32x64 front-facing zombie (texture y grows upward, feet at y = 0).</summary>
+        static Texture2D ZombieTexture(ZombiePose pose)
+        {
+            var p = new Pixels(32, 64);
+            // Legs (alternate stride for the walk frames).
+            int leftLift = pose == ZombiePose.WalkB ? 3 : 0, rightLift = pose == ZombiePose.WalkA ? 3 : 0;
+            p.Rect(10, 0 + leftLift, 15, 27, ZPants);
+            p.Rect(17, 0 + rightLift, 22, 27, ZPants);
+            p.Rect(10, 0 + leftLift, 15, 2 + leftLift, ZSkinDark);
+            p.Rect(17, 0 + rightLift, 22, 2 + rightLift, ZSkinDark);
+            // Torso (torn shirt with skin showing).
+            p.Rect(8, 26, 24, 47, ZShirt);
+            p.Rect(12, 30, 15, 34, ZSkin);
+            p.Rect(19, 38, 22, 41, ZSkin);
+            p.Rect(9, 27, 11, 29, ZBlood);
+            // Head.
+            p.Ellipse(16f, 54f, 6.5f, 7.5f, ZSkin);
+            p.Rect(12, 46, 20, 48, ZSkinDark); // neck shadow
+            p.Dot(13, 55, ZEye); p.Dot(14, 55, ZEye);
+            p.Dot(18, 55, ZEye); p.Dot(19, 55, ZEye);
+            if (pose == ZombiePose.Attack)
+            {
+                p.Rect(14, 49, 18, 51, ZBlood); // open mouth
+                // Arms raised high for the swipe.
+                p.Rect(3, 40, 7, 62, ZSkin);
+                p.Rect(25, 40, 29, 62, ZSkin);
+                p.Rect(3, 40, 7, 46, ZShirt);
+                p.Rect(25, 40, 29, 46, ZShirt);
+            }
+            else
+            {
+                p.Rect(15, 50, 17, 50, ZSkinDark);
+                // Arms reaching forward: foreshortened, hands in front of the chest.
+                int sway = pose == ZombiePose.WalkA ? 1 : -1;
+                p.Rect(5, 38 + sway, 9, 47, ZShirt);
+                p.Rect(23, 38 - sway, 27, 47, ZShirt);
+                p.Ellipse(9.5f, 38f + sway, 3.5f, 3f, ZSkin);
+                p.Ellipse(22.5f, 38f - sway, 3.5f, 3f, ZSkin);
+            }
+            return p.ToTexture();
+        }
+
+        /// <summary>64x32 zombie lying on the ground.</summary>
+        static Texture2D ZombieDeadTexture()
+        {
+            var p = new Pixels(64, 32);
+            p.Ellipse(32f, 4f, 30f, 3.5f, ZBlood);  // pool
+            p.Rect(6, 3, 30, 11, ZPants);            // legs
+            p.Rect(28, 3, 50, 14, ZShirt);           // torso
+            p.Ellipse(55f, 9f, 6.5f, 6f, ZSkin);     // head
+            p.Rect(34, 14, 46, 17, ZSkin);           // arm across
+            p.Dot(56, 10, ZOutline); p.Dot(58, 10, ZOutline);
+            return p.ToTexture();
         }
 
         static Texture2D TargetTexture()

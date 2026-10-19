@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
@@ -26,6 +27,7 @@ namespace Deadlock.Input
 
         DesktopInputSource desktop;
         bool simulatingTouch;
+        readonly HashSet<string> blockers = new HashSet<string>();
 
         public InputMode Mode { get; private set; }
         public PlayerInputFrame Current { get; private set; }
@@ -36,6 +38,12 @@ namespace Deadlock.Input
         /// <summary>True when keyboard/mouse actually drive the player (desktop mode and, if required, cursor captured).</summary>
         public bool DesktopInputActive =>
             Mode == InputMode.Desktop && (!RequireCursorLock || Cursor.lockState == CursorLockMode.Locked);
+
+        /// <summary>True while a menu, the layout editor, death or a result screen stops player input.</summary>
+        public bool IsBlocked => blockers.Count > 0;
+
+        /// <summary>Desktop menu key (Tab) pressed this frame. Read even while blocked so the menu can be closed.</summary>
+        public bool MenuKeyPressed { get; private set; }
 
         public event Action<InputMode> ModeChanged;
 
@@ -75,6 +83,25 @@ namespace Deadlock.Input
                 ReleaseHeldInput();
         }
 
+        /// <summary>
+        /// Stops player input for a reason (e.g. "menu", "dead"). Local input only: it does not pause the game,
+        /// so the same call works in a future online match. Every reason must be released with <see cref="Unblock"/>.
+        /// </summary>
+        public void Block(string reason)
+        {
+            if (!blockers.Add(reason) || blockers.Count != 1)
+                return;
+            ReleaseHeldInput();
+            if (Mode == InputMode.Desktop)
+                SetCursorLocked(false); // menus need the pointer
+        }
+
+        public void Unblock(string reason)
+        {
+            if (blockers.Remove(reason) && blockers.Count == 0)
+                ReleaseHeldInput();
+        }
+
         public void ReleaseHeldInput()
         {
             if (touchControls != null)
@@ -96,6 +123,13 @@ namespace Deadlock.Input
 
         void Update()
         {
+            MenuKeyPressed = desktop.MenuPressed;
+            if (IsBlocked)
+            {
+                Current = default;
+                return;
+            }
+
             if (!Application.isMobilePlatform && desktop.ToggleModePressed)
             {
                 SetMode(Mode == InputMode.Desktop ? InputMode.Touch : InputMode.Desktop, simulateTouchWithMouse: true);

@@ -27,11 +27,37 @@ namespace Deadlock.Tests
         protected WeaponSwitcher weapons;
         protected ProjectileSystem projectiles;
 
-        protected IEnumerator LoadScene(InputMode mode)
+        string savedLayoutJson;
+
+        // Tests run against the default touch layout; a layout the user saved in the Editor is put back afterwards.
+        public override void Setup()
         {
-            keyboard = InputSystem.AddDevice<Keyboard>();
-            mouse = InputSystem.AddDevice<Mouse>();
-            SceneManager.LoadScene(SceneName);
+            base.Setup();
+            keyboard = null; // devices from a previous test were removed by the fixture
+            mouse = null;
+            savedLayoutJson = PlayerPrefs.GetString(TouchLayout.PrefsKey, null);
+            TouchLayout.ClearSaved();
+            Time.timeScale = 1f;
+        }
+
+        public override void TearDown()
+        {
+            Time.timeScale = 1f;
+            if (string.IsNullOrEmpty(savedLayoutJson))
+                TouchLayout.ClearSaved();
+            else
+                PlayerPrefs.SetString(TouchLayout.PrefsKey, savedLayoutJson);
+            base.TearDown();
+        }
+
+        protected IEnumerator LoadScene(InputMode mode, string sceneName = SceneName)
+        {
+            // Added once per test (a test may load scenes several times).
+            if (keyboard == null)
+                keyboard = InputSystem.AddDevice<Keyboard>();
+            if (mouse == null)
+                mouse = InputSystem.AddDevice<Mouse>();
+            SceneManager.LoadScene(sceneName);
             yield return null;
             yield return null; // let Start() run
 
@@ -46,6 +72,13 @@ namespace Deadlock.Tests
             router.RequireCursorLock = false; // no focused game view in batch runs
             router.SetMode(mode);
             yield return null;
+        }
+
+        protected static IEnumerator WaitRealtime(float seconds)
+        {
+            float end = Time.realtimeSinceStartup + seconds;
+            while (Time.realtimeSinceStartup < end)
+                yield return null;
         }
 
         protected static IEnumerator Wait(float seconds)

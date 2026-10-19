@@ -49,6 +49,7 @@ namespace Deadlock.Input
         bool postureWasHeld;
         bool postureLongFired;
         Color knobColor;
+        FirstPersonMotor motor;
 
         public bool AdsToggled => adsToggled;
         public bool SprintLatched => sprintLatched;
@@ -58,6 +59,8 @@ namespace Deadlock.Input
         {
             if (sprintIndicator != null)
                 knobColor = sprintIndicator.color;
+            if (posture != null)
+                motor = posture.GetComponent<FirstPersonMotor>();
         }
 
         public void SetVisible(bool visible)
@@ -123,13 +126,25 @@ namespace Deadlock.Input
             };
         }
 
-        /// <summary>Tap = crouch toggle, hold = prone toggle. A press that became a hold never also fires the tap.</summary>
+        /// <summary>
+        /// Tap = crouch toggle, hold = prone toggle. A press that became a hold never also fires the tap.
+        /// While sprinting, the press itself is the crouch request at once (= slide), and that press is then spent:
+        /// keeping the finger down does not go prone and releasing it does not crouch again.
+        /// </summary>
         void ReadPostureButton(out bool tap, out bool hold)
         {
             tap = hold = false;
             bool pressedSinceLastRead = postureButton.ConsumePressed();
             bool held = postureButton.IsHeld;
+            bool newPress = (held && !postureWasHeld) || (!held && !postureWasHeld && pressedSinceLastRead);
 
+            if (newPress && motor != null && motor.IsSprinting)
+            {
+                tap = true;
+                postureLongFired = true; // spent: no hold, no release tap
+                postureWasHeld = held;
+                return;
+            }
             if (held && !postureWasHeld)
                 postureLongFired = false; // new press
             if (held && !postureLongFired && Time.time - postureButton.PressStartTime >= longPressTime)
@@ -151,6 +166,7 @@ namespace Deadlock.Input
                 {
                     Posture.Crouching => "しゃがみ",
                     Posture.Prone => "伏せ",
+                    Posture.Sliding => "スライド",
                     _ => "立ち",
                 };
             if (weaponLabel != null && weapons != null)

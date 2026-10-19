@@ -8,6 +8,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Scenes/Proto_FiringRange.unity
     guid: 8d05b89588af14b6696daa7d7ed92d59
+  - enabled: 1
+    path: Assets/Game/Scenes/Proto_Training.unity
+    guid: 3d6f53bf034724fcfb16507716507ec6
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

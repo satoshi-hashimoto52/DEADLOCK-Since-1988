@@ -41,6 +41,8 @@ namespace Deadlock.Player
         public bool IsGrounded { get; private set; }
         public bool IsSprinting { get; private set; }
         public Vector3 Velocity => horizontalVelocity + Vector3.up * verticalVelocity;
+        /// <summary>Measured horizontal speed of the last frame (what actually moved, after collisions).</summary>
+        public float PlanarSpeed { get; private set; }
         public float WalkSpeed => walkSpeed;
         public float Yaw => yaw;
         public float Pitch => pitch;
@@ -107,16 +109,26 @@ namespace Deadlock.Player
         {
             IsGrounded = controller.isGrounded;
 
-            Vector2 move = Vector2.ClampMagnitude(frame.Move, 1f);
-            // Sprint: standing only, forward only; crouch/prone never stand up by themselves.
-            bool postureAllowsSprint = posture == null || posture.CanSprint;
-            IsSprinting = frame.Sprint && !SprintBlocked && postureAllowsSprint && move.y > 0.5f;
-            float postureSpeed = posture != null ? posture.SpeedMultiplier : 1f;
-            float speed = IsSprinting ? sprintSpeed : walkSpeed * MoveSpeedMultiplier * postureSpeed;
-            Vector3 target = (transform.right * move.x + transform.forward * move.y) * speed;
+            bool sliding = posture != null && posture.IsSliding;
+            if (sliding)
+            {
+                // Slide: fixed direction from the start, easing down; stick input does not steer.
+                IsSprinting = false;
+                horizontalVelocity = posture.SlideDirection * posture.SlideSpeed;
+            }
+            else
+            {
+                Vector2 move = Vector2.ClampMagnitude(frame.Move, 1f);
+                // Sprint: standing only, forward only; crouch/prone never stand up by themselves.
+                bool postureAllowsSprint = posture == null || posture.CanSprint;
+                IsSprinting = frame.Sprint && !SprintBlocked && postureAllowsSprint && move.y > 0.5f;
+                float postureSpeed = posture != null ? posture.SpeedMultiplier : 1f;
+                float speed = IsSprinting ? sprintSpeed : walkSpeed * MoveSpeedMultiplier * postureSpeed;
+                Vector3 target = (transform.right * move.x + transform.forward * move.y) * speed;
 
-            float accel = acceleration * (IsGrounded ? 1f : airControl);
-            horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, target, accel * dt);
+                float accel = acceleration * (IsGrounded ? 1f : airControl);
+                horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, target, accel * dt);
+            }
 
             if (IsGrounded)
             {
@@ -129,9 +141,25 @@ namespace Deadlock.Player
             }
             verticalVelocity += gravity * dt;
 
+            Vector3 before = transform.position;
             CollisionFlags flags = controller.Move((horizontalVelocity + Vector3.up * verticalVelocity) * dt);
             if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
                 verticalVelocity = 0f;
+            Vector3 moved = transform.position - before;
+            float planarMoved = new Vector2(moved.x, moved.z).magnitude;
+            PlanarSpeed = dt > 0f ? planarMoved / dt : 0f;
+
+            if (sliding)
+            {
+                // Off a ledge: normal air movement takes over. Into a wall: the slide stops there.
+                float expected = horizontalVelocity.magnitude * dt;
+                if (!controller.isGrounded || planarMoved < expected * 0.5f)
+                {
+                    posture.EndSlide();
+                    if (planarMoved < expected * 0.5f)
+                        horizontalVelocity = Vector3.zero;
+                }
+            }
         }
     }
 }

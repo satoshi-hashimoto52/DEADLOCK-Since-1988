@@ -135,6 +135,33 @@ namespace Deadlock.Tests
             Assert.AreEqual(Posture.Standing, posture.Current);
         }
 
+        /// <summary>Regression: the posture course has to be enterable by walking / crawling in from outside.</summary>
+        [UnityTest]
+        public IEnumerator Posture_CanWalkIntoCrouchTunnel_AndCrawlIntoProneTunnel()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            // Crouch tunnel spans z 10..14 (clearance 1.35 m): walk in crouched from z 8.6.
+            Teleport(new Vector3(6.6f, 0.05f, 8.6f));
+            yield return Tap(keyboard.cKey);
+            yield return WaitForPosture();
+            Press(keyboard.wKey, queueEventOnly: true);
+            yield return Wait(1.5f);
+            Release(keyboard.wKey, queueEventOnly: true);
+            yield return null;
+            Assert.Greater(player.transform.position.z, 10.6f, "Crouched player walks into the crouch tunnel");
+
+            // Prone tunnel spans z 16..20 (clearance 0.85 m): crawl in prone from z 14.8.
+            Teleport(new Vector3(6.6f, 0.05f, 14.8f));
+            yield return Tap(keyboard.zKey);
+            yield return WaitForPosture();
+            Assert.AreEqual(Posture.Prone, posture.Current);
+            Press(keyboard.wKey, queueEventOnly: true);
+            yield return Wait(2.5f);
+            Release(keyboard.wKey, queueEventOnly: true);
+            yield return null;
+            Assert.Greater(player.transform.position.z, 16.6f, "Prone player crawls into the prone tunnel");
+        }
+
         [UnityTest]
         public IEnumerator Jump_FromCrouch_OnlyStandsUp_ThenJumpsAndRejumps()
         {

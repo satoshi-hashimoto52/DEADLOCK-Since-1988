@@ -13,12 +13,11 @@ namespace Deadlock.Input
 
         [SerializeField] RectTransform stickBase;
         [SerializeField] RectTransform knob;
-        [Tooltip("Knob travel in canvas units.")]
-        [SerializeField, Min(1f)] float radius = 110f;
+        [Tooltip("Knob travel as a fraction of the stick base width (110 units for the default 280-unit base).")]
+        [SerializeField, Range(0.1f, 1f)] float radiusFraction = 0.3929f;
         [SerializeField, Range(0f, 0.5f)] float deadZone = 0.08f;
 
         RectTransform zone;
-        Vector3 restPosition;
         int pointerId = NoPointer;
 
         public Vector2 Value { get; private set; }
@@ -27,7 +26,6 @@ namespace Deadlock.Input
         void Awake()
         {
             zone = (RectTransform)transform;
-            restPosition = stickBase.localPosition;
         }
 
         void OnDisable() => Release();
@@ -48,6 +46,7 @@ namespace Deadlock.Input
         {
             if (eventData.pointerId != pointerId)
                 return;
+            float radius = Mathf.Max(1f, stickBase.rect.width * radiusFraction);
             Vector2 offset = Vector2.ClampMagnitude(ToLocal(eventData) - (Vector2)stickBase.localPosition, radius);
             knob.localPosition = offset;
             Vector2 value = offset / radius;
@@ -66,7 +65,7 @@ namespace Deadlock.Input
             pointerId = NoPointer;
             Value = Vector2.zero;
             if (stickBase != null)
-                stickBase.localPosition = restPosition;
+                stickBase.anchoredPosition = Vector2.zero; // rest point = the base's anchor (set by the layout)
             if (knob != null)
                 knob.localPosition = Vector3.zero;
         }

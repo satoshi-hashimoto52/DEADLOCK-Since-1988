@@ -25,6 +25,7 @@ namespace Deadlock.Input
             public const string SelectMelee = "<Keyboard>/2";
             public const string ToggleMode = "<Keyboard>/f2";
             public const string ReleaseCursor = "<Keyboard>/escape";
+            public const string Menu = "<Keyboard>/tab";
         }
 
         readonly InputActionMap map;
@@ -41,6 +42,7 @@ namespace Deadlock.Input
         readonly InputAction selectMelee;
         readonly InputAction toggleMode;
         readonly InputAction releaseCursor;
+        readonly InputAction menu;
 
         public DesktopInputSource()
         {
@@ -63,10 +65,12 @@ namespace Deadlock.Input
             selectMelee = map.AddAction("SelectMelee", InputActionType.Button, Bindings.SelectMelee);
             toggleMode = map.AddAction("ToggleMode", InputActionType.Button, Bindings.ToggleMode);
             releaseCursor = map.AddAction("ReleaseCursor", InputActionType.Button, Bindings.ReleaseCursor);
+            menu = map.AddAction("Menu", InputActionType.Button, Bindings.Menu);
         }
 
         public bool ToggleModePressed => toggleMode.WasPressedThisFrame();
         public bool ReleaseCursorPressed => releaseCursor.WasPressedThisFrame();
+        public bool MenuPressed => menu.WasPressedThisFrame();
         public bool AnyClickPressed => fire.WasPressedThisFrame() || ads.WasPressedThisFrame();
 
         public void Enable() => map.Enable();

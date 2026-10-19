@@ -1,13 +1,16 @@
 using System.Collections.Generic;
 using System.IO;
 using Deadlock.Combat;
+using Deadlock.Game;
 using Deadlock.Input;
 using Deadlock.Player;
 using Deadlock.UI;
 using Deadlock.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Unity.AI.Navigation;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
@@ -25,6 +28,9 @@ namespace Deadlock.Editor
     public static class PrototypeSceneBuilder
     {
         public const string ScenePath = "Assets/Game/Scenes/Proto_FiringRange.unity";
+        public const string TrainingScenePath = "Assets/Game/Scenes/Proto_Training.unity";
+        public const string EnemyLayerName = "Enemy";
+        const string TrainingNavMeshPath = "Assets/Game/Generated/NavMesh_Training.asset";
         public const string PlayerLayerName = "Player";
         public const string ViewModelLayerName = "ViewModel";
 
@@ -52,10 +58,18 @@ namespace Deadlock.Editor
                 EditorSceneManager.OpenScene(ScenePath);
         }
 
+        [MenuItem("DEADLOCK/Prototype/Open Training")]
+        public static void OpenTrainingScene()
+        {
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                EditorSceneManager.OpenScene(TrainingScenePath);
+        }
+
         public static void Build()
         {
             int playerLayer = EnsureLayer(PlayerLayerName, 6);
             int viewModelLayer = EnsureLayer(ViewModelLayerName, 7);
+            int enemyLayer = EnsureLayer(EnemyLayerName, 8);
 
             PlaceholderArtGenerator.GenerateAll();
             Directory.CreateDirectory(MaterialFolder);
@@ -64,6 +78,16 @@ namespace Deadlock.Editor
             WeaponSpriteBaker.Bake(); // uses its own temporary scene
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
 
+            BuildScene(false, playerLayer, viewModelLayer, enemyLayer);
+            BuildScene(true, playerLayer, viewModelLayer, enemyLayer);
+            ConfigureProject();
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}");
+        }
+
+        /// <summary>Firing range or training: same player rig, HUD, touch controls and menu; different stage.</summary>
+        static void BuildScene(bool training, int playerLayer, int viewModelLayer, int enemyLayer)
+        {
             // Open the new scene before loading assets: NewScene unloads unreferenced assets,
             // which would leave dangling references to anything loaded earlier.
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -88,17 +112,42 @@ namespace Deadlock.Editor
 
             SetupLighting();
 
-            BuildEnvironment(mats);
+            if (training)
+                BuildTrainingArena(mats, playerLayer, viewModelLayer, enemyLayer);
+            else
+                BuildEnvironment(mats);
             var projectiles = BuildProjectiles(mats, playerLayer, viewModelLayer);
-            var player = BuildPlayer(weapon, melee, projectiles, playerLayer, viewModelLayer);
-            BuildTargets();
-            BuildPickups(mats);
-            BuildUi(player, projectiles);
+            Vector3 spawn = training ? new Vector3(0f, 0.05f, -10f) : new Vector3(0f, 0.05f, 0f);
+            var player = BuildPlayer(weapon, melee, projectiles, playerLayer, viewModelLayer, spawn);
+            TrainingSession session = null;
+            if (training)
+            {
+                var zombies = BuildZombies(player, playerLayer, viewModelLayer, enemyLayer);
+                var sessionGo = new GameObject("TrainingSession");
+                session = sessionGo.AddComponent<TrainingSession>();
+                Set(session, "player", player.Health);
+                Set(session, "input", player.Input);
+                SetArray(session, "zombies", zombies);
+            }
+            else
+            {
+                BuildTargets();
+                BuildPickups(mats);
+            }
+            var canvas = BuildUi(player, projectiles);
 
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            ConfigureProject();
-            AssetDatabase.SaveAssets();
-            Debug.Log($"[DEADLOCK] Prototype scene built: {ScenePath}");
+            var menu = canvas.AddComponent<GameMenu>();
+            Set(menu, "input", player.Input);
+            if (session != null)
+            {
+                Set(menu, "session", session);
+                var trainingHud = canvas.AddComponent<TrainingHud>();
+                Set(trainingHud, "session", session);
+            }
+            var pause = new GameObject("OfflineSessionPause").AddComponent<OfflineSessionPause>();
+            Set(pause, "menu", menu);
+
+            EditorSceneManager.SaveScene(scene, training ? TrainingScenePath : ScenePath);
         }
 
         // ------------------------------------------------------------------ project / assets
@@ -125,7 +174,7 @@ namespace Deadlock.Editor
 
         static void ConfigureProject()
         {
-            // Prototype: landscape only (screen orientation is still a proposal in GAME_SPEC).
+            // Landscape left/right only (D-025).
             // Edited through the serialized asset: the static PlayerSettings setters are not persisted in batch mode.
             var playerSettingsAsset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0];
             var playerSettings = new SerializedObject(playerSettingsAsset);
@@ -137,7 +186,11 @@ namespace Deadlock.Editor
             playerSettings.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssetIfDirty(playerSettingsAsset);
 
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(ScenePath, true),
+                new EditorBuildSettingsScene(TrainingScenePath, true),
+            };
 
             // The template sample scene is replaced by the prototype scene.
             // (Assets/Settings/SampleSceneProfile.asset stays: PC_RPAsset uses it as its volume profile.)
@@ -219,6 +272,7 @@ namespace Deadlock.Editor
             public Camera WorldCamera;
             public PostureController Posture;
             public WeaponSwitcher Weapons;
+            public PlayerHealth Health;
         }
 
         static void SetupLighting()
@@ -347,10 +401,10 @@ namespace Deadlock.Editor
             return system;
         }
 
-        static PlayerRig BuildPlayer(WeaponDefinition weapon, MeleeDefinition meleeDefinition, ProjectileSystem projectiles, int playerLayer, int viewModelLayer)
+        static PlayerRig BuildPlayer(WeaponDefinition weapon, MeleeDefinition meleeDefinition, ProjectileSystem projectiles, int playerLayer, int viewModelLayer, Vector3 spawn)
         {
             var root = new GameObject("Player") { layer = playerLayer };
-            root.transform.position = new Vector3(0f, 0.05f, 0f);
+            root.transform.position = spawn;
             var controller = root.AddComponent<CharacterController>();
             controller.height = 1.8f;
             controller.radius = 0.35f;
@@ -365,6 +419,8 @@ namespace Deadlock.Editor
             var gun = root.AddComponent<GunController>();
             var melee = root.AddComponent<MeleeWeapon>();
             var weapons = root.AddComponent<WeaponSwitcher>();
+            var health = root.AddComponent<PlayerHealth>();
+            Set(health, "input", router);
 
             var pivot = new GameObject("CameraPivot");
             pivot.transform.SetParent(root.transform, false);
@@ -439,7 +495,7 @@ namespace Deadlock.Editor
             Set(meleeView, "worldCamera", cam);
             Set(meleeView, "sprite", knifeSprite.GetComponent<SpriteRenderer>());
 
-            return new PlayerRig { Root = root, Input = router, Gun = gun, WorldCamera = cam, Posture = posture, Weapons = weapons };
+            return new PlayerRig { Root = root, Input = router, Gun = gun, WorldCamera = cam, Posture = posture, Weapons = weapons, Health = health };
         }
 
         static GameObject BuildWeaponView(Transform parent, int layer)
@@ -469,6 +525,82 @@ namespace Deadlock.Editor
             sr.shadowCastingMode = ShadowCastingMode.Off;
             sr.receiveShadows = false;
             return go;
+        }
+
+        /// <summary>Training arena (28 m square) with cover; the NavMesh for the zombies is baked from its colliders.</summary>
+        static void BuildTrainingArena(Materials m, int playerLayer, int viewModelLayer, int enemyLayer)
+        {
+            var root = new GameObject("Environment").transform;
+            Box(root, "Floor", new Vector3(0f, -0.25f, 0f), new Vector3(28f, 0.5f, 28f), m.Floor);
+            Box(root, "Wall_North", new Vector3(0f, 2f, 14.25f), new Vector3(29f, 4f, 0.5f), m.Wall);
+            Box(root, "Wall_South", new Vector3(0f, 2f, -14.25f), new Vector3(29f, 4f, 0.5f), m.Wall);
+            Box(root, "Wall_East", new Vector3(14.25f, 2f, 0f), new Vector3(0.5f, 4f, 29f), m.Wall);
+            Box(root, "Wall_West", new Vector3(-14.25f, 2f, 0f), new Vector3(0.5f, 4f, 29f), m.Wall);
+            Box(root, "Pillar_A", new Vector3(-5f, 2f, 2f), new Vector3(1.2f, 4f, 1.2f), m.Concrete);
+            Box(root, "Pillar_B", new Vector3(5f, 2f, 2f), new Vector3(1.2f, 4f, 1.2f), m.Concrete);
+            Box(root, "LowWall", new Vector3(0f, 0.55f, -3f), new Vector3(4f, 1.1f, 0.4f), m.Concrete);
+            Box(root, "CoverWall", new Vector3(-7f, 1.5f, 7f), new Vector3(4f, 3f, 0.4f), m.Wall);
+            Box(root, "Crate_A", new Vector3(-9f, 0.5f, -5f), new Vector3(1f, 1f, 1f), m.Crate);
+            Box(root, "Crate_B", new Vector3(-9.9f, 0.5f, -4.4f), new Vector3(1f, 1f, 1f), m.Crate);
+            Box(root, "Crate_C", new Vector3(9f, 0.5f, 6f), new Vector3(1f, 1f, 1f), m.Crate);
+
+            var surface = root.gameObject.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.Children;
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            surface.layerMask = 1 << LayerMask.NameToLayer("Default");
+            surface.BuildNavMesh();
+            AssetDatabase.DeleteAsset(TrainingNavMeshPath);
+            AssetDatabase.CreateAsset(surface.navMeshData, TrainingNavMeshPath);
+        }
+
+        static Zombie[] BuildZombies(PlayerRig player, int playerLayer, int viewModelLayer, int enemyLayer)
+        {
+            var root = new GameObject("Zombies").transform;
+            Sprite walkA = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkA);
+            Sprite walkB = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkB);
+            Sprite attack = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieAttack);
+            Sprite dead = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieDead);
+            // Zombies see through each other (and the view model / UI), not through walls.
+            int sight = ~((1 << enemyLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI")));
+            var spawns = new[] { new Vector3(-8f, 0f, 10f), new Vector3(0f, 0f, 12f), new Vector3(8f, 0f, 10f) };
+            var zombies = new Zombie[spawns.Length];
+            for (int i = 0; i < spawns.Length; i++)
+            {
+                var go = new GameObject($"Zombie_{i + 1}") { layer = enemyLayer };
+                go.transform.SetParent(root, false);
+                go.transform.SetPositionAndRotation(spawns[i], Quaternion.Euler(0f, 180f, 0f));
+                var capsule = go.AddComponent<CapsuleCollider>();
+                capsule.center = new Vector3(0f, 0.9f, 0f);
+                capsule.height = 1.8f;
+                capsule.radius = 0.35f;
+                var body = go.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                body.useGravity = false;
+                var agent = go.AddComponent<NavMeshAgent>();
+                agent.radius = 0.35f;
+                agent.height = 1.8f;
+                agent.angularSpeed = 360f;
+                agent.acceleration = 12f;
+                var zombie = go.AddComponent<Zombie>();
+                Set(zombie, "target", player.Health);
+                SetMask(zombie, "sightMask", sight);
+
+                var visual = new GameObject("Sprite");
+                visual.transform.SetParent(go.transform, false);
+                var sr = visual.AddComponent<SpriteRenderer>();
+                sr.sprite = walkA;
+                sr.shadowCastingMode = ShadowCastingMode.Off;
+                visual.AddComponent<Billboard>();
+                var view = go.AddComponent<ZombieView>();
+                Set(view, "zombie", zombie);
+                Set(view, "sprite", sr);
+                Set(view, "walkA", walkA);
+                Set(view, "walkB", walkB);
+                Set(view, "attack", attack);
+                Set(view, "dead", dead);
+                zombies[i] = zombie;
+            }
+            return zombies;
         }
 
         static void BuildTargets()
@@ -533,7 +665,7 @@ namespace Deadlock.Editor
 
         // ------------------------------------------------------------------ UI
 
-        static void BuildUi(PlayerRig player, ProjectileSystem projectiles)
+        static GameObject BuildUi(PlayerRig player, ProjectileSystem projectiles)
         {
             var esGo = new GameObject("EventSystem");
             esGo.AddComponent<EventSystem>();
@@ -553,6 +685,7 @@ namespace Deadlock.Editor
 
             BuildTouchControls(canvasRect, player);
             BuildHud(canvasRect, player, projectiles);
+            return canvasGo;
         }
 
         static void BuildTouchControls(RectTransform canvas, PlayerRig player)
@@ -560,6 +693,7 @@ namespace Deadlock.Editor
             var root = Rect("TouchControls", canvas);
             Stretch(root);
             var controls = root.gameObject.AddComponent<TouchControls>();
+            root.gameObject.AddComponent<TouchLayoutApplier>(); // positions the widgets from the saved / default layout
 
             var look = Rect("LookArea", root);
             Stretch(look);
