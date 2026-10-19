@@ -172,4 +172,41 @@ batchmode：`-batchmode -quit -executeMethod Deadlock.Editor.WeaponSpriteBaker.B
   -executeMethod Deadlock.Editor.IOSProjectExporter.ExportFromCommandLine -logFile Logs/ios-export.log
 ```
 
-出力先は `Builds/iOS/`（Git管理外）。署名・実機インストールは行わない。バンドルID・Team等の署名設定は未設定（既定値）。
+出力先は `Builds/iOS/`（Git管理外）。`-deadlockDevelopment` を付けると開発ビルド（画面上部にフレームレート表示、10秒ごとにコンソールへ `[DEADLOCK][perf]` を出力）。
+
+## 10. iOS実機での起動
+
+### 開発用の設定（`IOSPlayerSetup`、メニュー DEADLOCK → Build → Apply iOS Player Settings）
+
+| 項目 | 値 |
+| --- | --- |
+| Bundle Identifier | `com.satoshihashimoto52.deadlock1988`（このユーザーの他のUnityプロジェクトの命名に合わせた開発用ID） |
+| 表示名（productName） | DEADLOCK: Since 1988 |
+| 署名 | 自動署名、Team `HZ43AT7U4F`（Personal Team。Xcodeにサインイン済みのアカウント） |
+| 画面方向 | 左右のLandscapeのみ（縦向き不可） |
+| 対象端末 | iPhone＋iPad（Unity既定）。最低OSは15.0（Unity既定のまま、製品仕様は未決定） |
+| フレームレート | `AppStartup` で 60 fps を目標に設定（試作用の暫定値） |
+
+Personal Team（無料）の制約：プロビジョニングは約7日で失効し、再インストールが必要。1端末あたりの同時インストール数にも上限がある。
+
+### 手順（Unity Editorを閉じてから）
+
+```sh
+xcrun devicectl list devices            # 接続端末と名前・IDを確認
+Tools/ios-device-run.sh <端末名またはID> --dev
+```
+
+スクリプトは、Unityの書き出し → `xcodebuild`（自動署名、`-allowProvisioningUpdates`）→ `devicectl` によるインストール → 起動、の順に実行する。ログは `Logs/ios-export.log`・`Logs/xcodebuild.log`。Xcodeの派生データは `Builds/iOS-DerivedData/`（どちらもGit管理外）。`--skip-export` で書き出しを省略できる。
+
+### 初回のみ端末側で必要な操作
+
+1. 端末の「デベロッパモード」がオフの場合：設定 → プライバシーとセキュリティ → デベロッパモード をオンにして再起動する。
+2. 起動時に「信頼されていないデベロッパ」と出る場合：設定 → 一般 → VPNとデバイス管理 → デベロッパApp の Apple Development アカウントを選び「信頼」する。その後、スクリプトを `--skip-export` 付きで再実行するか、ホーム画面のアイコンから起動する。
+
+### 実機のログを見る
+
+```sh
+xcrun devicectl device process launch --device <ID> --terminate-existing --console com.satoshihashimoto52.deadlock1988
+```
+
+開発ビルドでは `[DEADLOCK][perf]` の行で平均fps・最悪フレーム時間が読める（端末の発熱は取得できない）。
