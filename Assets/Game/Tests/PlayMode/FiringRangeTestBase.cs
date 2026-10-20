@@ -32,6 +32,7 @@ namespace Deadlock.Tests
         static readonly string[] ControlKeys =
         {
             ControlSettings.TouchAdsKey, ControlSettings.DesktopAdsKey, ControlSettings.TouchAdsDragAimKey, ControlSettings.TouchFireModeKey,
+            ControlSettings.TouchTransparencyKey,
         };
 
         // Tests run against the default touch layout; a layout the user saved in the Editor is put back afterwards.

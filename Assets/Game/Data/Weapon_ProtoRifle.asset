@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponDefinition
   weaponId: proto_rifle
   displayName: PROTO RIFLE
-  viewProfile: {fileID: 11400000, guid: 869f4a554e455488f8c0a1be473ee411, type: 2}
+  viewProfile: {fileID: 11400000, guid: e58b4586754724c98b7b53561486521a, type: 2}
   damage: 25
   fireInterval: 0.1
   automatic: 1

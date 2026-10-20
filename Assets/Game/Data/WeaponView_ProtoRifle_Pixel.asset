@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 964a4c6bc2e74999a3d70a0d1d66b213, type: 3}
+  m_Name: WeaponView_ProtoRifle_Pixel
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.WeaponViewProfile
+  hipSprite: {fileID: 21300000, guid: 920e6471ce3fa406fa1a458a38a87173, type: 3}
+  adsSprite: {fileID: 21300000, guid: ed1a625b4fa984029947ea16e4ad26c0, type: 3}
+  adsMuzzleOffset: {x: 0, y: -0.08955224}
+  muzzleFlashSprite: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hipMuzzlePosition: {x: 0.09912212, y: -0.081582755}
+  referenceAspect: 1.7777778
+  hipRightEdgeFollow: 0.3
+  hipScaleAt4x3: 0.92
+  hipToAdsMuzzlePosition: {x: 0, y: -0.05}
+  adsStartOffset: {x: 0, y: -0.1}
+  crossfadeStart: 0.45
+  crossfadeEnd: 0.62
+  bobAmount: 0.006
+  bobFrequency: 1.8
+  kickOffset: {x: 0.008, y: -0.022}
+  kickRollDegrees: -2.5
+  kickScale: 0.03
+  kickRecoverSpeed: 12
+  adsKickMultiplier: 0.35
+  muzzleFlashTime: 0.045
+  hipMuzzleFlashScale: 0.32
+  adsMuzzleFlashScale: 0.35
+  reloadDrop: 0.1
+  reloadRollDegrees: 14
+  hipHoldOffset: {x: 0.22, y: -0.2}
+  adsHoldOffset: {x: 0, y: -0.3}

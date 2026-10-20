@@ -18,6 +18,8 @@ namespace Deadlock.View
         public Sprite adsSprite;
         [Tooltip("Muzzle tip relative to the ADS sprite pivot.")]
         public Vector2 adsMuzzleOffset;
+        [Tooltip("Muzzle flash sprite (optional; empty = the flash renderers keep the sprite the scene was built with).")]
+        public Sprite muzzleFlashSprite;
 
         [Header("Hip pose (baked for 16:9)")]
         [Tooltip("Where the hip sprite pivot (muzzle) sits for a 16:9 screen.")]

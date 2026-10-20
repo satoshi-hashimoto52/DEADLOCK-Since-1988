@@ -66,6 +66,10 @@ namespace Deadlock.UI
             controls = FindAnyObjectByType<TouchControls>(FindObjectsInactive.Include);
             touchWasVisible = controls.gameObject.activeSelf;
             controls.SetVisible(true); // edit the real widgets, also from desktop mode in the Editor
+            // Edit at full strength even if the controls are set to be (partly) transparent.
+            var opacity = controls.GetComponent<TouchControlsOpacity>();
+            if (opacity != null)
+                opacity.SetEditing(true);
             applier = controls.GetComponent<TouchLayoutApplier>();
             onClosed = closed;
             input.Block("layout");
@@ -162,6 +166,9 @@ namespace Deadlock.UI
         {
             IsOpen = false;
             layer.gameObject.SetActive(false);
+            var opacity = controls.GetComponent<TouchControlsOpacity>();
+            if (opacity != null)
+                opacity.SetEditing(false);
             controls.SetVisible(touchWasVisible);
             input.Unblock("layout");
             onClosed?.Invoke();

@@ -87,6 +87,36 @@ namespace Deadlock.UI
             return image;
         }
 
+        /// <summary>Horizontal slider (whole numbers between min and max).</summary>
+        public static Slider Slider(RectTransform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, float min, float max, Action<float> onChanged)
+        {
+            var rect = Place(Rect(name, parent), anchor, position, size);
+            Image(Stretch(Rect("Background", rect)), new Color(0.05f, 0.06f, 0.08f, 0.95f), true);
+            var fillArea = Stretch(Rect("Fill Area", rect));
+            fillArea.offsetMin = new Vector2(8f, 8f);
+            fillArea.offsetMax = new Vector2(-8f, -8f);
+            var fill = Stretch(Rect("Fill", fillArea));
+            Image(fill, new Color(1f, 0.75f, 0.35f, 0.9f), false);
+            var handleArea = Stretch(Rect("Handle Slide Area", rect));
+            handleArea.offsetMin = new Vector2(18f, 0f);
+            handleArea.offsetMax = new Vector2(-18f, 0f);
+            var handle = Rect("Handle", handleArea);
+            handle.sizeDelta = new Vector2(36f, 0f);
+            handle.anchorMin = new Vector2(0f, 0f);
+            handle.anchorMax = new Vector2(0f, 1f);
+            var handleImage = Image(handle, new Color(0.95f, 0.95f, 0.95f, 1f), true);
+            var slider = rect.gameObject.AddComponent<UnityEngine.UI.Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.wholeNumbers = true;
+            slider.onValueChanged.AddListener(v => onChanged(v));
+            return slider;
+        }
+
         /// <summary>Single-line text field (opens the on-screen keyboard on mobile).</summary>
         public static InputField InputField(RectTransform parent, string name, string placeholder, Vector2 anchor, Vector2 position, Vector2 size,
             int fontSize = 30, UnityEngine.UI.InputField.ContentType contentType = UnityEngine.UI.InputField.ContentType.Standard)

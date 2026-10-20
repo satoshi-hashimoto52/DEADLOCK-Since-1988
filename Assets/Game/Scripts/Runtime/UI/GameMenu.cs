@@ -34,6 +34,8 @@ namespace Deadlock.UI
         Text desktopAdsText;
         Text dragAimText;
         Text fireModeText;
+        Text transparencyText;
+        Slider transparencySlider;
         TouchLayoutEditor layoutEditor;
 
         public bool IsOpen { get; private set; }
@@ -121,13 +123,16 @@ namespace Deadlock.UI
             desktopAdsText.text = $"ADS操作方式（PC：右クリック）　現在：{ControlSettings.Label(ControlSettings.GetAdsMode(InputMode.Desktop))}";
             dragAimText.text = $"ADSボタンで照準操作（タッチ）　現在：{(ControlSettings.TouchAdsDragAim ? "ON" : "OFF")}";
             fireModeText.text = $"FIREの動作（タッチ）　現在：{ControlSettings.Label(ControlSettings.TouchFire)}";
+            int transparency = ControlSettings.TouchControlTransparency;
+            transparencyText.text = $"操作ボタンの透過率：{transparency}%　（100%でも操作は有効）";
+            transparencySlider.SetValueWithoutNotify(transparency);
         }
 
         void BuildControlSettings()
         {
             controlsPanel = UiBuild.Stretch(UiBuild.Rect("ControlSettingsPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)controlsPanel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", controlsPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 840f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", controlsPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1000f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(840f, 60f)),
                 "設定 → 操作設定", 40, TextAnchor.MiddleCenter);
@@ -150,6 +155,12 @@ namespace Deadlock.UI
             dragAimText = Row("DragAim", "ON", () => ControlSettings.TouchAdsDragAim = true, "OFF", () => ControlSettings.TouchAdsDragAim = false);
             fireModeText = Row("FireMode", "通常射撃", () => ControlSettings.TouchFire = TouchFireMode.Normal,
                 "ADS連動射撃", () => ControlSettings.TouchFire = TouchFireMode.AdsLinked);
+            // Transparency of the on-screen controls: applied as it changes, saved on the device.
+            transparencyText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("TransparencyLabel", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(900f, 40f)),
+                "", 26, TextAnchor.MiddleCenter);
+            transparencySlider = UiBuild.Slider(window, "TransparencySlider", new Vector2(0.5f, 1f), new Vector2(0f, y - 54f), new Vector2(640f, 56f), 0f, 100f,
+                v => { ControlSettings.TouchControlTransparency = Mathf.RoundToInt(v); RefreshControlSettings(); });
+            y -= 150f;
             // The PC setting is only meaningful where a mouse can be used (Editor / desktop).
             desktopAdsText = Row("DesktopAds", "長押し", () => SetAdsMode(InputMode.Desktop, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Desktop, AdsMode.Toggle));
             if (Application.isMobilePlatform)

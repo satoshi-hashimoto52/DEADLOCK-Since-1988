@@ -179,7 +179,35 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 | `Assets/Game/Data/WeaponView_ProtoRifle.asset` | スプライト・ピボット由来の値（`hipSprite`、`adsSprite`、`hipMuzzlePosition`、`adsMuzzleOffset`、`referenceAspect`）はベイクで上書き。構え・反動・揺れ・リロード動作の値は手調整用で、ベイクでは変更しない |
 | `Assets/Game/Data/Weapon_ProtoRifle.asset` | `viewProfile` の参照だけを設定する。戦闘値は変更しない |
 
-手作業で制作した武器素材に置き換えるときは `Assets/Game/Art/Weapons/` など `Generated` 以外に置き、`WeaponViewProfile` のスプライトとピボット値を差し替える（その武器ではベイクを実行しない）。生成処理は `Art/Generated` 以外を書き換えない。
+ベイクの出力は「構図・寸法の基準」として残す。実際に表示する手元武器は次のドット絵（`Assets/Game/Art/Weapons/`）。
+
+### 手元武器のドット絵（差し替え手順、D-041）
+
+| ファイル（`Assets/Game/Art/Weapons/`） | 内容 | ピボット |
+| --- | --- | --- |
+| `Spr_PixelRifleHip.png`（287×160） | ライフル腰だめ＋左手・袖。ベイク `Spr_WeaponHip` を規則でドット化 | 銃口（ベイクと同じ） |
+| `Spr_PixelRifleAds.png`（134×225） | ライフルADS。ベイク `Spr_WeaponAds` を規則でドット化 | フロントサイトの先端＝画面中央（ベイクと同じ） |
+| `Spr_PixelKnife.png`（186×169） | ナイフ＋手袋の手（手描き） | ベイク `Spr_Knife` と同じ枠・同じピボット |
+| `Spr_PixelMuzzleFlash.png`（48×48） | 銃口炎（手描き、4方向の光条） | 中央 |
+| `pixel_weapons.json` | ピボット・1単位あたりのピクセル数（取り込み設定が読む） | |
+
+- 作成：`python3 Tools/pixelart/draw_weapons.py [--preview 出力先]`（Pillowが必要。手動でのみ実行し、シーン生成・ベイクからは呼ばれない）。ライフルの2枚はベイクを元にするため、**ライフルを再ベイクしたら再実行**する。`--preview` は暗い背景・明るい背景の4倍拡大図を書き出す。
+- 1ドット＝ベイクの3ピクセル。取り込みの1単位あたりのピクセル数はベイクの1/3（386.01）、銃口炎は192（従来の256px・1024と同じ大きさ）なので、画面上の大きさ・位置は従来と同じ。
+- 取り込み（`PixelWeaponArt`、シーン生成時に実行）：Sprite・Single・Point・非圧縮・ミップマップなし・Clamp・Full Rect、ピボットと1単位あたりのピクセル数は `pixel_weapons.json` から。UIアイコンの取り込み（Bilinear）とは別。
+- 表示プロファイル：`WeaponView_ProtoRifle_Pixel.asset`・`MeleeView_ProtoKnife_Pixel.asset` をシーン生成時に作る。**構え・反動・揺れ・銃口位置などの値はベイクのプロファイル（`WeaponView_ProtoRifle.asset`・`MeleeView_ProtoKnife.asset`）から毎回写す**ので、手調整はベイク側のプロファイルで行う。差し替えるのはスプライトと銃口炎（`muzzleFlashSprite`）だけ。`Weapon_ProtoRifle`・`Melee_ProtoKnife` の `viewProfile` は、ドット絵があれば _Pixel、なければベイクのプロファイルを指す。
+- 外部制作の素材に差し替える場合：同じファイル名で上書き（.metaは残す）し、`pixel_weapons.json` のピボットを素材に合わせて直してからシーン生成を実行する。描画スクリプトを再実行すると上書きされるので、外部素材に切り替えた後はスクリプトを実行しない（または出力先 `DEADLOCK_ART_OUT` を変える）。
+
+外部制作向けの構図ガイド・必要素材（ライフルが規則によるドット化に留まっているため）：
+
+| 素材 | 寸法（1ドット＝ベイク3px） | 構図の決まり |
+| --- | --- | --- |
+| 腰だめ | 287×160前後 | 銃口が左上（ピボット）。銃はそこから右下の画面外へ伸びる。左手は銃身の下側（ハンドガード）を握り、袖が左下から入る。画面中央（照準）にかからない |
+| ADS | 134×225前後 | フロントサイト先端がピボット（画面中央・実際の弾道）。リアサイトのリングの中にフロントサイトが見える。銃口はピボットの0.0896単位下（`adsMuzzleOffset`）で、ここに銃口炎が出る |
+| ナイフ＋手 | 186×169前後 | 刃先が左上、握った手が右下。ピボットは握りの位置 |
+| 銃口炎 | 48×48（2〜3コマあると良い） | 中央が銃口。明るい芯＋光条 |
+| 追加で欲しいもの | — | リロード（弾倉を外す・入れる）の手のコマ、ナイフの振りのコマ、持ち替えのコマ、発砲時の銃の反動コマ。現在はスプライトの移動・回転だけで表現している |
+
+色は暗い外周線（暗い背景用に上側の明るい縁）、各素材4〜5段階の固まりの陰影、補間なし表示が前提。
 
 batchmode：`-batchmode -quit -executeMethod Deadlock.Editor.WeaponSpriteBaker.BakeFromCommandLine`
 

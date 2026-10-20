@@ -39,6 +39,8 @@ namespace Deadlock.View
             switcher = gun.GetComponent<WeaponSwitcher>();
             hipSprite.sprite = profile.hipSprite;
             adsSprite.sprite = profile.adsSprite;
+            if (profile.muzzleFlashSprite != null)
+                hipMuzzleFlash.sprite = adsMuzzleFlash.sprite = profile.muzzleFlashSprite;
             // Flashes sit on the muzzle of the sprite they belong to (hip pivot = muzzle).
             hipMuzzleFlash.transform.localPosition = new Vector3(0f, 0f, -0.01f);
             hipMuzzleFlash.transform.localScale = Vector3.one * profile.hipMuzzleFlashScale;

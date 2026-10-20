@@ -143,6 +143,71 @@ namespace Deadlock.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator Transparency_ScalesTheControlsOnly_StillWorksAt100_EditorShowsFull_Restored()
+        {
+            yield return LoadScene(InputMode.Touch);
+            var touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return null;
+            var opacity = Object.FindAnyObjectByType<TouchControlsOpacity>();
+            var fire = GameObject.Find("FireButton").GetComponent<TouchButton>();
+            var ads = GameObject.Find("AdsButton").GetComponent<TouchButton>();
+            var menu = Object.FindAnyObjectByType<GameMenu>();
+            var plate = fire.GetComponent<Image>();
+            float plateAlpha = plate.color.a;
+            Assert.AreEqual(1f, opacity.Alpha, "Default 0 %: the normal look");
+
+            ControlSettings.TouchControlTransparency = 50;
+            yield return null;
+            Assert.AreEqual(0.5f, opacity.Alpha, 0.001f);
+            Assert.AreEqual(plateAlpha, plate.color.a, 0.001f, "Each element keeps its own alpha (multiplied, not overwritten)");
+            ControlSettings.TouchControlTransparency = 50; // re-applying does not compound
+            Assert.AreEqual(0.5f, opacity.Alpha, 0.001f);
+            Assert.AreEqual(1f, menu.MenuButton.GetComponentInParent<CanvasGroup>() == null ? 1f : menu.MenuButton.GetComponentInParent<CanvasGroup>().alpha, "Menu button not affected");
+
+            // 100 %: invisible but working.
+            ControlSettings.TouchControlTransparency = 100;
+            yield return null;
+            Assert.AreEqual(0f, opacity.Alpha, 0.001f);
+            int shots = 0;
+            gun.Fired += () => shots++;
+            Vector2 firePoint = ScreenCenter((RectTransform)fire.transform);
+            BeginTouch(1, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.1f);
+            Assert.IsTrue(fire.IsHeld);
+            Assert.Greater(shots, 0, "FIRE works while fully transparent");
+            EndTouch(1, firePoint, queueEventOnly: true, screen: touchscreen);
+            Vector2 adsPoint = ScreenCenter((RectTransform)ads.transform);
+            BeginTouch(2, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            EndTouch(2, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.1f);
+            Assert.IsTrue(gun.AdsRequested && ads.IsLatched, "ADS state changes while transparent");
+            Assert.AreEqual(0f, opacity.Alpha, 0.001f, "State changes keep the transparency");
+
+            // Menu reachable; the layout editor shows the controls at full strength, then the saved value returns.
+            Vector2 menuPoint = ScreenCenter((RectTransform)menu.MenuButton.transform);
+            BeginTouch(3, menuPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            EndTouch(3, menuPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(menu.IsOpen);
+            menu.OpenLayoutEditor();
+            yield return null;
+            Assert.AreEqual(1f, opacity.Alpha, "Full strength while editing");
+            menu.GetComponent<TouchLayoutEditor>().CancelAndClose();
+            menu.Close();
+            yield return null;
+            Assert.AreEqual(0f, opacity.Alpha, 0.001f, "Back to the saved value");
+            Assert.AreEqual(100, ControlSettings.TouchControlTransparency);
+
+            // Next start / scene change: restored.
+            ControlSettings.TouchControlTransparency = 30;
+            yield return LoadScene(InputMode.Touch, Deadlock.Game.GameScenes.Training);
+            Assert.AreEqual(0.7f, Object.FindAnyObjectByType<TouchControlsOpacity>().Alpha, 0.001f);
+        }
+
         static ControlIconSet AssetIcons()
         {
             var controls = Object.FindAnyObjectByType<TouchControls>(FindObjectsInactive.Include);

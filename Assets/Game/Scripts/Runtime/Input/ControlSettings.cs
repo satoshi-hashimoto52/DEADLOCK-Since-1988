@@ -34,6 +34,7 @@ namespace Deadlock.Input
         public const string DesktopAdsKey = "deadlock.controls.adsMode.desktop";
         public const string TouchAdsDragAimKey = "deadlock.controls.touch.adsDragAim";
         public const string TouchFireModeKey = "deadlock.controls.touch.fireMode";
+        public const string TouchTransparencyKey = "deadlock.controls.touch.transparency";
         /// <summary>Default for the PC right button (unchanged).</summary>
         public const AdsMode DefaultAdsMode = AdsMode.Hold;
         /// <summary>Default for the touch ADS button: sights on / off.</summary>
@@ -96,6 +97,16 @@ namespace Deadlock.Input
             set => SetInt(TouchFireModeKey, (int)value);
         }
 
+        /// <summary>
+        /// Touch: transparency of the on-screen controls in percent (0 = normal look, 100 = invisible but still
+        /// working). Default 0. Applies to the attack / ADS / reload / jump / posture / weapon buttons and the move stick.
+        /// </summary>
+        public static int TouchControlTransparency
+        {
+            get => Mathf.Clamp(GetInt(TouchTransparencyKey, 0), 0, 100);
+            set => SetInt(TouchTransparencyKey, Mathf.Clamp(value, 0, 100));
+        }
+
         static int GetInt(string key, int fallback)
         {
             try { return PlayerPrefs.GetInt(key, fallback); }
@@ -125,6 +136,7 @@ namespace Deadlock.Input
             PlayerPrefs.DeleteKey(DesktopAdsKey);
             PlayerPrefs.DeleteKey(TouchAdsDragAimKey);
             PlayerPrefs.DeleteKey(TouchFireModeKey);
+            PlayerPrefs.DeleteKey(TouchTransparencyKey);
         }
 
         public static string Label(TouchFireMode mode) => mode == TouchFireMode.AdsLinked ? "ADS連動射撃" : "通常射撃";

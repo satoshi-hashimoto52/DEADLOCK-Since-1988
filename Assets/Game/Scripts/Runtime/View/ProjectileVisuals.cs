@@ -109,17 +109,37 @@ namespace Deadlock.View
             }
         }
 
+        static Mesh quadMesh;
+
+        /// <summary>1 x 1 quad facing -Z (same as Unity's built-in quad), shared by every impact mark.</summary>
+        static Mesh QuadMesh
+        {
+            get
+            {
+                if (quadMesh != null)
+                    return quadMesh;
+                quadMesh = new Mesh { name = "ImpactQuad" };
+                quadMesh.SetVertices(new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.5f, 0.5f, 0f) });
+                quadMesh.SetUVs(0, new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) });
+                quadMesh.SetNormals(new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back });
+                quadMesh.SetTriangles(new[] { 0, 3, 1, 3, 0, 2 }, 0);
+                quadMesh.RecalculateBounds();
+                return quadMesh;
+            }
+        }
+
         void SpawnImpact(Vector3 point, Vector3 normal, Material material)
         {
             if (material == null)
                 return;
-            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Destroy(quad.GetComponent<Collider>());
-            quad.name = "Impact";
+            // Built directly (not GameObject.CreatePrimitive): a primitive quad comes with a MeshCollider, and in
+            // device builds the unused MeshCollider class is stripped, so CreatePrimitive logged an error per impact.
+            var quad = new GameObject("Impact");
+            quad.AddComponent<MeshFilter>().sharedMesh = QuadMesh;
+            var renderer = quad.AddComponent<MeshRenderer>();
             quad.transform.SetParent(transform, true);
             quad.transform.SetPositionAndRotation(point + normal * 0.01f, Quaternion.LookRotation(-normal));
             quad.transform.localScale = Vector3.one * impactSize;
-            var renderer = quad.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             impacts.Enqueue((quad.transform, Time.time + impactLifetime));

@@ -159,10 +159,14 @@ namespace Deadlock.Editor
         static (WeaponDefinition, MeleeDefinition) LoadDefinitions()
         {
             WeaponDefinition weapon = LoadOrCreateWeapon();
-            weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
+            // Authored pixel art (Assets/Game/Art/Weapons) when present; the baked sprites otherwise.
+            var (rifleView, knifeView) = PixelWeaponArt.Prepare(
+                AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath),
+                AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
+            weapon.viewProfile = rifleView;
             EditorUtility.SetDirty(weapon);
             MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
-            melee.viewProfile = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath);
+            melee.viewProfile = knifeView;
             EditorUtility.SetDirty(melee);
             return (weapon, melee);
         }
@@ -732,6 +736,8 @@ namespace Deadlock.Editor
             Stretch(root);
             var controls = root.gameObject.AddComponent<TouchControls>();
             root.gameObject.AddComponent<TouchLayoutApplier>(); // positions the widgets from the saved / default layout
+            root.gameObject.AddComponent<CanvasGroup>();
+            root.gameObject.AddComponent<TouchControlsOpacity>(); // "control transparency" setting (display only)
 
             var look = Rect("LookArea", root);
             Stretch(look);

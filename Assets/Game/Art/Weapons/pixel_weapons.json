@@ -1,0 +1,52 @@
+{
+  "sprites": [
+    {
+      "name": "Spr_PixelRifleHip",
+      "size": [
+        287,
+        160
+      ],
+      "pivot": [
+        0.019474197,
+        0.92817587
+      ],
+      "source": "traced from Spr_WeaponHip"
+    },
+    {
+      "name": "Spr_PixelRifleAds",
+      "size": [
+        134,
+        225
+      ],
+      "pivot": [
+        0.47029704,
+        0.8
+      ],
+      "source": "traced from Spr_WeaponAds"
+    },
+    {
+      "name": "Spr_PixelKnife",
+      "size": [
+        186,
+        169
+      ],
+      "pivot": [
+        0.48323926,
+        0.20896716
+      ]
+    },
+    {
+      "name": "Spr_PixelMuzzleFlash",
+      "size": [
+        48,
+        48
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "pixelsPerUnit": 386.01123333333334,
+  "flashPixelsPerUnit": 192.0
+}
