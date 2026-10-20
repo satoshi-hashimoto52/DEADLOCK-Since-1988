@@ -22,6 +22,7 @@ MonoBehaviour:
   hipRightEdgeFollowNarrow: 0.3
   hipScaleAt4x3: 0.92
   hipToAdsMuzzlePosition: {x: 0, y: -0.05}
+  hipToAdsRelative: 0
   adsStartOffset: {x: 0, y: -0.1}
   crossfadeStart: 0.45
   crossfadeEnd: 0.62

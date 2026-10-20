@@ -35,6 +35,8 @@ namespace Deadlock.View
         [Header("Hip → ADS transition")]
         [Tooltip("Where the hip muzzle travels to while raising the sights.")]
         public Vector2 hipToAdsMuzzlePosition = new Vector2(0.0f, -0.05f);
+        [Tooltip("On: hipToAdsMuzzlePosition is an offset from the hip place (e.g. straight down), so a large hip image keeps its edges off the screen while raising the sights.")]
+        public bool hipToAdsRelative;
         [Tooltip("ADS sprite start offset (below its final place).")]
         public Vector2 adsStartOffset = new Vector2(0f, -0.10f);
         [Range(0f, 1f)] public float crossfadeStart = 0.45f;

@@ -87,13 +87,15 @@ namespace Deadlock.Editor
 
         // ---- approved hip art (Assets/Game/Art/Weapons/Rifle) ---------------------------------------------------------
 
-        public const string ApprovedHipPath = Folder + "/Rifle/rifle_hip_approved.png";
+        public const string RifleFolder = Folder + "/Rifle";
+        public const string ApprovedHipPath = RifleFolder + "/rifle_hip_approved.png";
         public const string ApprovedHipPlacementPath = Folder + "/Rifle/rifle_hip_approved.placement.json";
         static readonly float HalfHeight = Mathf.Tan(25f * Mathf.Deg2Rad); // view-model camera, z = 1
 
         [Serializable]
         class HipPlacement
         {
+            public string image;              // image to import (e.g. the alpha-cleaned derivative); empty = the original
             public float[] muzzle;            // muzzle tip, pixels from the top-left (the flash sits here)
             public float[] hold;              // hold point (kick / reload turn around it), pixels from the top-left
             public float screenHeightPixels;  // how many image pixels make the full screen height (sets the size)
@@ -103,6 +105,7 @@ namespace Deadlock.Editor
             public float hipRightEdgeFollowNarrow;
             public float hipScaleAt4x3;
             public float hipMuzzleFlashScale;
+            public float[] hipToAds;          // optional: hip move while raising the sights, offset in units (relative)
         }
 
         /// <summary>
@@ -114,18 +117,21 @@ namespace Deadlock.Editor
         /// </summary>
         static void ApplyApprovedHip(WeaponViewProfile rifle)
         {
-            if (!File.Exists(ApprovedHipPath) || !File.Exists(ApprovedHipPlacementPath))
+            if (!File.Exists(ApprovedHipPlacementPath))
                 return;
             var place = JsonUtility.FromJson<HipPlacement>(File.ReadAllText(ApprovedHipPlacementPath));
-            AssetDatabase.ImportAsset(ApprovedHipPath);
-            var importer = AssetImporter.GetAtPath(ApprovedHipPath) as TextureImporter;
+            string path = string.IsNullOrEmpty(place.image) ? ApprovedHipPath : $"{RifleFolder}/{place.image}";
+            if (!File.Exists(path))
+                return;
+            AssetDatabase.ImportAsset(path);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null)
                 return;
             importer.GetSourceTextureWidthAndHeight(out int width, out int height);
             float ppu = place.screenHeightPixels / (2f * HalfHeight);
             var pivot = new Vector2(place.muzzle[0] / width, 1f - place.muzzle[1] / height);
-            Configure(ApprovedHipPath, pivot, ppu, 2048);
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(ApprovedHipPath);
+            Configure(path, pivot, ppu, 2048);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null)
                 return;
             rifle.hipSprite = sprite;
@@ -140,14 +146,20 @@ namespace Deadlock.Editor
             rifle.hipScaleAt4x3 = place.hipScaleAt4x3;
             if (place.hipMuzzleFlashScale > 0f)
                 rifle.hipMuzzleFlashScale = place.hipMuzzleFlashScale;
+            if (place.hipToAds != null && place.hipToAds.Length == 2)
+            {
+                rifle.hipToAdsMuzzlePosition = new Vector2(place.hipToAds[0], place.hipToAds[1]);
+                rifle.hipToAdsRelative = true;
+            }
         }
 
-        public const string ApprovedAdsPath = Folder + "/Rifle/rifle_ads_approved.png";
+        public const string ApprovedAdsPath = RifleFolder + "/rifle_ads_approved.png";
         public const string ApprovedAdsPlacementPath = Folder + "/Rifle/rifle_ads_approved.placement.json";
 
         [Serializable]
         class AdsPlacement
         {
+            public string image;              // image to import (e.g. the alpha-cleaned derivative); empty = the original
             public float[] aim;               // front-sight tip = pivot = screen centre, pixels from the top-left
             public float[] muzzle;            // flash reference (the flash is drawn in front of the sprite)
             public float[] hold;              // optional: turn point for kick / reload, pixels from the top-left
@@ -161,17 +173,20 @@ namespace Deadlock.Editor
         /// </summary>
         static void ApplyApprovedAds(WeaponViewProfile rifle)
         {
-            if (!File.Exists(ApprovedAdsPath) || !File.Exists(ApprovedAdsPlacementPath))
+            if (!File.Exists(ApprovedAdsPlacementPath))
                 return;
             var place = JsonUtility.FromJson<AdsPlacement>(File.ReadAllText(ApprovedAdsPlacementPath));
-            AssetDatabase.ImportAsset(ApprovedAdsPath);
-            var importer = AssetImporter.GetAtPath(ApprovedAdsPath) as TextureImporter;
+            string path = string.IsNullOrEmpty(place.image) ? ApprovedAdsPath : $"{RifleFolder}/{place.image}";
+            if (!File.Exists(path))
+                return;
+            AssetDatabase.ImportAsset(path);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null)
                 return;
             importer.GetSourceTextureWidthAndHeight(out int width, out int height);
             float ppu = place.screenHeightPixels / (2f * HalfHeight);
-            Configure(ApprovedAdsPath, new Vector2(place.aim[0] / width, 1f - place.aim[1] / height), ppu, 4096);
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(ApprovedAdsPath);
+            Configure(path, new Vector2(place.aim[0] / width, 1f - place.aim[1] / height), ppu, 4096);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null)
                 return;
             rifle.adsSprite = sprite;

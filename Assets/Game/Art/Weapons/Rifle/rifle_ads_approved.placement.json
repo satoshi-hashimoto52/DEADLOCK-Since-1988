@@ -1,7 +1,9 @@
 {
-  "note": "Placement for rifle_ads_approved.png (to be made; see docs/review/weapon-art-20261020/approved-rifle/README.md). Read by PixelWeaponArt only when the PNG exists. Canvas 2400x1200, pixel coordinates from the top-left. hold = the current adsHoldOffset (0, -0.3 units).",
-  "aim": [1200, 522],
-  "muzzle": [1200, 622],
-  "hold": [1200, 858],
-  "screenHeightPixels": 1044
+  "note": "Placement of the approved ADS image (read by PixelWeaponArt). Image 1774x887, pixel coordinates from the top-left. aim = top of the centre front-sight post silhouette (post x 872-902, top row y 390) = screen centre. muzzle = flash reference at the front-sight base, on the bore line below the post (the muzzle itself is hidden). screenHeightPixels 772 = the guide's 1044 px per screen at the image's 0.739 scale (keeps the bottom margin for reload / kick). hold = aim + 0.3 units. source = the approved original; image = the alpha-cleaned derivative.",
+  "source": "rifle_ads_approved.png",
+  "image": "rifle_ads_approved_opaque.png",
+  "aim": [887, 390],
+  "muzzle": [887, 436],
+  "hold": [887, 638.33],
+  "screenHeightPixels": 772
 }

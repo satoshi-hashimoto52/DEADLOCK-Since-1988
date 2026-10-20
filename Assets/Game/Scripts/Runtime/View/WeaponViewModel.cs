@@ -116,7 +116,8 @@ namespace Deadlock.View
             Vector2 shared = bob + kickOffset + reloadOffset + holster;
 
             Vector2 hipRest = p.hipMuzzlePosition + new Vector2(edgeShift, 0f);
-            Vector2 hip = Vector2.Lerp(hipRest, p.hipToAdsMuzzlePosition, t) + shared;
+            Vector2 hipTarget = p.hipToAdsRelative ? hipRest + p.hipToAdsMuzzlePosition : p.hipToAdsMuzzlePosition;
+            Vector2 hip = Vector2.Lerp(hipRest, hipTarget, t) + shared;
             Place(hipSprite.transform, hip, p.hipHoldOffset * hipScale, rotation, hipScale * scale);
 
             Vector2 ads = Vector2.Lerp(p.adsStartOffset, Vector2.zero, t) + shared;
