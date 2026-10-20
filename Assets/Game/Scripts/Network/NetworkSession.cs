@@ -240,8 +240,8 @@ namespace Deadlock.Network
             string message;
             if (State == SessionState.Connected)
                 message = reason.Contains("shutting down") ? "ホストが終了しました" : "ホストとの接続が切れました（ホストの終了または通信の途絶）";
-            else if (!string.IsNullOrEmpty(reason))
-                message = $"接続を拒否されました：{reason}";
+            else if (!string.IsNullOrEmpty(reason) && !reason.Contains("MaxConnectionAttempts"))
+                message = $"接続を拒否されました：{reason}"; // approval refused (full, version)
             else
                 message = $"接続できませんでした（{HostAddress}:{port}）。ホストが開始済みか、同じWi-Fiか、IPアドレス、ローカルネットワークの許可を確認してください";
             if (manager.IsListening)

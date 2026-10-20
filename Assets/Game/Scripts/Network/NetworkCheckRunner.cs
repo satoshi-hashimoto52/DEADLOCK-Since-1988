@@ -15,7 +15,9 @@ namespace Deadlock.Network
 {
     /// <summary>
     /// Automated two-process / two-device check of the online prototype. Inactive unless the app is launched with
-    /// <c>-netCheck host</c> or <c>-netCheck client -netHost &lt;address&gt;</c>.
+    /// <c>-netCheck host</c> or <c>-netCheck client -netHost &lt;address&gt;</c>. iOS apps do not receive launch
+    /// arguments, so the same values are also read from the environment variables DEADLOCK_NETCHECK,
+    /// DEADLOCK_NETHOST and DEADLOCK_NETCHECK_TIMELIMIT (e.g. <c>xcrun devicectl device process launch -e ...</c>).
     /// The host drives a fixed scenario: it plays its own player through injected input and tells the client what to
     /// do over the network (<see cref="AvatarCheckChannel"/>); both sides check what they actually see and log
     /// "NETCHECK PASS|FAIL name detail" lines and a final "NETCHECK RESULT" line. Players act through the same paths
@@ -57,15 +59,16 @@ namespace Deadlock.Network
         static void Boot()
         {
             string[] args = Environment.GetCommandLineArgs();
-            string mode = Arg(args, "-netCheck");
+            string mode = Arg(args, "-netCheck") ?? Environment.GetEnvironmentVariable("DEADLOCK_NETCHECK");
             if (mode != "host" && mode != "client")
                 return;
             var go = new GameObject("NetworkCheckRunner");
             DontDestroyOnLoad(go);
             var runner = go.AddComponent<NetworkCheckRunner>();
             runner.role = mode;
-            runner.hostAddress = Arg(args, "-netHost") ?? runner.hostAddress;
-            if (float.TryParse(Arg(args, "-netCheckTimeLimit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float limit))
+            runner.hostAddress = Arg(args, "-netHost") ?? Environment.GetEnvironmentVariable("DEADLOCK_NETHOST") ?? runner.hostAddress;
+            string limitText = Arg(args, "-netCheckTimeLimit") ?? Environment.GetEnvironmentVariable("DEADLOCK_NETCHECK_TIMELIMIT");
+            if (float.TryParse(limitText, NumberStyles.Float, CultureInfo.InvariantCulture, out float limit))
                 runner.timeLimit = limit;
         }
 
