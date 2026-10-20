@@ -14,8 +14,8 @@
     "left.glove_body": 14911,
     "left.glove_reinforcement": 0,
     "left.wrist_band": 2732,
-    "left.sleeve_base": 27365,
-    "left.sleeve_camo": 26968,
+    "left.sleeve_base": 27494,
+    "left.sleeve_camo": 26839,
     "right.glove_body": 12703,
     "right.glove_reinforcement": 0,
     "right.wrist_band": 0,
@@ -115,5 +115,9 @@
       "to": "left"
     }
   ],
-  "darkFillPixelsAddedToMasks": 2143
+  "darkFillPixelsAddedToMasks": 2143,
+  "sleeveSpecklePixelsMoved": {
+    "sleeve_base->sleeve_camo": 54,
+    "sleeve_camo->sleeve_base": 183
+  }
 }

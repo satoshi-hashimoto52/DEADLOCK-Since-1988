@@ -224,6 +224,8 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 
 ADS（2026-10-21）：`Assets/Game/Art/Weapons/Rifle/Layers/ADS/`（`rifle_ads_weapon.png`・`rifle_ads_left_hand_arm.png`・`rifle_ads_right_hand_arm.png`、`Masks/rifle_ads_*`、定義 `rifle_ads_layers.definition.json`）。手の範囲・色の規則・輪郭の太さ・黒い線の値はADSの画像で測って決める（腰だめの値は使わない）。確認資料 `docs/review/player-parts/rifle-ads/`。確認画像は `python3 Tools/pixelart/review_layers.py 定義 出力先 "名前=手:マスク=色相,彩度;…"` でまとめて作れる（分類画像、定義の `review.areas` の接触部の拡大、マスク図、色替え例）。
 
+袖の地色・迷彩のマスクは、1ドット未満（16画素未満）の欠片を反対側のマスクへ移して斑点を防ぐ（定義の `sleeveCamo.speckleMaxPixels`）。新しい配色は、対照的な色（例：黄土と紺）で斑点や漏れがないか確認する。
+
 分類の方針：手と銃の間の黒い線は手前の手のもの。腰だめの右手の指の間の灰色は銃（グリップ側）とする（材質を断定したものではない制作上の方針）。
 
 制約：手に隠れた銃・銃に隠れた指は描かれていない。形の違うスキン（指ぬきグローブなど）は色替えでは作れず、この構えに合わせて描いた手・腕の素材と、隠れていた部分を描き足した銃のレイヤーが必要。掌の補強は今の画像では判別できない（マスクは空）。

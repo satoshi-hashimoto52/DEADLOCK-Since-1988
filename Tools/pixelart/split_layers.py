@@ -309,7 +309,44 @@ def split(definition):
                         masks[hand][owner[(u, v)]].add((X, Y))
                         dark_fill += 1
                         q.append((X, Y))
-    return img, part, masks, cells, {"cellOverrides": override_log, "pixelOverrides": pixel_log, "unreachedOutline": unreached, "orphanPiecesMoved": orphan_log, "darkFillPixelsAddedToMasks": dark_fill}
+    # Sleeve speckles: a base / camo piece (4-connected) smaller than sleeveCamo.speckleMaxPixels is threshold noise,
+    # not a painted camo shape (one art dot is about 4x4 pixels); it joins the other sleeve mask. Repeated until stable.
+    speckle = sleeve_rule.get("speckleMaxPixels", 0)
+    speckle_moved = {"sleeve_base->sleeve_camo": 0, "sleeve_camo->sleeve_base": 0}
+    if speckle:
+        for hand in hands:
+            for _ in range(4):
+                changed = 0
+                for src, dst in (("sleeve_camo", "sleeve_base"), ("sleeve_base", "sleeve_camo")):
+                    pts = masks[hand][src]
+                    seen = set()
+                    for start in list(pts):
+                        if start in seen:
+                            continue
+                        comp = [start]
+                        seen.add(start)
+                        i = 0
+                        while i < len(comp):
+                            u, v = comp[i]
+                            i += 1
+                            for du, dv in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                                q_ = (u + du, v + dv)
+                                if q_ in pts and q_ not in seen:
+                                    seen.add(q_)
+                                    comp.append(q_)
+                        if len(comp) >= speckle:
+                            continue
+                        touches_other = any((u + du, v + dv) in masks[hand][dst] for (u, v) in comp for du, dv in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                        if not touches_other:
+                            continue
+                        for q_ in comp:
+                            pts.discard(q_)
+                            masks[hand][dst].add(q_)
+                        speckle_moved[f"{src}->{dst}"] += len(comp)
+                        changed += 1
+                if not changed:
+                    break
+    return img, part, masks, cells, {"cellOverrides": override_log, "pixelOverrides": pixel_log, "unreachedOutline": unreached, "orphanPiecesMoved": orphan_log, "darkFillPixelsAddedToMasks": dark_fill, "sleeveSpecklePixelsMoved": speckle_moved}
 
 
 def write_outputs(definition, img, part, masks, force):

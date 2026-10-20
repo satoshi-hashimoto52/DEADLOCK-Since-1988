@@ -47,7 +47,7 @@
         "notWhiteOpaque": 0
       },
       "sleeve_base": {
-        "pixels": 35133,
+        "pixels": 35447,
         "outsideHandLayer": 0,
         "onWeapon": 0,
         "onOutline": 0,
@@ -55,7 +55,7 @@
         "notWhiteOpaque": 0
       },
       "sleeve_camo": {
-        "pixels": 21630,
+        "pixels": 21316,
         "outsideHandLayer": 0,
         "onWeapon": 0,
         "onOutline": 0,

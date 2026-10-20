@@ -35,5 +35,5 @@
     {"seed": [950, 638], "part": "left", "tags": ["glove"], "why": "single edge pixel of the left glove next to the band"}
   ],
   "pixelOverrides": [],
-  "sleeveCamo": {"window": 24, "sampleStep": 8, "lightPercentile": 0.8, "darkerBy": 0.07}
+  "sleeveCamo": {"window": 24, "sampleStep": 8, "lightPercentile": 0.8, "darkerBy": 0.07, "speckleMaxPixels": 16}
 }

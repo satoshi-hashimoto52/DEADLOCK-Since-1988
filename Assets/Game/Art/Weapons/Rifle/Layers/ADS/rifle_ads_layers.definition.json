@@ -32,7 +32,7 @@
   "pixelOverrides": [
     {"polygon": [[695, 700], [710, 688], [722, 688], [728, 698], [742, 722], [743, 746], [735, 746], [722, 725], [705, 716], [695, 712]], "part": "left", "why": "shadowed face of the wrist band (dark fill, max channel 30-45) below the glove: farther than outlineWidth from the band cell, so the distance rule gave it to the gun; it is the band's own face continuing down-right to its tip"}
   ],
-  "sleeveCamo": {"window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05},
+  "sleeveCamo": {"window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05, "speckleMaxPixels": 16},
   "review": {
     "crop": [260, 360, 1320, 887],
     "areas": [
