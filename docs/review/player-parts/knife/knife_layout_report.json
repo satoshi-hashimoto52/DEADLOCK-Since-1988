@@ -1,0 +1,51 @@
+{
+  "canvas": [
+    2400,
+    1500
+  ],
+  "dot": 4,
+  "grip": [
+    640,
+    600
+  ],
+  "pixelsPerUnit": 1120.505,
+  "bladeTip": [
+    402,
+    235
+  ],
+  "wrist": [
+    770,
+    770
+  ],
+  "bladeFromCurrentSpriteUnits": [
+    -0.2121,
+    0.3256
+  ],
+  "everVisibleArea": {
+    "minX": 0,
+    "maxX": 1736,
+    "minY": 0,
+    "maxY": 1472
+  },
+  "cutEdgeVisiblePoses": [],
+  "profile": {
+    "gripPosition": [
+      0.42499995,
+      -0.37499997
+    ],
+    "referenceAspect": 1.7777778,
+    "rightEdgeFollow": 0.5,
+    "windupOffset": [
+      0.12,
+      0.06
+    ],
+    "windupRoll": -30.0,
+    "strikeOffset": [
+      -0.46,
+      0.12
+    ],
+    "strikeRoll": 60.0,
+    "strikeScale": 1.2,
+    "lowered": 0.35
+  }
+}
