@@ -1,0 +1,7 @@
+{
+  "note": "Placement for rifle_ads_approved.png (to be made; see docs/review/weapon-art-20261020/approved-rifle/README.md). Read by PixelWeaponArt only when the PNG exists. Canvas 2400x1200, pixel coordinates from the top-left. hold = the current adsHoldOffset (0, -0.3 units).",
+  "aim": [1200, 522],
+  "muzzle": [1200, 622],
+  "hold": [1200, 858],
+  "screenHeightPixels": 1044
+}

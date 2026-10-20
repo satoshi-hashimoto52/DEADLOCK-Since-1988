@@ -43,7 +43,7 @@ namespace Deadlock.Tests
             var view = weapon.viewProfile;
             Assert.AreEqual("WeaponView_ProtoRifle_Pixel", view.name);
             Assert.AreEqual("MeleeView_ProtoKnife_Pixel", melee.viewProfile.name);
-            Assert.AreEqual($"{Folder}/Spr_PixelRifleHip.png", AssetDatabase.GetAssetPath(view.hipSprite));
+            Assert.AreEqual(ApprovedHip, AssetDatabase.GetAssetPath(view.hipSprite), "The approved hip image replaces the hip sprite");
             Assert.AreEqual($"{Folder}/Spr_PixelRifleAds.png", AssetDatabase.GetAssetPath(view.adsSprite));
             Assert.AreEqual($"{Folder}/Spr_PixelMuzzleFlash.png", AssetDatabase.GetAssetPath(view.muzzleFlashSprite));
             Assert.AreEqual($"{Folder}/Spr_PixelKnife.png", AssetDatabase.GetAssetPath(melee.viewProfile.sprite));
@@ -54,11 +54,43 @@ namespace Deadlock.Tests
             float halfPixel = 0.5f / view.adsSprite.pixelsPerUnit;
             Assert.AreEqual(baked.adsMuzzleOffset.x, view.adsMuzzleOffset.x, halfPixel);
             Assert.AreEqual(baked.adsMuzzleOffset.y, view.adsMuzzleOffset.y, halfPixel);
-            Assert.AreEqual(baked.hipMuzzlePosition, view.hipMuzzlePosition);
             Assert.AreEqual(baked.kickOffset, view.kickOffset);
             Assert.AreEqual(bakedMelee.gripPosition, melee.viewProfile.gripPosition);
-            AssertSameFrame(baked.hipSprite, view.hipSprite);
             AssertSameFrame(baked.adsSprite, view.adsSprite);
+        }
+
+        const string ApprovedHip = Folder + "/Rifle/rifle_hip_approved.png";
+
+        [Test]
+        public void ApprovedHip_IsImportedCrisp_PivotOnTheMuzzle_AnchoredBottomRight()
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(ApprovedHip);
+            Assert.AreEqual(FilterMode.Point, importer.filterMode);
+            Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
+            Assert.IsFalse(importer.mipmapEnabled);
+            Assert.GreaterOrEqual(importer.maxTextureSize, 2048, "Not downscaled (1672 px wide)");
+
+            var view = AssetDatabase.LoadAssetAtPath<WeaponDefinition>("Assets/Game/Data/Weapon_ProtoRifle.asset").viewProfile;
+            var sprite = view.hipSprite;
+            Assert.AreEqual(1672, sprite.rect.width);
+            Assert.AreEqual(941, sprite.rect.height);
+            // Pivot = muzzle tip (972, 443 from the top-left): the flash sits on the muzzle.
+            Assert.AreEqual(972f, sprite.pivot.x, 0.5f);
+            Assert.AreEqual(941f - 443f, sprite.pivot.y, 0.5f);
+
+            // At 16:9 the image's bottom-right is the screen's bottom-right, lowered by 0.05 (arms continue off-screen).
+            float half = Mathf.Tan(25f * Mathf.Deg2Rad);
+            Vector2 muzzle = view.hipMuzzlePosition;
+            float right = muzzle.x + sprite.bounds.max.x;
+            float bottom = muzzle.y + sprite.bounds.min.y;
+            Assert.AreEqual(half * view.referenceAspect, right, 0.002f);
+            Assert.AreEqual(-half - 0.05f, bottom, 0.002f);
+            // The screen centre (aim) stays clear: the muzzle is right of and below it.
+            Assert.Greater(muzzle.x, 0.15f);
+            Assert.Less(muzzle.y, -0.05f);
+            Assert.AreEqual(1f, view.hipRightEdgeFollow, "Wider screens: glued to the right edge");
+            Assert.AreEqual(0f, view.hipRightEdgeFollowNarrow, "4:3: not pulled toward the centre");
+            Assert.AreEqual(1f, view.hipScaleAt4x3, "4:3: not shrunk (the arms would lift off the bottom)");
         }
 
         /// <summary>World-space size and pivot match within one art pixel (the art is a third of the bake's resolution).</summary>

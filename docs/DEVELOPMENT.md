@@ -183,6 +183,8 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 
 ### 手元武器のドット絵（差し替え手順、D-041）
 
+**採用ライフル（2026-10-20）**：腰だめは `Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`（ユーザー採用の画像。どのツールも書き換えない）を使う。大きさ・位置は同じフォルダの `rifle_hip_approved.placement.json`（銃口・持つ位置のpx座標、画面の高さに当たるpx、16:9での右下合わせと下げ幅、画面の縦横比ごとの右端追従）で決まり、`PixelWeaponArt` がシーン生成時に取り込む（Point・非圧縮・最大2048px・ピボット＝銃口）。ADSは `rifle_ads_approved.png` を置けば同じように取り込まれる（設定 `rifle_ads_approved.placement.json` は用意済み、画像は未制作）。ガイドと制作依頼文は `docs/review/weapon-art-20261020/approved-rifle/README.md`、ガイドの再作成は `python3 Tools/pixelart/make_ads_guide.py 出力先 [ゲーム画面のフォルダ]`。以下の表の `Spr_PixelRifleHip.png` は、採用画像がある間は使われない（暫定版として残す）。
+
 | ファイル（`Assets/Game/Art/Weapons/`） | 現在の内容 | キャンバス | 基準点（キャンバス左上からのドット座標） |
 | --- | --- | --- | --- |
 | `Spr_PixelRifleHip.png` | ライフル腰だめ＋左手・袖（ベイク `Spr_WeaponHip` の縮小・減色） | 287×160 | ピボット＝銃口 (5.6, 11.5)。持つ位置（回転の中心）(90.5, 88.7)。手首（グローブと袖の境）(55, 127)付近 |

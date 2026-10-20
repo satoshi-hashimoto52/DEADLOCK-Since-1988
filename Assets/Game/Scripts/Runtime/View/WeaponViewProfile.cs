@@ -25,8 +25,10 @@ namespace Deadlock.View
         [Tooltip("Where the hip sprite pivot (muzzle) sits for a 16:9 screen.")]
         public Vector2 hipMuzzlePosition = new Vector2(0.06f, -0.12f);
         public float referenceAspect = 16f / 9f;
-        [Tooltip("How much the hip weapon follows the right screen edge when the screen is narrower/wider than the reference (0 = stays, 1 = glued to edge).")]
+        [Tooltip("How much the hip weapon follows the right screen edge when the screen is wider than the reference (0 = stays, 1 = glued to edge).")]
         [Range(0f, 1f)] public float hipRightEdgeFollow = 0.3f;
+        [Tooltip("The same for screens narrower than the reference (iPad 4:3). 0 = keep the 16:9 place and let the right side run off the screen.")]
+        [Range(0f, 1f)] public float hipRightEdgeFollowNarrow = 0.3f;
         [Tooltip("Hip sprite scale at 4:3 relative to the reference aspect (keeps the centre clear on iPad).")]
         [Range(0.5f, 1f)] public float hipScaleAt4x3 = 0.92f;
 

@@ -90,7 +90,8 @@ namespace Deadlock.View
 
             // Keep the hip weapon in the lower right on narrower (iPad 4:3) and wider (tall-phone) screens.
             float aspect = worldCamera.aspect;
-            float edgeShift = (aspect - p.referenceAspect) * HalfHeight * p.hipRightEdgeFollow;
+            float follow = aspect < p.referenceAspect ? p.hipRightEdgeFollowNarrow : p.hipRightEdgeFollow;
+            float edgeShift = (aspect - p.referenceAspect) * HalfHeight * follow;
             float narrow = Mathf.InverseLerp(p.referenceAspect, 4f / 3f, aspect);
             float hipScale = Mathf.Lerp(1f, p.hipScaleAt4x3, narrow);
 

@@ -19,6 +19,7 @@ MonoBehaviour:
   hipMuzzlePosition: {x: 0.09912212, y: -0.081582755}
   referenceAspect: 1.7777778
   hipRightEdgeFollow: 0.3
+  hipRightEdgeFollowNarrow: 0.3
   hipScaleAt4x3: 0.92
   hipToAdsMuzzlePosition: {x: 0, y: -0.05}
   adsStartOffset: {x: 0, y: -0.1}

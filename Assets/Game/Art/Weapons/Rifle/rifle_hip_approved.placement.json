@@ -1,0 +1,12 @@
+{
+  "note": "Placement of rifle_hip_approved.png (read by PixelWeaponArt). Pixel coordinates from the image's top-left. Written by hand, not by any tool. At 16:9 the image's bottom-right sits on the screen's bottom-right, lowered by offset; wider screens follow the right edge, narrower (4:3) keep the place and let the stock run off the right edge.",
+  "muzzle": [972, 443],
+  "hold": [1260, 880],
+  "screenHeightPixels": 1045,
+  "anchorAspect": 0,
+  "offset": [0, -0.05],
+  "hipRightEdgeFollow": 1.0,
+  "hipRightEdgeFollowNarrow": 0.0,
+  "hipScaleAt4x3": 1.0,
+  "hipMuzzleFlashScale": 0.4
+}

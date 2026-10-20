@@ -12,14 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 964a4c6bc2e74999a3d70a0d1d66b213, type: 3}
   m_Name: WeaponView_ProtoRifle_Pixel
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.WeaponViewProfile
-  hipSprite: {fileID: 21300000, guid: 920e6471ce3fa406fa1a458a38a87173, type: 3}
+  hipSprite: {fileID: 21300000, guid: ed5a7514fe0534fb0b16d12500e820ea, type: 3}
   adsSprite: {fileID: 21300000, guid: ed1a625b4fa984029947ea16e4ad26c0, type: 3}
   adsMuzzleOffset: {x: -0.000000012661758, y: -0.08955232}
   muzzleFlashSprite: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
-  hipMuzzlePosition: {x: 0.09912212, y: -0.081582755}
+  hipMuzzlePosition: {x: 0.20427303, y: -0.071865164}
   referenceAspect: 1.7777778
-  hipRightEdgeFollow: 0.3
-  hipScaleAt4x3: 0.92
+  hipRightEdgeFollow: 1
+  hipRightEdgeFollowNarrow: 0
+  hipScaleAt4x3: 1
   hipToAdsMuzzlePosition: {x: 0, y: -0.05}
   adsStartOffset: {x: 0, y: -0.1}
   crossfadeStart: 0.45
@@ -32,9 +33,9 @@ MonoBehaviour:
   kickRecoverSpeed: 12
   adsKickMultiplier: 0.35
   muzzleFlashTime: 0.045
-  hipMuzzleFlashScale: 0.32
+  hipMuzzleFlashScale: 0.4
   adsMuzzleFlashScale: 0.35
   reloadDrop: 0.1
   reloadRollDegrees: 14
-  hipHoldOffset: {x: 0.22, y: -0.2}
+  hipHoldOffset: {x: 0.257027, y: -0.39000276}
   adsHoldOffset: {x: 0, y: -0.3}
