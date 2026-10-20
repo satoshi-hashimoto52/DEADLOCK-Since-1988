@@ -20,6 +20,11 @@ namespace Deadlock.Input
     }
 
     /// <summary>
+    /// Standard mobile controls (2026-10-20): ADS button = sights on / off (toggle), dragging the empty right side
+    /// or FIRE aims (also while aiming down sights), FIRE = normal fire. Hold ADS, aiming with the ADS button and
+    /// ADS-linked fire stay available as options. Defaults apply only where nothing is saved, so a player's saved
+    /// settings (and the touch layout, stored separately) are never overwritten.
+    ///
     /// Per-device control preferences ("Menu → Settings → Controls"). Touch and desktop (PC) are stored separately and
     /// kept on this device (PlayerPrefs); never synced online — the other player only sees the actual ADS state.
     /// </summary>
@@ -29,7 +34,14 @@ namespace Deadlock.Input
         public const string DesktopAdsKey = "deadlock.controls.adsMode.desktop";
         public const string TouchAdsDragAimKey = "deadlock.controls.touch.adsDragAim";
         public const string TouchFireModeKey = "deadlock.controls.touch.fireMode";
+        /// <summary>Default for the PC right button (unchanged).</summary>
         public const AdsMode DefaultAdsMode = AdsMode.Hold;
+        /// <summary>Default for the touch ADS button: sights on / off.</summary>
+        public const AdsMode DefaultTouchAdsMode = AdsMode.Toggle;
+        public const bool DefaultTouchAdsDragAim = false;
+        public const TouchFireMode DefaultTouchFire = TouchFireMode.Normal;
+
+        public static AdsMode DefaultAds(InputMode mode) => mode == InputMode.Touch ? DefaultTouchAdsMode : DefaultAdsMode;
 
         /// <summary>Raised after any control setting changes (held input and ADS are then cleared).</summary>
         public static event Action Changed;
@@ -40,18 +52,19 @@ namespace Deadlock.Input
         {
             try
             {
-                int value = PlayerPrefs.GetInt(Key(mode), (int)DefaultAdsMode);
-                return Enum.IsDefined(typeof(AdsMode), value) ? (AdsMode)value : DefaultAdsMode;
+                int value = PlayerPrefs.GetInt(Key(mode), (int)DefaultAds(mode));
+                return Enum.IsDefined(typeof(AdsMode), value) ? (AdsMode)value : DefaultAds(mode);
             }
             catch (Exception)
             {
-                return DefaultAdsMode; // storage unavailable: default
+                return DefaultAds(mode); // storage unavailable: default
             }
         }
 
         public static void SetAdsMode(InputMode mode, AdsMode value)
         {
-            if (GetAdsMode(mode) == value)
+            // An explicit choice is always saved (even if it equals today's default), so it survives default changes.
+            if (PlayerPrefs.HasKey(Key(mode)) && GetAdsMode(mode) == value)
                 return;
             try
             {
@@ -65,20 +78,20 @@ namespace Deadlock.Input
             Changed?.Invoke();
         }
 
-        /// <summary>Touch: a finger that starts on the ADS button also aims (drags the view). Default on.</summary>
+        /// <summary>Touch: a finger that starts on the ADS button also aims (drags the view). Default off (option).</summary>
         public static bool TouchAdsDragAim
         {
-            get => GetInt(TouchAdsDragAimKey, 1) != 0;
+            get => GetInt(TouchAdsDragAimKey, DefaultTouchAdsDragAim ? 1 : 0) != 0;
             set => SetInt(TouchAdsDragAimKey, value ? 1 : 0);
         }
 
-        /// <summary>Touch: what FIRE does with the gun out. Default normal (the previous behaviour).</summary>
+        /// <summary>Touch: what FIRE does with the gun out. Default normal fire.</summary>
         public static TouchFireMode TouchFire
         {
             get
             {
-                int v = GetInt(TouchFireModeKey, (int)TouchFireMode.Normal);
-                return Enum.IsDefined(typeof(TouchFireMode), v) ? (TouchFireMode)v : TouchFireMode.Normal;
+                int v = GetInt(TouchFireModeKey, (int)DefaultTouchFire);
+                return Enum.IsDefined(typeof(TouchFireMode), v) ? (TouchFireMode)v : DefaultTouchFire;
             }
             set => SetInt(TouchFireModeKey, (int)value);
         }
@@ -105,7 +118,7 @@ namespace Deadlock.Input
             Changed?.Invoke();
         }
 
-        /// <summary>Removes the saved control settings (not the touch layout).</summary>
+        /// <summary>Removes the saved control settings, so the standard values apply again (the touch layout is separate and kept).</summary>
         public static void ClearSaved()
         {
             PlayerPrefs.DeleteKey(TouchAdsKey);

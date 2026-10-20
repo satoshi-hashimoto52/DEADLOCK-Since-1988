@@ -68,18 +68,25 @@ namespace Deadlock.Tests
             try
             {
                 ControlSettings.ClearSaved();
-                Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
-                Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop));
-                Assert.IsTrue(ControlSettings.TouchAdsDragAim, "Aim with the ADS button: on by default");
-                Assert.AreEqual(TouchFireMode.Normal, ControlSettings.TouchFire, "FIRE: normal by default");
+                // Standard mobile controls when nothing is saved; PC unchanged.
+                Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Touch), "Touch ADS: toggle (sights on / off)");
+                Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "PC right button: hold, unchanged");
+                Assert.IsFalse(ControlSettings.TouchAdsDragAim, "Aim with the ADS button: off");
+                Assert.AreEqual(TouchFireMode.Normal, ControlSettings.TouchFire, "FIRE: normal fire");
 
-                ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle);
-                ControlSettings.TouchAdsDragAim = false;
+                // The options stay selectable and saved choices win over the defaults.
+                ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold);
+                ControlSettings.TouchAdsDragAim = true;
                 ControlSettings.TouchFire = TouchFireMode.AdsLinked;
-                Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Touch));
+                Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
                 Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "PC unaffected");
-                Assert.IsFalse(ControlSettings.TouchAdsDragAim);
+                Assert.IsTrue(ControlSettings.TouchAdsDragAim);
                 Assert.AreEqual(TouchFireMode.AdsLinked, ControlSettings.TouchFire);
+
+                // Choosing the default explicitly is saved too (survives a later change of defaults).
+                ControlSettings.ClearSaved();
+                ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle);
+                Assert.IsTrue(PlayerPrefs.HasKey(ControlSettings.TouchAdsKey));
 
                 PlayerPrefs.SetInt(ControlSettings.DesktopAdsKey, 99);
                 PlayerPrefs.SetInt(ControlSettings.TouchFireModeKey, 99);

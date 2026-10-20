@@ -54,10 +54,81 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
+        public IEnumerator StandardControls_NothingSaved_AdsToggles_AdsDragDoesNotAim_BackgroundAndFireAimWhileAiming()
+        {
+            yield return LoadTouch(); // the test base removed any saved control settings
+            Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Touch));
+            Assert.IsFalse(ControlSettings.TouchAdsDragAim);
+            Assert.AreEqual(TouchFireMode.Normal, ControlSettings.TouchFire);
+            Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "PC unchanged");
+
+            // ADS button: sights on at the press; dragging it does not move the view and never fires.
+            float yaw = motor.Yaw;
+            BeginTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return Drag(1, adsPoint, new Vector2(-200f, 0f));
+            EndTouch(1, adsPoint + new Vector2(-200f, 0f), queueEventOnly: true, screen: touchscreen);
+            yield return Wait(gun.Definition.adsTime + 0.1f);
+            Assert.IsTrue(gun.AdsRequested, "Toggle: ADS on and kept after lifting the finger");
+            Assert.AreEqual(yaw, motor.Yaw, 0.001f, "Dragging from the ADS button does not aim");
+            Assert.AreEqual(0, shots);
+
+            // While aiming: the empty right side aims.
+            BeginTouch(2, emptyPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return Drag(2, emptyPoint, new Vector2(-200f, 0f));
+            EndTouch(2, emptyPoint + new Vector2(-200f, 0f), queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            Assert.Greater(Mathf.Abs(Mathf.DeltaAngle(yaw, motor.Yaw)), 1f, "Background drag aims while aiming down sights");
+            Assert.IsTrue(gun.AdsRequested);
+
+            // While aiming: FIRE fires (from ADS) and its drag aims.
+            yaw = motor.Yaw;
+            BeginTouch(3, firePoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return Drag(3, firePoint, new Vector2(-200f, 0f));
+            Assert.Greater(shots, 0, "FIRE fires from the current stance (ADS)");
+            Assert.Greater(Mathf.Abs(Mathf.DeltaAngle(yaw, motor.Yaw)), 1f, "FIRE drag aims while firing");
+            EndTouch(3, firePoint + new Vector2(-200f, 0f), queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            Assert.IsTrue(gun.AdsRequested, "Lifting FIRE keeps the toggled ADS");
+
+            // Next press of the ADS button: sights off.
+            yield return Tap(4, adsPoint);
+            yield return Wait(0.1f);
+            Assert.IsFalse(gun.AdsRequested);
+        }
+
+        [UnityTest]
+        public IEnumerator SavedSettings_OfAnExistingUser_AreKept()
+        {
+            // An existing user who saved the earlier options.
+            PlayerPrefs.SetInt(ControlSettings.TouchAdsKey, (int)AdsMode.Hold);
+            PlayerPrefs.SetInt(ControlSettings.TouchAdsDragAimKey, 1);
+            PlayerPrefs.SetInt(ControlSettings.TouchFireModeKey, (int)TouchFireMode.AdsLinked);
+            yield return LoadTouch();
+            Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
+            Assert.IsTrue(ControlSettings.TouchAdsDragAim);
+            Assert.AreEqual(TouchFireMode.AdsLinked, ControlSettings.TouchFire);
+            // And it behaves that way: the ADS button holds and aims.
+            float yaw = motor.Yaw;
+            BeginTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return Drag(1, adsPoint, new Vector2(-200f, 0f));
+            Assert.IsTrue(gun.AdsRequested);
+            Assert.AreNotEqual(yaw, motor.Yaw);
+            EndTouch(1, adsPoint + new Vector2(-200f, 0f), queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.1f);
+            Assert.IsFalse(gun.AdsRequested, "Hold: off on release");
+        }
+
+        [UnityTest]
         public IEnumerator AdsButtonDrag_AimsWhenOn_NotWhenOff_NeverFires()
         {
             yield return LoadTouch();
-            Assert.IsTrue(ControlSettings.TouchAdsDragAim, "Default on");
+            // The option (off in the standard controls); hold so the finger keeps ADS on while dragging.
+            ControlSettings.TouchAdsDragAim = true;
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold);
             float yaw = motor.Yaw;
             BeginTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
             yield return null;
@@ -191,6 +262,7 @@ namespace Deadlock.Tests
         {
             yield return LoadTouch();
             ControlSettings.TouchFire = TouchFireMode.AdsLinked;
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold);
             // ADS button held, then FIRE (ADS-linked) held; let go of FIRE: still ADS from the button.
             BeginTouch(1, adsPoint, queueEventOnly: true, screen: touchscreen);
             yield return Wait(0.3f);
@@ -299,6 +371,7 @@ namespace Deadlock.Tests
         {
             yield return LoadTouch();
             ControlSettings.TouchFire = TouchFireMode.AdsLinked;
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold);
             var menu = Object.FindAnyObjectByType<GameMenu>();
 
             // Menu with FIRE and ADS held.
@@ -369,19 +442,20 @@ namespace Deadlock.Tests
 
             menu.OpenControlSettings();
             yield return null;
-            GameObject.Find("DragAimRight").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            GameObject.Find("DragAimLeft").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             GameObject.Find("FireModeRight").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-            GameObject.Find("TouchAdsRight").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            GameObject.Find("TouchAdsLeft").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             menu.CloseControlSettings();
             menu.Close();
-            Assert.IsFalse(ControlSettings.TouchAdsDragAim);
+            Assert.IsTrue(ControlSettings.TouchAdsDragAim);
             Assert.AreEqual(TouchFireMode.AdsLinked, ControlSettings.TouchFire);
-            Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Touch));
+            Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
             Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "PC unchanged");
 
             yield return LoadTouch(); // next start
-            Assert.IsFalse(ControlSettings.TouchAdsDragAim);
+            Assert.IsTrue(ControlSettings.TouchAdsDragAim, "Saved choices are kept over the standard values");
             Assert.AreEqual(TouchFireMode.AdsLinked, ControlSettings.TouchFire);
+            Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
             Assert.AreEqual(fire.center, TouchLayout.Load().Get(TouchLayout.Fire).center, "Layout kept");
             // And it behaves accordingly: ADS-linked fire does not shoot at once.
             BeginTouch(1, firePoint, queueEventOnly: true, screen: touchscreen);

@@ -49,7 +49,7 @@ namespace Deadlock.Tests
 
             yield return ChooseInMenu("DesktopAdsRight");
             Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Desktop));
-            Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch), "Touch setting untouched");
+            Assert.AreEqual(ControlSettings.DefaultTouchAdsMode, ControlSettings.GetAdsMode(InputMode.Touch), "Touch setting untouched");
             Press(mouse.rightButton, queueEventOnly: true);
             yield return Wait(0.6f);
             Assert.IsTrue(gun.AdsRequested, "Toggle: on at the press, and holding does not flip it back");
@@ -77,6 +77,7 @@ namespace Deadlock.Tests
             var controls = Object.FindAnyObjectByType<TouchControls>();
             Vector2 ads = ScreenCenter((RectTransform)GameObject.Find("AdsButton").transform);
             Vector2 outside = ads + new Vector2(-400f, 250f);
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold); // the hold option
 
             BeginTouch(1, ads, queueEventOnly: true, screen: touchscreen);
             yield return Wait(0.1f);
@@ -212,6 +213,7 @@ namespace Deadlock.Tests
             var touchscreen = InputSystem.AddDevice<Touchscreen>();
             yield return null;
             Vector2 ads = ScreenCenter((RectTransform)GameObject.Find("AdsButton").transform);
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Hold); // the hold option
             BeginTouch(1, ads, queueEventOnly: true, screen: touchscreen);
             yield return Wait(0.1f);
             Assert.IsTrue(gun.AdsRequested);
