@@ -44,7 +44,15 @@ namespace Deadlock.UI
         Image hpFill;
         Text hpText;
         Image damageFlash;
-        float damageFlashUntil;
+        float damageFlashStart = -10f;
+
+        // Damage flash: short and faint. A hit during a running flash does not brighten it again, so several
+        // zombies hitting in quick succession never strobe the screen.
+        const float DamageFlashTime = 0.2f;
+        const float DamageFlashAlpha = 0.18f;
+
+        /// <summary>Current alpha of the red damage flash (0 when not shown).</summary>
+        public float DamageFlashLevel => damageFlash != null ? damageFlash.color.a : 0f;
 
         void Awake()
         {
@@ -74,7 +82,11 @@ namespace Deadlock.UI
             hpFill.fillMethod = Image.FillMethod.Horizontal;
             hpText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("HealthText", back), new Vector2(0.5f, 1f), new Vector2(0f, 30f), new Vector2(360f, 30f)),
                 "", 24, TextAnchor.LowerCenter);
-            health.Damaged += (amount, from) => damageFlashUntil = Time.time + 0.25f;
+            health.Damaged += (amount, from) =>
+            {
+                if (Time.time - damageFlashStart >= DamageFlashTime)
+                    damageFlashStart = Time.time;
+            };
         }
 
         void OnEnable()
@@ -169,8 +181,8 @@ namespace Deadlock.UI
             {
                 hpFill.fillAmount = health.Health / health.MaxHealth;
                 hpText.text = health.IsDead ? "HP 0" : $"HP {Mathf.CeilToInt(health.Health)}";
-                float flash = Mathf.Clamp01((damageFlashUntil - Time.time) / 0.25f);
-                damageFlash.color = new Color(0.8f, 0f, 0f, 0.35f * flash);
+                float flash = 1f - Mathf.Clamp01((Time.time - damageFlashStart) / DamageFlashTime);
+                damageFlash.color = new Color(0.8f, 0f, 0f, DamageFlashAlpha * flash);
             }
             AmmoState ammo = gun.Ammo;
             bool meleeOut = weapons != null && weapons.Current == WeaponSlot.Melee;

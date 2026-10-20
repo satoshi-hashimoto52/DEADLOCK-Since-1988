@@ -71,7 +71,7 @@ namespace Deadlock.Tests
             Teleport(z0.transform.position + new Vector3(0f, 0.05f, -1.1f));
             float hp = health.Health;
             int hits = 0;
-            health.Damaged += (amount, from) => { hits++; Assert.AreEqual(20f, amount, 0.01f); };
+            health.Damaged += (amount, from) => { hits++; Assert.AreEqual(10f, amount, 0.01f); };
             bool sawAttack = false;
             for (float end = Time.time + 2.5f; Time.time < end && hits == 0; )
             {
@@ -80,11 +80,12 @@ namespace Deadlock.Tests
             }
             Assert.IsTrue(sawAttack, "The zombie attacks when in reach");
             Assert.AreEqual(1, hits, "One hit per attack");
-            Assert.AreEqual(hp - 20f, health.Health, 0.01f);
+            Assert.AreEqual(hp - 10f, health.Health, 0.01f);
 
             // Keep standing there until the player dies.
             for (float end = Time.time + 20f; Time.time < end && !health.IsDead; )
                 yield return null;
+            yield return null; // the result is resolved once per frame, after all deaths of that frame
             Assert.IsTrue(health.IsDead);
             Assert.AreEqual(0f, health.Health);
             Assert.AreEqual(TrainingResult.Failed, session.Result);
@@ -146,6 +147,16 @@ namespace Deadlock.Tests
             yield return ShootDead(zombies[0]);
             float hpBefore = health.Health;
 
+            // Use ammo with the real trigger and take an ammo box.
+            Press(mouse.leftButton, queueEventOnly: true);
+            yield return Wait(0.35f);
+            Release(mouse.leftButton, queueEventOnly: true);
+            Assert.Less(gun.Ammo.Loaded, gun.Definition.magazineSize);
+            var box = GameObject.Find("AmmoPickup_A").GetComponent<AmmoPickup>();
+            Teleport(box.transform.position + Vector3.up * 0.05f);
+            yield return Wait(0.2f);
+            Assert.IsTrue(box.IsConsumed);
+
             // Leave the layout editor open (menu → settings → layout) and retry from scratch.
             menu.OpenLayoutEditor();
             yield return null;
@@ -166,6 +177,11 @@ namespace Deadlock.Tests
             Assert.IsFalse(router.IsBlocked);
             Assert.AreEqual(Posture.Standing, posture.Current);
             Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded);
+            Assert.AreEqual(gun.Definition.startReserve, gun.Ammo.Reserve);
+            Assert.IsTrue(Object.FindObjectsByType<AmmoPickup>(FindObjectsSortMode.None).All(p => !p.IsConsumed), "Ammo boxes are back");
+            Assert.AreEqual(0, session.Defeated);
+            Assert.AreEqual(default(PlayerInputFrame).FireHeld, router.Current.FireHeld);
+            Assert.AreEqual(Vector2.zero, router.Current.Move);
             Assert.GreaterOrEqual(health.Health, hpBefore);
         }
 
@@ -201,6 +217,150 @@ namespace Deadlock.Tests
             Assert.IsFalse(router.IsBlocked);
             yield return Wait(0.5f);
             Assert.AreNotEqual(zombieAt, zombies[1].transform.position, "Zombies move again after resuming");
+        }
+
+        [UnityTest]
+        public IEnumerator SimultaneousPlayerAndLastZombieDeath_FailsOnce()
+        {
+            yield return LoadTraining();
+            Assert.AreEqual(1.5f, zombies[0].AttackInterval, 0.001f);
+
+            int finished = 0;
+            session.Finished += _ => finished++;
+            zombies[1].ApplyDamage(zombies[1].Health, player.transform.position, Vector3.forward);
+            zombies[2].ApplyDamage(zombies[2].Health, player.transform.position, Vector3.forward);
+            zombies[0].ApplyDamage(zombies[0].Health, player.transform.position, Vector3.forward);
+            health.TakeDamage(health.Health, zombies[0].transform.position);
+            yield return null;
+
+            Assert.AreEqual(TrainingResult.Failed, session.Result, "Player death takes precedence for a simultaneous terminal frame");
+            Assert.AreEqual(1, finished, "The terminal result is emitted once");
+            Assert.IsTrue(Object.FindAnyObjectByType<TrainingHud>().ResultPanel.activeSelf);
+        }
+
+        /// <summary>Waits until <paramref name="zombie"/> starts an attack (player standing in reach).</summary>
+        IEnumerator WaitForWindup(Zombie zombie)
+        {
+            Teleport(zombie.transform.position + new Vector3(0f, 0.05f, -1.1f));
+            for (float end = Time.time + 3f; Time.time < end && !zombie.InAttackWindup; )
+                yield return null;
+            Assert.IsTrue(zombie.InAttackWindup, "Attack started");
+        }
+
+        [UnityTest]
+        public IEnumerator Attack_DodgedByLeavingDuringWindup_AndIntervalFromAttackStart()
+        {
+            yield return LoadTraining();
+            // Only one zombie in play.
+            zombies[0].ApplyDamage(1000f, Vector3.zero, Vector3.forward);
+            zombies[2].ApplyDamage(1000f, Vector3.zero, Vector3.forward);
+            var z = zombies[1];
+            int hits = 0;
+            health.Damaged += (a, f) => hits++;
+
+            yield return WaitForWindup(z);
+            float firstStart = Time.time;
+            // Step out of reach during the telegraph: the hit-time distance check misses.
+            Teleport(z.transform.position + new Vector3(0f, 0.05f, -3.5f));
+            yield return Wait(0.5f);
+            Assert.AreEqual(0, hits, "Leaving during the windup avoids the hit");
+
+            // Come back right away: the next attack does not start before 1.5 s after the previous start.
+            Teleport(z.transform.position + new Vector3(0f, 0.05f, -1.1f));
+            float secondStart = -1f;
+            for (float end = Time.time + 3f; Time.time < end && secondStart < 0f; )
+            {
+                yield return null;
+                if (z.InAttackWindup)
+                    secondStart = Time.time;
+            }
+            Assert.Greater(secondStart, 0f);
+            Assert.GreaterOrEqual(secondStart - firstStart, z.AttackInterval - 0.02f, "Interval runs from attack start to attack start");
+            Assert.Less(secondStart - firstStart, z.AttackInterval + 0.2f);
+            for (float end = Time.time + 1f; Time.time < end && hits == 0; )
+                yield return null;
+            Assert.AreEqual(1, hits, "Staying in reach is hit once");
+        }
+
+        [UnityTest]
+        public IEnumerator Attack_CoverAtHitTime_Blocks_DeadZombieDoesNotHit()
+        {
+            yield return LoadTraining();
+            zombies[0].ApplyDamage(1000f, Vector3.zero, Vector3.forward);
+            zombies[2].ApplyDamage(1000f, Vector3.zero, Vector3.forward);
+            var z = zombies[1];
+            int hits = 0;
+            health.Damaged += (a, f) => hits++;
+
+            // A wall appears between them during the windup: the hit-time line-of-sight check blocks it.
+            yield return WaitForWindup(z);
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.position = (z.transform.position + player.transform.position) * 0.5f + Vector3.up * 1.5f;
+            wall.transform.localScale = new Vector3(3f, 3f, 0.1f);
+            Physics.SyncTransforms();
+            yield return Wait(0.75f); // past the hit window
+            Assert.AreEqual(0, hits, "Cover at the moment of the hit blocks it");
+            Object.Destroy(wall);
+            yield return null;
+
+            // Killed during its windup: no hit afterwards.
+            yield return WaitForWindup(z);
+            z.ApplyDamage(1000f, z.transform.position, Vector3.forward);
+            yield return Wait(0.8f);
+            Assert.AreEqual(0, hits, "A dead zombie does not land its attack");
+            Assert.AreEqual(TrainingResult.Cleared, session.Result);
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_HeldKeysAndButtons_DoNotCarryOverAfterClosing()
+        {
+            yield return LoadTraining();
+            yield return Wait(0.2f);
+            Vector3 at = player.transform.position;
+            int fired = 0;
+            gun.Fired += () => fired++;
+
+            yield return Tap(keyboard.tabKey);
+            Assert.IsTrue(menu.IsOpen);
+            Press(keyboard.wKey, queueEventOnly: true);
+            Press(mouse.leftButton, queueEventOnly: true);
+            yield return WaitRealtime(0.1f);
+            yield return Tap(keyboard.tabKey); // close while still holding W and the trigger
+            Assert.IsFalse(menu.IsOpen);
+            yield return Wait(0.4f);
+            Assert.AreEqual(at.z, player.transform.position.z, 0.02f, "Held W from the menu does not move");
+            Assert.AreEqual(0, fired, "Held trigger from the menu does not fire");
+
+            // Released and pressed again: works normally.
+            Release(keyboard.wKey, queueEventOnly: true);
+            Release(mouse.leftButton, queueEventOnly: true);
+            yield return null;
+            Press(keyboard.wKey, queueEventOnly: true);
+            Press(mouse.leftButton, queueEventOnly: true);
+            yield return Wait(0.3f);
+            Release(keyboard.wKey, queueEventOnly: true);
+            Release(mouse.leftButton, queueEventOnly: true);
+            Assert.Greater(player.transform.position.z, at.z + 0.3f);
+            Assert.Greater(fired, 0);
+        }
+
+        [UnityTest]
+        public IEnumerator DamageFlash_IsShortAndFaint_RapidHitsDoNotRestrobe()
+        {
+            yield return LoadTraining();
+            var hud = Object.FindAnyObjectByType<HudController>();
+            health.TakeDamage(1f, Vector3.zero);
+            yield return null;
+            float first = hud.DamageFlashLevel;
+            Assert.Greater(first, 0f);
+            Assert.LessOrEqual(first, 0.2f, "Faint");
+            yield return Wait(0.08f);
+            float before = hud.DamageFlashLevel;
+            health.TakeDamage(1f, Vector3.zero);
+            yield return null;
+            Assert.LessOrEqual(hud.DamageFlashLevel, before + 0.001f, "A quick second hit does not brighten it again");
+            yield return Wait(0.25f);
+            Assert.AreEqual(0f, hud.DamageFlashLevel, 0.001f, "Short");
         }
     }
 }

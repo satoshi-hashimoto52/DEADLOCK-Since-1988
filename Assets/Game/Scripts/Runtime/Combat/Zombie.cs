@@ -29,10 +29,14 @@ namespace Deadlock.Combat
         [SerializeField, Min(0.3f)] float attackRange = 1.4f;
         [Tooltip("Extra reach during the hit window (the player can still step out during the windup).")]
         [SerializeField, Min(0f)] float attackReachBonus = 0.3f;
-        [SerializeField, Min(0f)] float attackDamage = 20f;
-        [SerializeField, Min(0f)] float windup = 0.55f;
+        [SerializeField, Min(0f)] float attackDamage = 10f;
+        [Tooltip("Telegraph before the hit window. Stepping out of reach (or behind cover) during it avoids the hit.")]
+        [SerializeField, Min(0f)] float windup = 0.5f;
         [SerializeField, Min(0.01f)] float hitWindow = 0.15f;
         [SerializeField, Min(0f)] float recovery = 0.6f;
+        [Tooltip("Minimum time from one attack start to the next attack start.")]
+        [SerializeField, Min(0f)] float attackInterval = 1.5f;
+        [Tooltip("Provisional: each hit (outside a landed attack) restarts the stagger at this duration.")]
         [SerializeField, Min(0f)] float staggerTime = 0.3f;
         [SerializeField, Min(0.05f)] float repathInterval = 0.2f;
         [Tooltip("What blocks the zombie's line of sight to the player (not other zombies).")]
@@ -43,11 +47,13 @@ namespace Deadlock.Combat
         Collider[] colliders;
         float stateStart;
         float nextRepath;
+        float nextAttackTime;
         bool hitApplied;
 
         public ZombieState State { get; private set; } = ZombieState.Chase;
         public float Health { get; private set; }
         public float MaxHealth => maxHealth;
+        public float AttackInterval => attackInterval;
         public bool IsDead => State == ZombieState.Dead;
         /// <summary>0..1 through the attack (for the view).</summary>
         public float AttackProgress => State == ZombieState.Attack ? Mathf.Clamp01((Time.time - stateStart) / (windup + hitWindow + recovery)) : 0f;
@@ -100,7 +106,7 @@ namespace Deadlock.Combat
                         agent.SetDestination(target.transform.position);
                         nextRepath = Time.time + repathInterval;
                     }
-                    if (HorizontalDistance() <= attackRange && CanSeeTarget())
+                    if (Time.time >= nextAttackTime && HorizontalDistance() <= attackRange && CanSeeTarget())
                         Enter(ZombieState.Attack);
                     break;
                 case ZombieState.Attack:
@@ -159,6 +165,8 @@ namespace Deadlock.Combat
             State = state;
             stateStart = Time.time;
             hitApplied = false;
+            if (state == ZombieState.Attack)
+                nextAttackTime = Time.time + attackInterval;
             if (!agent.enabled || !agent.isOnNavMesh)
                 return;
             bool moving = state == ZombieState.Chase;

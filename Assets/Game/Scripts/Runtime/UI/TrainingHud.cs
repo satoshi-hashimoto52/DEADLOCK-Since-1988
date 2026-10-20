@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deadlock.UI
 {
-    /// <summary>Training round display: remaining zombies and time, and the cleared / failed panel with retry.</summary>
+    /// <summary>Training round display: defeated zombies and time, and the cleared / failed panel with retry.</summary>
     public sealed class TrainingHud : MonoBehaviour
     {
         [SerializeField] TrainingSession session;
@@ -44,7 +44,7 @@ namespace Deadlock.UI
         void LateUpdate()
         {
             int seconds = Mathf.FloorToInt(session.ElapsedTime);
-            status.text = $"トレーニング（試作）　残り {session.Remaining} / {session.Total}　{seconds / 60}:{seconds % 60:00}";
+            status.text = $"トレーニング（試作）　討伐 {session.Defeated} / {session.Total}　{seconds / 60}:{seconds % 60:00}";
         }
 
         void OnFinished(TrainingResult result)
@@ -54,8 +54,8 @@ namespace Deadlock.UI
             resultTitle.color = result == TrainingResult.Cleared ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.4f, 0.35f);
             int seconds = Mathf.FloorToInt(session.ElapsedTime);
             resultDetail.text = result == TrainingResult.Cleared
-                ? $"ゾンビを全滅させました（{seconds / 60}:{seconds % 60:00}）"
-                : $"倒されました（残り {session.Remaining} 体）";
+                ? $"ゾンビを全滅させました（討伐 {session.Defeated} / {session.Total}、{seconds / 60}:{seconds % 60:00}）"
+                : $"倒されました（討伐 {session.Defeated} / {session.Total}、{seconds / 60}:{seconds % 60:00}）";
         }
     }
 }

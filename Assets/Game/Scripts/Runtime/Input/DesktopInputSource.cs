@@ -44,6 +44,9 @@ namespace Deadlock.Input
         readonly InputAction releaseCursor;
         readonly InputAction menu;
 
+        // Held inputs ignored until released (keys / buttons already down when input resumes after a menu).
+        bool suppressMove, suppressSprint, suppressFire, suppressAds;
+
         public DesktopInputSource()
         {
             map = new InputActionMap("DesktopDev");
@@ -73,6 +76,24 @@ namespace Deadlock.Input
         public bool MenuPressed => menu.WasPressedThisFrame();
         public bool AnyClickPressed => fire.WasPressedThisFrame() || ads.WasPressedThisFrame();
 
+        /// <summary>Ignores every key / button held right now until it is released (no carry-over into play).</summary>
+        public void SuppressHeldUntilReleased()
+        {
+            suppressMove = move.ReadValue<Vector2>() != Vector2.zero;
+            suppressSprint = sprint.IsPressed();
+            suppressFire = fire.IsPressed();
+            suppressAds = ads.IsPressed();
+        }
+
+        /// <summary>Clears suppressions whose key was released. Call once per frame.</summary>
+        public void Tick()
+        {
+            suppressMove &= move.ReadValue<Vector2>() != Vector2.zero;
+            suppressSprint &= sprint.IsPressed();
+            suppressFire &= fire.IsPressed();
+            suppressAds &= ads.IsPressed();
+        }
+
         public void Enable() => map.Enable();
         public void Disable() => map.Disable();
 
@@ -81,13 +102,13 @@ namespace Deadlock.Input
             Vector2 delta = look.ReadValue<Vector2>() * mouseDegreesPerPixel;
             return new PlayerInputFrame
             {
-                Move = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
+                Move = suppressMove ? Vector2.zero : Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
                 LookDegrees = delta,
-                Sprint = sprint.IsPressed(),
+                Sprint = !suppressSprint && sprint.IsPressed(),
                 JumpPressed = jump.WasPressedThisFrame(),
-                FireHeld = fire.IsPressed(),
-                FirePressed = fire.WasPressedThisFrame(),
-                AdsActive = ads.IsPressed(),
+                FireHeld = !suppressFire && fire.IsPressed(),
+                FirePressed = !suppressFire && fire.WasPressedThisFrame(),
+                AdsActive = !suppressAds && ads.IsPressed(),
                 ReloadPressed = reload.WasPressedThisFrame(),
                 CrouchPressed = crouch.WasPressedThisFrame(),
                 PronePressed = prone.WasPressedThisFrame(),

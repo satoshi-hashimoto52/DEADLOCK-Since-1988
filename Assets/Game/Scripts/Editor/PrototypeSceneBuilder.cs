@@ -128,11 +128,12 @@ namespace Deadlock.Editor
                 Set(session, "player", player.Health);
                 Set(session, "input", player.Input);
                 SetArray(session, "zombies", zombies);
+                BuildPickups(mats, new Vector3(-4f, 0f, -8f), new Vector3(4f, 0f, -8f));
             }
             else
             {
                 BuildTargets();
-                BuildPickups(mats);
+                BuildPickups(mats, new Vector3(2f, 0f, 4f), new Vector3(-6f, 0f, 19f));
             }
             var canvas = BuildUi(player, projectiles);
 
@@ -640,10 +641,10 @@ namespace Deadlock.Editor
             }
         }
 
-        static void BuildPickups(Materials m)
+        static void BuildPickups(Materials m, Vector3 a, Vector3 b)
         {
             var root = new GameObject("Pickups").transform;
-            foreach (var (name, pos) in new[] { ("AmmoPickup_A", new Vector3(2f, 0f, 4f)), ("AmmoPickup_B", new Vector3(-6f, 0f, 19f)) })
+            foreach (var (name, pos) in new[] { ("AmmoPickup_A", a), ("AmmoPickup_B", b) })
             {
                 var go = new GameObject(name) { layer = LayerMask.NameToLayer("Ignore Raycast") };
                 go.transform.SetParent(root, false);

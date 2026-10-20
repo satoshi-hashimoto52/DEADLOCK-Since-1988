@@ -99,7 +99,12 @@ namespace Deadlock.Input
         public void Unblock(string reason)
         {
             if (blockers.Remove(reason) && blockers.Count == 0)
+            {
+                // Nothing pressed before or during the menu carries over: touches were released on Block (a finger
+                // still down needs a new touch), held keys / mouse buttons count again only after being released.
                 ReleaseHeldInput();
+                desktop.SuppressHeldUntilReleased();
+            }
         }
 
         public void ReleaseHeldInput()
@@ -124,6 +129,7 @@ namespace Deadlock.Input
         void Update()
         {
             MenuKeyPressed = desktop.MenuPressed;
+            desktop.Tick();
             if (IsBlocked)
             {
                 Current = default;

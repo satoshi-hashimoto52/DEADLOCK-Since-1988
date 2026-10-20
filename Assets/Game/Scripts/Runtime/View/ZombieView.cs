@@ -5,7 +5,7 @@ namespace Deadlock.View
 {
     /// <summary>
     /// 2D billboard display of a <see cref="Zombie"/>: two walk frames while moving, an attack frame during the
-    /// attack, a red flash when hit and a lying frame when dead. Hit detection stays on the zombie's collider.
+    /// attack, a short fading red tint when hit and a lying frame when dead. Hit detection stays on the zombie's collider.
     /// </summary>
     public sealed class ZombieView : MonoBehaviour
     {
@@ -16,7 +16,9 @@ namespace Deadlock.View
         [SerializeField] Sprite attack;
         [SerializeField] Sprite dead;
         [SerializeField] float stepsPerMetre = 1.6f;
-        [SerializeField] Color hitColor = new Color(1f, 0.35f, 0.3f);
+        [SerializeField] Color hitColor = new Color(1f, 0.55f, 0.5f);
+        [Tooltip("Hit tint fades over this time. Rapid hits keep a steady tint instead of blinking.")]
+        [SerializeField, Min(0.01f)] float hitFadeTime = 0.15f;
 
         float stride;
 
@@ -31,7 +33,8 @@ namespace Deadlock.View
             Vector3 v = zombie.Velocity;
             stride += new Vector2(v.x, v.z).magnitude * Time.deltaTime * stepsPerMetre;
             sprite.sprite = zombie.State == ZombieState.Attack ? attack : (Mathf.FloorToInt(stride) % 2 == 0 ? walkA : walkB);
-            sprite.color = Time.time - zombie.LastDamagedTime < 0.1f ? hitColor : Color.white;
+            float hit = 1f - Mathf.Clamp01((Time.time - zombie.LastDamagedTime) / hitFadeTime);
+            sprite.color = Color.Lerp(Color.white, hitColor, hit);
         }
     }
 }

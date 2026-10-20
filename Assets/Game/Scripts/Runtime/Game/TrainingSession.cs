@@ -27,6 +27,7 @@ namespace Deadlock.Game
         public TrainingResult Result { get; private set; } = TrainingResult.Playing;
         public float ElapsedTime { get; private set; }
         public int Remaining { get; private set; }
+        public int Defeated => Total - Remaining;
         public int Total => zombies.Length;
 
         public event Action<TrainingResult> Finished;
@@ -54,6 +55,17 @@ namespace Deadlock.Game
                 ElapsedTime += Time.deltaTime;
         }
 
+        void LateUpdate()
+        {
+            if (Result != TrainingResult.Playing)
+                return;
+            // Resolve once per frame so simultaneous deaths cannot show two different outcomes.
+            if (player.IsDead)
+                Finish(TrainingResult.Failed);
+            else if (Remaining == 0)
+                Finish(TrainingResult.Cleared);
+        }
+
         int CountAlive()
         {
             int alive = 0;
@@ -66,14 +78,11 @@ namespace Deadlock.Game
         void OnZombieDied(Zombie zombie)
         {
             Remaining = CountAlive();
-            if (Remaining == 0 && Result == TrainingResult.Playing)
-                Finish(TrainingResult.Cleared);
         }
 
         void OnPlayerDied()
         {
-            if (Result == TrainingResult.Playing)
-                Finish(TrainingResult.Failed);
+            // LateUpdate resolves the result after all same-frame damage/death events have arrived.
         }
 
         void Finish(TrainingResult result)
