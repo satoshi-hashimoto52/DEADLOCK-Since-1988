@@ -11,7 +11,7 @@ namespace Deadlock.Editor
     /// and makes the "_Pixel" view profiles that use them. Separate from <see cref="WeaponSpriteBaker"/>: the baker and
     /// the scene builder never write into Assets/Game/Art/Weapons, so re-baking cannot overwrite the art.
     /// Sprites: Point filter (crisp pixels), uncompressed, no mip maps, clamped, pivots / pixels-per-unit from
-    /// pixel_weapons.json. The _Pixel profiles copy every feel / position value from the baked profiles (one source of
+    /// pixel_weapons.json (a sprite entry may carry its own "pixelsPerUnit" for art drawn at another resolution). The _Pixel profiles copy every feel / position value from the baked profiles (one source of
     /// truth) and swap only the sprites; the art keeps the bake's pivots and scale, so muzzle / sight offsets still hold.
     /// When the art folder is missing the builder keeps the baked profiles.
     /// </summary>
@@ -29,7 +29,12 @@ namespace Deadlock.Editor
         class SpriteInfo
         {
             public string name;
+            public float[] size;
             public float[] pivot;
+            [Tooltip("ADS only, optional: muzzle tip in pixels from the top-left; sets the flash position. Empty = the baked offset.")]
+            public float[] muzzle;
+            [Tooltip("Optional per-sprite pixels-per-unit (art drawn at another resolution); 0 = the shared value.")]
+            public float pixelsPerUnit;
         }
 
         [Serializable]
@@ -49,7 +54,8 @@ namespace Deadlock.Editor
             var info = JsonUtility.FromJson<ArtInfo>(File.ReadAllText(jsonPath));
             foreach (var sprite in info.sprites)
             {
-                float ppu = sprite.name == FlashName ? info.flashPixelsPerUnit : info.pixelsPerUnit;
+                float ppu = sprite.pixelsPerUnit > 0f ? sprite.pixelsPerUnit
+                    : sprite.name == FlashName ? info.flashPixelsPerUnit : info.pixelsPerUnit;
                 Configure($"{Folder}/{sprite.name}.png", new Vector2(sprite.pivot[0], sprite.pivot[1]), ppu);
             }
             Sprite hip = Load(HipName), ads = Load(AdsName), knife = Load(KnifeName), flash = Load(FlashName);
@@ -59,6 +65,15 @@ namespace Deadlock.Editor
             var rifle = Derive(baked, RifleProfilePath);
             rifle.hipSprite = hip;
             rifle.adsSprite = ads;
+            var adsInfo = System.Array.Find(info.sprites, s => s.name == AdsName);
+            if (adsInfo?.muzzle != null && adsInfo.muzzle.Length == 2 && adsInfo.size != null && adsInfo.size.Length == 2)
+            {
+                // Muzzle relative to the ADS pivot, in units (y up).
+                float ppu = adsInfo.pixelsPerUnit > 0f ? adsInfo.pixelsPerUnit : info.pixelsPerUnit;
+                rifle.adsMuzzleOffset = new Vector2(
+                    (adsInfo.muzzle[0] - adsInfo.pivot[0] * adsInfo.size[0]) / ppu,
+                    ((1f - adsInfo.pivot[1]) * adsInfo.size[1] - adsInfo.muzzle[1]) / ppu);
+            }
             rifle.muzzleFlashSprite = flash;
             EditorUtility.SetDirty(rifle);
             var melee = Derive(bakedMelee, KnifeProfilePath);

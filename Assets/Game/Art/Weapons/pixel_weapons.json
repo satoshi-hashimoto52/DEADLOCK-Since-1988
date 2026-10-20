@@ -1,4 +1,5 @@
 {
+  "generator": "Tools/pixelart/draw_weapons.py",
   "sprites": [
     {
       "name": "Spr_PixelRifleHip",
@@ -21,6 +22,10 @@
       "pivot": [
         0.47029704,
         0.8
+      ],
+      "muzzle": [
+        63.0198,
+        79.5682
       ],
       "source": "traced from Spr_WeaponAds"
     },

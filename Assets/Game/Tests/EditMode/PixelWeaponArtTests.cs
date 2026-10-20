@@ -50,7 +50,10 @@ namespace Deadlock.Tests
             Assert.IsTrue(AssetDatabase.GetAssetPath(baked.hipSprite).StartsWith("Assets/Game/Art/Generated/"), "The baked profile is left as baked");
 
             // Same muzzle / sight geometry as the bake: the flash and the aim point stay where they were.
-            Assert.AreEqual(baked.adsMuzzleOffset, view.adsMuzzleOffset);
+            // The ADS muzzle comes from pixel_weapons.json ("muzzle"); within half an art pixel of the bake's.
+            float halfPixel = 0.5f / view.adsSprite.pixelsPerUnit;
+            Assert.AreEqual(baked.adsMuzzleOffset.x, view.adsMuzzleOffset.x, halfPixel);
+            Assert.AreEqual(baked.adsMuzzleOffset.y, view.adsMuzzleOffset.y, halfPixel);
             Assert.AreEqual(baked.hipMuzzlePosition, view.hipMuzzlePosition);
             Assert.AreEqual(baked.kickOffset, view.kickOffset);
             Assert.AreEqual(bakedMelee.gripPosition, melee.viewProfile.gripPosition);

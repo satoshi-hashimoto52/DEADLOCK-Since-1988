@@ -19,7 +19,8 @@ Output (git-managed, NOT touched by the scene builder or Bake Weapon Sprites):
 One art pixel = 3 pixels of the old bake (the importer uses a third of the bake's pixels-per-unit), so on screen the
 sprites have the old size and every art pixel shows as about 3 screen pixels at 1080p.
 
-Run by hand (needs Pillow):  python3 Tools/pixelart/draw_weapons.py [--preview DIR]
+Run by hand (needs Pillow):  python3 Tools/pixelart/draw_weapons.py [--preview DIR] [--force]
+It refuses to overwrite a pixel_weapons.json it did not write (authored art in place) unless --force is given.
 Re-run it after re-baking the rifle (the traced sprites follow the bake); nothing runs it automatically.
 """
 import colorsys
@@ -218,8 +219,25 @@ def draw_hip():
     return trace_bake("Spr_WeaponHip"), {"pivot": bake_pivot("Spr_WeaponHip"), "source": "traced from Spr_WeaponHip"}
 
 
+def baked_ads_muzzle_offset():
+    """adsMuzzleOffset (units, y up) from the baked rifle view profile."""
+    with open(os.path.join(ROOT, "Assets", "Game", "Data", "WeaponView_ProtoRifle.asset")) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("adsMuzzleOffset:"):
+                return float(line.split("x:")[1].split(",")[0]), float(line.split("y:")[1].split("}")[0])
+    raise RuntimeError("no adsMuzzleOffset")
+
+
 def draw_ads():
-    return trace_bake("Spr_WeaponAds"), {"pivot": bake_pivot("Spr_WeaponAds"), "source": "traced from Spr_WeaponAds"}
+    img = trace_bake("Spr_WeaponAds")
+    pivot = bake_pivot("Spr_WeaponAds")
+    ppu = PIXELS_PER_UNIT
+    ox, oy = baked_ads_muzzle_offset()
+    px, py = pivot[0] * img.width, (1 - pivot[1]) * img.height
+    # Muzzle tip in pixels from the top-left (the importer turns it back into the flash offset).
+    muzzle = [round(px + ox * ppu, 4), round(py - oy * ppu, 4)]
+    return img, {"pivot": pivot, "muzzle": muzzle, "source": "traced from Spr_WeaponAds"}
 
 
 # --------------------------------------------------------------------------------------------- knife + gloved hand
@@ -332,8 +350,19 @@ def draw_flash():
     return c.img, {"pivot": [0.5, 0.5]}
 
 
+GENERATOR = "Tools/pixelart/draw_weapons.py"
+PIXELS_PER_UNIT = 1158.0337 / 3.0  # 1 art px = 3 bake px (bake PPU 1158.0337)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    # Never overwrite art made elsewhere (external artist / image tool): its pixel_weapons.json has no "generator"
+    # entry of this script. --force overrides.
+    existing = os.path.join(OUT, "pixel_weapons.json")
+    if os.path.exists(existing) and "--force" not in sys.argv:
+        with open(existing) as f:
+            if json.load(f).get("generator") != GENERATOR:
+                sys.exit(f"{existing} was not written by {GENERATOR} (authored art?): not overwriting. Use --force.")
     sprites = []
     for name, fn in (("Spr_PixelRifleHip", draw_hip), ("Spr_PixelRifleAds", draw_ads), ("Spr_PixelKnife", draw_knife), ("Spr_PixelMuzzleFlash", draw_flash)):
         img, info = fn()
@@ -341,8 +370,9 @@ def main():
         sprites.append(dict(name=name, size=list(img.size), **info))
     # Same on-screen size as the old bake: 1 art px = 3 bake px (bake PPU 1158.0337), flash 48 px = old 256 px @ 1024.
     meta = {
+        "generator": GENERATOR,
         "sprites": sprites,
-        "pixelsPerUnit": 1158.0337 / 3.0,
+        "pixelsPerUnit": PIXELS_PER_UNIT,
         "flashPixelsPerUnit": 48 / (256 / 1024.0),
     }
     with open(os.path.join(OUT, "pixel_weapons.json"), "w") as f:
