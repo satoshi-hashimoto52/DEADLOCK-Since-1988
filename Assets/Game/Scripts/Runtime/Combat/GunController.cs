@@ -62,6 +62,8 @@ namespace Deadlock.Combat
             if (equipped == IsEquipped)
                 return;
             IsEquipped = equipped;
+            if (!equipped)
+                input.CancelAds(); // never resumes by itself after switching back: a new press is needed
             if (!equipped && IsReloading)
             {
                 IsReloading = false;
@@ -75,6 +77,7 @@ namespace Deadlock.Combat
         {
             PlayerInputFrame frame = input.Current;
             float now = Time.time;
+            input.AdsAvailable = IsEquipped;
 
             if (!IsEquipped)
             {

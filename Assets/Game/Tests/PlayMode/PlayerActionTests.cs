@@ -569,7 +569,7 @@ namespace Deadlock.Tests
             Assert.IsFalse(reloadButton.Interactable);
             yield return TapButton(adsButton);
             yield return Wait(0.2f);
-            Assert.IsFalse(controls.AdsToggled);
+            Assert.IsFalse(controls.AdsActive);
             Assert.IsFalse(gun.AdsRequested);
 
             int loaded = gun.Ammo.Loaded;

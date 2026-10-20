@@ -36,6 +36,7 @@ namespace Deadlock.Network
         float swingStart = -10f;
         byte lastSwingSeq;
         bool initialised;
+        Vector3 armsRest;
 
         public bool IsVisible { get; private set; }
         public bool MuzzleFlashVisible => muzzleFlash.activeSelf;
@@ -43,6 +44,7 @@ namespace Deadlock.Network
         public void Init(NetworkAvatar owner, bool ownedLocally)
         {
             avatar = owner;
+            armsRest = arms.localPosition;
             allRenderers = model.GetComponentsInChildren<Renderer>(true);
             // Your own body is not drawn (you see the first-person view instead).
             IsVisible = !ownedLocally;
@@ -126,6 +128,9 @@ namespace Deadlock.Network
             Quaternion aim = Quaternion.Euler(-pitch, 0f, 0f);
             head.localRotation = aim;
             arms.localRotation = aim;
+            // Aiming down sights: the gun comes up to the face.
+            bool aiming = !dead && s.Has(AvatarState.Flag.Aiming);
+            arms.localPosition = Vector3.Lerp(arms.localPosition, armsRest + (aiming ? new Vector3(-0.08f, 0.14f, 0f) : Vector3.zero), k);
 
             // Weapon in hand.
             bool switching = s.Has(AvatarState.Flag.Switching);

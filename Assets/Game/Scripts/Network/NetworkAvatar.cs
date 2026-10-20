@@ -211,6 +211,7 @@ namespace Deadlock.Network
             if (motor.IsSprinting) flags |= AvatarState.Flag.Sprinting;
             if (motor.IsGrounded) flags |= AvatarState.Flag.Grounded;
             if (rig.Weapons.IsSwitching) flags |= AvatarState.Flag.Switching;
+            if (rig.Gun.AdsRequested) flags |= AvatarState.Flag.Aiming;
             var next = new AvatarState
             {
                 Position = rig.transform.position,

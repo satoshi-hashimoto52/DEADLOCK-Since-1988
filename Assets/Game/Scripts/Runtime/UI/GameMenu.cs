@@ -27,9 +27,13 @@ namespace Deadlock.UI
 
         RectTransform layer;
         GameObject panel;
+        GameObject controlsPanel;
+        Text touchAdsText;
+        Text desktopAdsText;
         TouchLayoutEditor layoutEditor;
 
         public bool IsOpen { get; private set; }
+        public bool IsControlSettingsOpen => controlsPanel != null && controlsPanel.activeSelf;
         public bool IsEditingLayout => layoutEditor != null && layoutEditor.IsOpen;
         public Button MenuButton { get; private set; }
 
@@ -68,6 +72,7 @@ namespace Deadlock.UI
                 return;
             IsOpen = false;
             panel.SetActive(false);
+            controlsPanel.SetActive(false);
             input.Unblock("menu");
             Closed?.Invoke();
         }
@@ -78,6 +83,69 @@ namespace Deadlock.UI
                 Open();
             panel.SetActive(false);
             layoutEditor.Open(() => panel.SetActive(true));
+        }
+
+        /// <summary>Menu → Settings → Controls: ADS hold / toggle, separately for touch and PC (saved on this device).</summary>
+        public void OpenControlSettings()
+        {
+            if (!IsOpen)
+                Open();
+            panel.SetActive(false);
+            RefreshControlSettings();
+            controlsPanel.SetActive(true);
+        }
+
+        public void CloseControlSettings()
+        {
+            controlsPanel.SetActive(false);
+            if (IsOpen)
+                panel.SetActive(true);
+        }
+
+        void SetAdsMode(InputMode mode, AdsMode value)
+        {
+            ControlSettings.SetAdsMode(mode, value);
+            RefreshControlSettings();
+        }
+
+        void RefreshControlSettings()
+        {
+            touchAdsText.text = $"ADS操作方式（タッチ：ADSボタン）　現在：{ControlSettings.Label(ControlSettings.GetAdsMode(InputMode.Touch))}";
+            desktopAdsText.text = $"ADS操作方式（PC：右クリック）　現在：{ControlSettings.Label(ControlSettings.GetAdsMode(InputMode.Desktop))}";
+        }
+
+        void BuildControlSettings()
+        {
+            controlsPanel = UiBuild.Stretch(UiBuild.Rect("ControlSettingsPanel", layer)).gameObject;
+            UiBuild.Image((RectTransform)controlsPanel.transform, new Color(0f, 0f, 0f, 0.6f), true);
+            var window = UiBuild.Place(UiBuild.Rect("Window", controlsPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 640f));
+            UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(840f, 60f)),
+                "設定 → 操作設定", 40, TextAnchor.MiddleCenter);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(840f, 64f)),
+                "長押し：押している間だけADS　／　切り替え：押すたびにON・OFF", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+
+            float y = -180f;
+            void Row(InputMode mode, string prefix, out Text label)
+            {
+                label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "AdsLabel", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(840f, 40f)),
+                    "", 26, TextAnchor.MiddleCenter);
+                UiBuild.Button(window, prefix + "AdsHold", "長押し", new Vector2(0.5f, 1f), new Vector2(-130f, y - 52f), new Vector2(240f, 72f),
+                    () => SetAdsMode(mode, AdsMode.Hold), 28);
+                UiBuild.Button(window, prefix + "AdsToggle", "切り替え", new Vector2(0.5f, 1f), new Vector2(130f, y - 52f), new Vector2(240f, 72f),
+                    () => SetAdsMode(mode, AdsMode.Toggle), 28);
+                y -= 150f;
+            }
+            Row(InputMode.Touch, "Touch", out touchAdsText);
+            // The PC setting is only meaningful where a mouse can be used (Editor / desktop).
+            Row(InputMode.Desktop, "Desktop", out desktopAdsText);
+            if (Application.isMobilePlatform)
+            {
+                foreach (var name in new[] { "DesktopAdsLabel", "DesktopAdsHold", "DesktopAdsToggle" })
+                    window.Find(name).gameObject.SetActive(false);
+            }
+            UiBuild.Button(window, "BackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(300f, 72f), CloseControlSettings, 28);
+            controlsPanel.SetActive(false);
         }
 
         void Build()
@@ -120,8 +188,10 @@ namespace Deadlock.UI
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),
                 "設定", 26, TextAnchor.MiddleLeft, new Color(1f, 1f, 1f, 0.6f));
             y -= 52f;
+            Add("ControlSettingsButton", "操作設定", OpenControlSettings);
             Add("LayoutButton", "操作レイアウト", OpenLayoutEditor);
             panel.SetActive(false);
+            BuildControlSettings();
 
             layoutEditor = gameObject.AddComponent<TouchLayoutEditor>();
             layoutEditor.Init(input, (RectTransform)transform);

@@ -126,7 +126,7 @@ namespace Deadlock.UI
             "入力モード：PC（キーボード／マウス）　F2：タッチモードへ\n" +
             "Space：ジャンプ　／　WASD：移動　／　Shift：ダッシュ　／　マウス：視点\n" +
             "C：しゃがみ（ダッシュ中はスライディング）　／　Z：伏せ　／　1：銃　／　2：ナイフ\n" +
-            "左クリック：射撃　／　右クリック長押し：ADS\n" +
+            "左クリック：射撃　／　右クリック：ADS（長押し／切り替えは設定で変更）\n" +
             "R：リロード　／　Tab：メニュー　／　Esc：カーソル解放";
         const string DesktopNotCaptured = "\n▶ Game Viewをクリックすると操作できます";
         const string TouchHelp =

@@ -13,6 +13,7 @@ namespace Deadlock.Input
     /// never reaches the look area (buttons sit above it in the UI hierarchy).
     /// Initial (provisional) layout: posture button tap = stand ⇄ crouch, hold = prone ⇄ stand; weapon button toggles
     /// gun ⇄ melee; FIRE fires or swings depending on the weapon; ADS / R are disabled while the melee weapon is out.
+    /// ADS is hold or toggle as set in Menu → Settings → Controls (touch setting, <see cref="ControlSettings"/>).
     /// </summary>
     public sealed class TouchControls : MonoBehaviour
     {
@@ -44,14 +45,15 @@ namespace Deadlock.Input
         [Tooltip("Holding the posture button this long goes prone (or stands up from prone) instead of the tap action.")]
         [SerializeField, Min(0.1f)] float longPressTime = 0.45f;
 
-        bool adsToggled;
+        readonly AdsInput ads = new AdsInput();
         bool sprintLatched;
         bool postureWasHeld;
         bool postureLongFired;
         Color knobColor;
         FirstPersonMotor motor;
 
-        public bool AdsToggled => adsToggled;
+        /// <summary>ADS intent from the touch controls (after the hold / toggle setting).</summary>
+        public bool AdsActive => ads.Active;
         public bool SprintLatched => sprintLatched;
         public float LongPressTime => longPressTime;
 
@@ -68,7 +70,7 @@ namespace Deadlock.Input
             gameObject.SetActive(visible);
             if (!visible)
             {
-                SetAds(false);
+                CancelAds();
                 sprintLatched = false;
                 postureWasHeld = postureLongFired = false;
             }
@@ -77,10 +79,11 @@ namespace Deadlock.Input
         /// <summary>
         /// Lets go of every finger the widgets are tracking. Used when the app is backgrounded / loses focus:
         /// the release of a finger held at that moment may never arrive, which would leave FIRE or the stick held.
-        /// The ADS toggle is a state, not a held press, and is kept.
+        /// ADS is turned off too (a new press is needed afterwards).
         /// </summary>
         public void ReleaseAll()
         {
+            CancelAds();
             moveStick.Release();
             lookArea.Release();
             foreach (var button in new[] { fireButton, adsButton, reloadButton, jumpButton, postureButton, weaponButton })
@@ -95,10 +98,9 @@ namespace Deadlock.Input
             bool gunOut = weapons == null || (weapons.Current == WeaponSlot.Gun && !weapons.IsSwitching);
             adsButton.SetInteractable(gunOut);
             reloadButton.SetInteractable(gunOut);
-            if (!gunOut)
-                SetAds(false);
-            else if (adsButton.ConsumePressed())
-                SetAds(!adsToggled);
+            // A finger that leaves the button keeps being tracked by it, so a hold ends wherever the finger lifts.
+            bool adsOn = ads.Update(ControlSettings.GetAdsMode(InputMode.Touch), adsButton.IsHeld, adsButton.ConsumePressed(), gunOut);
+            adsButton.SetLatched(adsOn);
 
             float degreesPerPixel = lookDegreesPerScreenHeight / Mathf.Max(1, Screen.height);
             Vector2 move = moveStick.Value;
@@ -118,7 +120,7 @@ namespace Deadlock.Input
                 JumpPressed = jumpButton.ConsumePressed(),
                 FireHeld = fireButton.IsHeld,
                 FirePressed = fireButton.ConsumePressed(),
-                AdsActive = adsToggled,
+                AdsActive = adsOn,
                 ReloadPressed = gunOut && reloadButton.ConsumePressed(),
                 CrouchPressed = crouch,
                 PronePressed = prone,
@@ -175,11 +177,15 @@ namespace Deadlock.Input
                 sprintIndicator.color = sprintLatched ? sprintColor : knobColor;
         }
 
-        void SetAds(bool on)
+        /// <summary>ADS off; a finger still on the button has to lift and press again.</summary>
+        public void CancelAds()
         {
-            adsToggled = on;
             if (adsButton != null)
-                adsButton.SetLatched(on);
+            {
+                adsButton.Release();
+                adsButton.SetLatched(false);
+            }
+            ads.Cancel(false);
         }
 
         /// <summary>Only real (or simulated) touches drive the touch widgets; mouse pointer events are ignored.</summary>

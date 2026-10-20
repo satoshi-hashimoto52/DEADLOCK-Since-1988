@@ -19,6 +19,8 @@ namespace Deadlock.Network
             Sprinting = 1,
             Grounded = 2,
             Switching = 4,
+            /// <summary>Actually aiming down sights (the result, not the hold / toggle setting).</summary>
+            Aiming = 8,
         }
 
         public Vector3 Position;

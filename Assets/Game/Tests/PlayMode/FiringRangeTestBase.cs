@@ -28,6 +28,7 @@ namespace Deadlock.Tests
         protected ProjectileSystem projectiles;
 
         string savedLayoutJson;
+        int savedTouchAds, savedDesktopAds;
 
         // Tests run against the default touch layout; a layout the user saved in the Editor is put back afterwards.
         public override void Setup()
@@ -37,6 +38,10 @@ namespace Deadlock.Tests
             mouse = null;
             savedLayoutJson = PlayerPrefs.GetString(TouchLayout.PrefsKey, null);
             TouchLayout.ClearSaved();
+            // Tests start from the default ADS modes (hold); the user's settings are put back afterwards.
+            savedTouchAds = PlayerPrefs.GetInt(ControlSettings.TouchAdsKey, -1);
+            savedDesktopAds = PlayerPrefs.GetInt(ControlSettings.DesktopAdsKey, -1);
+            ControlSettings.ClearSaved();
             Time.timeScale = 1f;
         }
 
@@ -47,6 +52,11 @@ namespace Deadlock.Tests
                 TouchLayout.ClearSaved();
             else
                 PlayerPrefs.SetString(TouchLayout.PrefsKey, savedLayoutJson);
+            ControlSettings.ClearSaved();
+            if (savedTouchAds >= 0)
+                PlayerPrefs.SetInt(ControlSettings.TouchAdsKey, savedTouchAds);
+            if (savedDesktopAds >= 0)
+                PlayerPrefs.SetInt(ControlSettings.DesktopAdsKey, savedDesktopAds);
             base.TearDown();
         }
 

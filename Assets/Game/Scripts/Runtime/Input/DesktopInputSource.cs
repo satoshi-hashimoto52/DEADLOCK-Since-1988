@@ -45,7 +45,8 @@ namespace Deadlock.Input
         readonly InputAction menu;
 
         // Held inputs ignored until released (keys / buttons already down when input resumes after a menu).
-        bool suppressMove, suppressSprint, suppressFire, suppressAds;
+        bool suppressMove, suppressSprint, suppressFire;
+        readonly AdsInput adsInput = new AdsInput();
 
         public DesktopInputSource()
         {
@@ -82,8 +83,11 @@ namespace Deadlock.Input
             suppressMove = move.ReadValue<Vector2>() != Vector2.zero;
             suppressSprint = sprint.IsPressed();
             suppressFire = fire.IsPressed();
-            suppressAds = ads.IsPressed();
+            adsInput.Cancel(ads.IsPressed());
         }
+
+        /// <summary>ADS off; a right button still held must be released and pressed again.</summary>
+        public void CancelAds() => adsInput.Cancel(ads.IsPressed());
 
         /// <summary>Clears suppressions whose key was released. Call once per frame.</summary>
         public void Tick()
@@ -91,13 +95,13 @@ namespace Deadlock.Input
             suppressMove &= move.ReadValue<Vector2>() != Vector2.zero;
             suppressSprint &= sprint.IsPressed();
             suppressFire &= fire.IsPressed();
-            suppressAds &= ads.IsPressed();
         }
 
         public void Enable() => map.Enable();
         public void Disable() => map.Disable();
 
-        public PlayerInputFrame Read(float mouseDegreesPerPixel)
+        /// <param name="adsAvailable">False while ADS cannot be used (knife out, switching): the button is ignored.</param>
+        public PlayerInputFrame Read(float mouseDegreesPerPixel, bool adsAvailable = true)
         {
             Vector2 delta = look.ReadValue<Vector2>() * mouseDegreesPerPixel;
             return new PlayerInputFrame
@@ -108,7 +112,7 @@ namespace Deadlock.Input
                 JumpPressed = jump.WasPressedThisFrame(),
                 FireHeld = !suppressFire && fire.IsPressed(),
                 FirePressed = !suppressFire && fire.WasPressedThisFrame(),
-                AdsActive = !suppressAds && ads.IsPressed(),
+                AdsActive = adsInput.Update(ControlSettings.GetAdsMode(InputMode.Desktop), ads.IsPressed(), ads.WasPressedThisFrame(), adsAvailable),
                 ReloadPressed = reload.WasPressedThisFrame(),
                 CrouchPressed = crouch.WasPressedThisFrame(),
                 PronePressed = prone.WasPressedThisFrame(),

@@ -252,6 +252,7 @@ namespace Deadlock.Tests
         [UnityTest]
         public IEnumerator Touch_AdsButtonToggles_And_DesktopInputIsIgnored()
         {
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle); // these checks use the toggle mode
             yield return LoadScene(InputMode.Touch);
             var touchscreen = InputSystem.AddDevice<Touchscreen>();
             yield return null;
@@ -305,6 +306,7 @@ namespace Deadlock.Tests
         [UnityTest]
         public IEnumerator Touch_ButtonsStillWork_WithPhysicalMouse([Values] MouseInterference order)
         {
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle); // these checks use the toggle mode
             yield return LoadScene(InputMode.Touch);
             var touchscreen = InputSystem.AddDevice<Touchscreen>();
             yield return null;
@@ -375,7 +377,7 @@ namespace Deadlock.Tests
 
             Assert.IsFalse(adsButton.IsHeld, "Lifting the finger must release the button");
             Assert.IsFalse(fireButton.IsHeld, "The mouse must not hold the FIRE button");
-            Assert.AreEqual(expectAdsOn, controls.AdsToggled);
+            Assert.AreEqual(expectAdsOn, controls.AdsActive);
             Assert.AreEqual(0, fired, "The mouse must not shoot in touch mode");
             Assert.AreEqual(position.x, player.transform.position.x, 0.01f);
             Assert.AreEqual(position.z, player.transform.position.z, 0.01f);
@@ -388,7 +390,7 @@ namespace Deadlock.Tests
             yield return null;
             yield return null;
             Assert.IsFalse(adsButton.IsHeld);
-            Assert.AreEqual(!expectAdsOn, controls.AdsToggled, "ADS must toggle on the next tap");
+            Assert.AreEqual(!expectAdsOn, controls.AdsActive, "ADS must toggle on the next tap");
 
             BeginTouch(2, firePoint, queueEventOnly: true, screen: touchscreen);
             yield return Wait(0.35f);
@@ -413,6 +415,7 @@ namespace Deadlock.Tests
         [UnityTest]
         public IEnumerator F2_TouchSimulation_MouseClickReachesTouchButtons()
         {
+            ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle); // these checks use the toggle mode
             yield return LoadScene(InputMode.Desktop);
             var controls = Object.FindAnyObjectByType<TouchControls>(FindObjectsInactive.Include);
             var adsButton = GameObject.Find("AdsButton");
@@ -435,7 +438,7 @@ namespace Deadlock.Tests
             Release(mouse.leftButton, queueEventOnly: true);
             yield return null;
             yield return null;
-            Assert.IsTrue(controls.AdsToggled, "A simulated touch from the mouse must press ADS");
+            Assert.IsTrue(controls.AdsActive, "A simulated touch from the mouse must press ADS");
             Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded, "The click must not also fire via desktop input");
 
             Press(keyboard.f2Key, queueEventOnly: true);

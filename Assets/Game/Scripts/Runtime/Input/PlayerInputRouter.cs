@@ -53,12 +53,35 @@ namespace Deadlock.Input
         /// </summary>
         public Func<PlayerInputFrame> ExternalSource { get; set; }
 
+        /// <summary>Set by the gun each frame: false while ADS cannot be used (knife out, switching).</summary>
+        public bool AdsAvailable { get; set; } = true;
+
         void Awake()
         {
             desktop = new DesktopInputSource();
         }
 
-        void OnEnable() => desktop.Enable();
+        void OnEnable()
+        {
+            desktop.Enable();
+            ControlSettings.AdsModeChanged += OnAdsModeChanged;
+        }
+
+        void OnAdsModeChanged(InputMode mode, AdsMode value) => CancelAds();
+
+        /// <summary>
+        /// Turns ADS off on every source (menu, layout editor, death, background, input mode or setting change,
+        /// weapon put away). It does not come back by itself: the button must be pressed again.
+        /// </summary>
+        public void CancelAds()
+        {
+            desktop.CancelAds();
+            if (touchControls != null)
+                touchControls.CancelAds();
+            var frame = Current;
+            frame.AdsActive = false;
+            Current = frame;
+        }
 
         void Start()
         {
@@ -69,6 +92,7 @@ namespace Deadlock.Input
 
         void OnDisable()
         {
+            ControlSettings.AdsModeChanged -= OnAdsModeChanged;
             desktop.Disable();
             SetTouchSimulation(false);
             SetCursorLocked(false);
@@ -117,6 +141,7 @@ namespace Deadlock.Input
         {
             if (touchControls != null)
                 touchControls.ReleaseAll();
+            desktop.CancelAds();
             Current = default;
         }
 
@@ -128,6 +153,7 @@ namespace Deadlock.Input
             if (touchControls != null)
                 touchControls.SetVisible(mode == InputMode.Touch);
             SetCursorLocked(mode == InputMode.Desktop && RequireCursorLock);
+            CancelAds();
             Current = default;
             ModeChanged?.Invoke(mode);
         }
@@ -174,7 +200,7 @@ namespace Deadlock.Input
                 }
             }
 
-            Current = desktop.Read(mouseDegreesPerPixel);
+            Current = desktop.Read(mouseDegreesPerPixel, AdsAvailable);
         }
 
         void SetTouchSimulation(bool enable)
