@@ -116,7 +116,7 @@ namespace Deadlock.Tests
             Assert.IsNotEmpty(editor.Message);
             Assert.AreEqual(fireBefore, AnchorOf(TouchLayout.Fire));
 
-            // Far off screen to the upper right: clamped inside the Safe Area and below the menu band.
+            // Far off screen to the upper right: clamped inside the Safe Area (the top corners are allowed).
             Assert.IsTrue(editor.MoveBy(TouchLayout.Weapon, new Vector2(5000f, 5000f)));
             yield return null;
             var rect = applier.Widget(TouchLayout.Weapon);
@@ -125,14 +125,86 @@ namespace Deadlock.Tests
             var safeCorners = new Vector3[4];
             applier.SafeArea.GetWorldCorners(safeCorners);
             Assert.LessOrEqual(corners[2].x, safeCorners[2].x + 0.5f, "Right edge inside the Safe Area");
-            float topLimit = Mathf.Lerp(safeCorners[0].y, safeCorners[2].y, TouchLayout.TopLimit);
-            Assert.LessOrEqual(corners[2].y, topLimit + 0.5f, "Top edge below the menu band");
+            Assert.LessOrEqual(corners[2].y, safeCorners[2].y + 0.5f, "Top edge inside the Safe Area");
+            Assert.Greater(corners[2].y, Mathf.Lerp(safeCorners[0].y, safeCorners[2].y, 0.95f), "Reaches the top corner");
 
             // Menu button stays usable while editing is closed again.
             editor.CancelAndClose();
             menu.Close();
             yield return null;
             Assert.IsTrue(menu.MenuButton.gameObject.activeInHierarchy);
+        }
+
+        [UnityTest]
+        public IEnumerator Layout_FireAndAdsInTheTopCorners_SavedRestored_AndWorkNormally()
+        {
+            yield return LoadTouch();
+            menu.OpenLayoutEditor();
+            yield return null;
+            // The toolbar can move out of the way of controls at the top.
+            editor.ToggleToolbarPosition();
+            Assert.IsTrue(editor.ToolbarAtBottom);
+            Assert.IsTrue(editor.MoveBy(TouchLayout.Fire, new Vector2(-5000f, 5000f)), editor.Message); // top left
+            Assert.IsTrue(editor.MoveBy(TouchLayout.Ads, new Vector2(5000f, 5000f)), editor.Message);   // top right
+            var working = editor.Working;
+            editor.ApplyAndClose();
+            menu.Close();
+            Assert.Greater(working.Get(TouchLayout.Fire).center.y, 0.85f, "FIRE sits higher than the old band allowed");
+            Assert.Greater(working.Get(TouchLayout.Ads).center.y, 0.85f);
+
+            // Next start: restored where they were put.
+            yield return LoadTouch();
+            Assert.AreEqual(working.Get(TouchLayout.Fire).center.x, AnchorOf(TouchLayout.Fire).x, 0.001f);
+            Assert.AreEqual(working.Get(TouchLayout.Fire).center.y, AnchorOf(TouchLayout.Fire).y, 0.001f);
+            Assert.AreEqual(working.Get(TouchLayout.Ads).center.y, AnchorOf(TouchLayout.Ads).y, 0.001f);
+
+            var touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return null;
+            var fireButton = GameObject.Find("FireButton").GetComponent<TouchButton>();
+            var stick = Object.FindAnyObjectByType<VirtualJoystick>();
+            Vector2 fire = ScreenCenter((RectTransform)fireButton.transform);
+            Vector2 ads = ScreenCenter((RectTransform)GameObject.Find("AdsButton").transform);
+            int shots = 0;
+            gun.Fired += () => shots++;
+
+            // FIRE in the top-left corner (over the left side where the move area is): it is FIRE, not the stick.
+            Vector3 position = player.transform.position;
+            float yaw = motor.Yaw;
+            BeginTouch(1, fire, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            for (int i = 1; i <= 5; i++)
+            {
+                MoveTouch(1, fire + new Vector2(40f * i, 0f), queueEventOnly: true, screen: touchscreen);
+                yield return null;
+            }
+            Assert.IsTrue(fireButton.IsHeld, "The finger belongs to FIRE");
+            Assert.IsFalse(stick.IsActive, "Not taken for the movement stick");
+            Assert.Greater(shots, 0, "Fires");
+            Assert.Greater(Mathf.Abs(Mathf.DeltaAngle(yaw, motor.Yaw)), 1f, "FIRE drag aims");
+            Assert.AreEqual(position.x, player.transform.position.x, 0.01f, "No movement");
+            EndTouch(1, fire + new Vector2(200f, 0f), queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.2f);
+            int after = shots;
+            yield return Wait(0.2f);
+            Assert.AreEqual(after, shots, "Released: stops");
+            Assert.IsFalse(fireButton.IsHeld);
+
+            // ADS in the top-right corner: toggles (standard).
+            BeginTouch(2, ads, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            EndTouch(2, ads, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.1f);
+            Assert.IsTrue(gun.AdsRequested);
+
+            // The menu button still works by touch.
+            Vector2 menuPoint = ScreenCenter((RectTransform)menu.MenuButton.transform);
+            BeginTouch(3, menuPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            EndTouch(3, menuPoint, queueEventOnly: true, screen: touchscreen);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(menu.IsOpen, "Menu opens");
+            menu.Close();
         }
 
         [UnityTest]

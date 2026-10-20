@@ -26,6 +26,8 @@ namespace Deadlock.UI
         RectTransform handleRoot;
         Text selectedText;
         Text messageText;
+        RectTransform toolbar;
+        Text toolbarMoveLabel;
         readonly Dictionary<string, RectTransform> handles = new Dictionary<string, RectTransform>();
         readonly Dictionary<string, Image> handleImages = new Dictionary<string, Image>();
         TouchLayoutData working;
@@ -37,6 +39,20 @@ namespace Deadlock.UI
         public TouchLayoutData Working => working?.Clone();
         public string Selected => selected;
         public string Message => messageText != null ? messageText.text : "";
+        /// <summary>The toolbar sits at the bottom (true) or the top (false) of the screen.</summary>
+        public bool ToolbarAtBottom { get; private set; }
+
+        /// <summary>
+        /// Moves the editor's toolbar between the top and the bottom of the screen, so controls placed in the top
+        /// corners (or along the bottom) can always be reached while editing.
+        /// </summary>
+        public void ToggleToolbarPosition()
+        {
+            ToolbarAtBottom = !ToolbarAtBottom;
+            Vector2 anchor = ToolbarAtBottom ? new Vector2(0.5f, 0f) : new Vector2(0.5f, 1f);
+            UiBuild.Place(toolbar, anchor, new Vector2(0f, ToolbarAtBottom ? 8f : -8f), toolbar.sizeDelta);
+            toolbarMoveLabel.text = ToolbarAtBottom ? "ツールバーを上へ" : "ツールバーを下へ";
+        }
 
         public void Init(PlayerInputRouter router, RectTransform root)
         {
@@ -218,6 +234,7 @@ namespace Deadlock.UI
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", layer));
             safe.gameObject.AddComponent<SafeAreaFitter>();
             var bar = UiBuild.Place(UiBuild.Rect("Toolbar", safe), new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(1400f, 150f));
+            toolbar = bar;
             UiBuild.Image(bar, new Color(0.08f, 0.09f, 0.12f, 0.92f), true);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", bar), new Vector2(0f, 1f), new Vector2(24f, -10f), new Vector2(700f, 40f)),
                 "設定 → 操作レイアウト", 28, TextAnchor.UpperLeft);
@@ -233,6 +250,8 @@ namespace Deadlock.UI
             UiBuild.Button(bar, "Reset", "初期配置に戻す", new Vector2(1f, 1f), new Vector2(-400f, -10f), new Vector2(220f, 60f), ResetToDefaults, 24);
             UiBuild.Button(bar, "Grow", "＋", new Vector2(1f, 1f), new Vector2(-16f, -80f), small, () => { if (selected != null) Resize(selected, +1); }, 36);
             UiBuild.Button(bar, "Shrink", "−", new Vector2(1f, 1f), new Vector2(-118f, -80f), small, () => { if (selected != null) Resize(selected, -1); }, 36);
+            var move = UiBuild.Button(bar, "MoveToolbar", "ツールバーを下へ", new Vector2(1f, 1f), new Vector2(-226f, -80f), new Vector2(220f, 60f), ToggleToolbarPosition, 22);
+            toolbarMoveLabel = move.GetComponentInChildren<Text>();
         }
     }
 }

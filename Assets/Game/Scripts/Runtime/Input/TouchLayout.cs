@@ -58,12 +58,17 @@ namespace Deadlock.Input
 
         public const string PrefsKey = "deadlock.touchLayout.v1";
 
-        /// <summary>Widgets stay below this normalised height: the band above keeps the menu button and HUD reachable.</summary>
-        public const float TopLimit = 0.84f;
         public const float MinScale = 0.6f;
         public const float MaxScale = 1.6f;
         public static readonly Vector2 MinZoneSize = new Vector2(0.15f, 0.2f);
-        public static readonly Vector2 MaxZoneSize = new Vector2(0.6f, TopLimit);
+        public static readonly Vector2 MaxZoneSize = new Vector2(0.6f, 1f);
+
+        // The menu button (top centre of the Safe Area, canvas units). Only it, plus a small margin against mis-taps, is
+        // kept free: everything else in the Safe Area, including the top corners at the menu's height, may hold controls.
+        // Non-interactive HUD text is not protected (controls may cover it).
+        public static readonly Vector2 MenuButtonSize = new Vector2(220f, 64f);
+        public const float MenuButtonTopOffset = 10f;
+        public const float MenuGuardMargin = 24f;
         /// <summary>Circles may touch but not overlap more than this fraction of the sum of their radii.</summary>
         public const float AllowedOverlap = 0.1f;
 
@@ -111,14 +116,14 @@ namespace Deadlock.Input
 
         public static float Diameter(TouchLayoutItem item) => BaseDiameter(item.id) * item.scale;
 
-        /// <summary>Centre clamped so the whole circle stays inside the Safe Area and below <see cref="TopLimit"/>.</summary>
+        /// <summary>Centre clamped so the whole circle stays inside the Safe Area.</summary>
         public static Vector2 ClampCircle(Vector2 center, float diameter, Vector2 safeSize)
         {
             float rx = diameter * 0.5f / Mathf.Max(1f, safeSize.x);
             float ry = diameter * 0.5f / Mathf.Max(1f, safeSize.y);
             return new Vector2(
                 Mathf.Clamp(center.x, rx, Mathf.Max(rx, 1f - rx)),
-                Mathf.Clamp(center.y, ry, Mathf.Max(ry, TopLimit - ry)));
+                Mathf.Clamp(center.y, ry, Mathf.Max(ry, 1f - ry)));
         }
 
         public static TouchLayoutItem ClampZone(TouchLayoutItem zone)
@@ -127,13 +132,28 @@ namespace Deadlock.Input
             Vector2 half = zone.size * 0.5f;
             zone.center = new Vector2(
                 Mathf.Clamp(zone.center.x, half.x, 1f - half.x),
-                Mathf.Clamp(zone.center.y, half.y, TopLimit - half.y));
+                Mathf.Clamp(zone.center.y, half.y, 1f - half.y));
             return zone;
         }
 
+        /// <summary>The menu button plus its margin, in canvas units with the origin at the Safe Area's bottom left.</summary>
+        public static Rect MenuGuard(Vector2 safeSize)
+        {
+            float halfWidth = MenuButtonSize.x * 0.5f + MenuGuardMargin;
+            float height = MenuButtonTopOffset + MenuButtonSize.y + MenuGuardMargin;
+            return new Rect(safeSize.x * 0.5f - halfWidth, safeSize.y - height, halfWidth * 2f, height);
+        }
+
+        static bool CircleHitsRect(Vector2 center, float radius, Rect rect)
+        {
+            float cx = Mathf.Clamp(center.x, rect.xMin, rect.xMax);
+            float cy = Mathf.Clamp(center.y, rect.yMin, rect.yMax);
+            return (new Vector2(cx, cy) - center).sqrMagnitude < radius * radius;
+        }
+
         /// <summary>
-        /// A layout is usable when no two circles overlap (beyond a small tolerance) and the stick rests inside the
-        /// move zone. Checked in canvas units for the current Safe Area size.
+        /// A layout is usable when no two circles overlap (beyond a small tolerance), nothing covers the menu button or
+        /// its margin, and the stick rests inside the move zone. Checked in canvas units for the current Safe Area size.
         /// </summary>
         public static bool IsUsable(TouchLayoutData data, Vector2 safeSize, out string problem)
         {
@@ -152,7 +172,24 @@ namespace Deadlock.Input
                     return false;
                 }
             }
+            Rect guard = MenuGuard(safeSize);
+            foreach (var id in Circles)
+            {
+                var item = data.Get(id);
+                Vector2 p = Vector2.Scale(ClampCircle(item.center, Diameter(item), safeSize), safeSize);
+                if (CircleHitsRect(p, Diameter(item) * 0.5f, guard))
+                {
+                    problem = $"{DisplayName(id)}がメニューボタンに重なっています";
+                    return false;
+                }
+            }
             var zone = ClampZone(data.Get(MoveZone));
+            var zoneRect = new Rect(Vector2.Scale(zone.center - zone.size * 0.5f, safeSize), Vector2.Scale(zone.size, safeSize));
+            if (zoneRect.Overlaps(guard))
+            {
+                problem = $"{DisplayName(MoveZone)}がメニューボタンに重なっています";
+                return false;
+            }
             var stick = data.Get(MoveStick);
             Vector2 min = zone.center - zone.size * 0.5f, max = zone.center + zone.size * 0.5f;
             if (stick.center.x < min.x || stick.center.y < min.y || stick.center.x > max.x || stick.center.y > max.y)

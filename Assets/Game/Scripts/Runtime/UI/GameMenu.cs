@@ -166,8 +166,9 @@ namespace Deadlock.UI
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", layer));
             safe.gameObject.AddComponent<SafeAreaFitter>();
 
-            MenuButton = UiBuild.Button(safe, "MenuButton", "メニュー", new Vector2(0.5f, 1f), new Vector2(0f, -10f),
-                new Vector2(220f, 64f), () => { if (IsOpen) Close(); else Open(); }, 28);
+            // Size / position shared with the layout editor, which keeps this spot (and a small margin) free.
+            MenuButton = UiBuild.Button(safe, "MenuButton", "メニュー", new Vector2(0.5f, 1f), new Vector2(0f, -TouchLayout.MenuButtonTopOffset),
+                TouchLayout.MenuButtonSize, () => { if (IsOpen) Close(); else Open(); }, 28);
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
