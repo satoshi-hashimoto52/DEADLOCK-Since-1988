@@ -222,6 +222,10 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 5. 部位を別色にした分類画像と、銃と手の接触部（指・手首・袖の境界）の拡大画像で**目視確認**する（数値の一致だけでは部位の正しさは分からない）。
 6. 色替えの確認：`python3 Tools/pixelart/recolor_preview.py 定義 出力.png 手:マスク=色相,彩度 …`（明度を保って色相・彩度だけを変える。`Assets` へは出力しない）。
 
+ADS（2026-10-21）：`Assets/Game/Art/Weapons/Rifle/Layers/ADS/`（`rifle_ads_weapon.png`・`rifle_ads_left_hand_arm.png`・`rifle_ads_right_hand_arm.png`、`Masks/rifle_ads_*`、定義 `rifle_ads_layers.definition.json`）。手の範囲・色の規則・輪郭の太さ・黒い線の値はADSの画像で測って決める（腰だめの値は使わない）。確認資料 `docs/review/player-parts/rifle-ads/`。確認画像は `python3 Tools/pixelart/review_layers.py 定義 出力先 "名前=手:マスク=色相,彩度;…"` でまとめて作れる（分類画像、定義の `review.areas` の接触部の拡大、マスク図、色替え例）。
+
+分類の方針：手と銃の間の黒い線は手前の手のもの。腰だめの右手の指の間の灰色は銃（グリップ側）とする（材質を断定したものではない制作上の方針）。
+
 制約：手に隠れた銃・銃に隠れた指は描かれていない。形の違うスキン（指ぬきグローブなど）は色替えでは作れず、この構えに合わせて描いた手・腕の素材と、隠れていた部分を描き足した銃のレイヤーが必要。掌の補強は今の画像では判別できない（マスクは空）。
 
 #### 次の武器（SMG）を追加する手順

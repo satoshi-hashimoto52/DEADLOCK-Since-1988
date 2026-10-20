@@ -1,0 +1,119 @@
+{
+  "base": "Assets/Game/Art/Weapons/Rifle/rifle_ads_approved_opaque.png",
+  "size": [
+    1774,
+    887
+  ],
+  "cells": 31,
+  "layerPixels": {
+    "weapon": 152527,
+    "left": 88437,
+    "right": 17703
+  },
+  "maskPixels": {
+    "left.glove_body": 14911,
+    "left.glove_reinforcement": 0,
+    "left.wrist_band": 2732,
+    "left.sleeve_base": 27365,
+    "left.sleeve_camo": 26968,
+    "right.glove_body": 12703,
+    "right.glove_reinforcement": 0,
+    "right.wrist_band": 0,
+    "right.sleeve_base": 0,
+    "right.sleeve_camo": 0
+  },
+  "emptyMasks": [
+    "left.glove_reinforcement",
+    "right.glove_reinforcement",
+    "right.wrist_band",
+    "right.sleeve_base",
+    "right.sleeve_camo"
+  ],
+  "cellOverrides": [
+    {
+      "seed": [
+        627,
+        659
+      ],
+      "cellPixels": 1455,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "grey band between the left glove and the sleeve (grey like the gun steel; separated from the gun by outlines)"
+    }
+  ],
+  "pixelOverrides": [
+    {
+      "polygon": [
+        [
+          695,
+          700
+        ],
+        [
+          710,
+          688
+        ],
+        [
+          722,
+          688
+        ],
+        [
+          728,
+          698
+        ],
+        [
+          742,
+          722
+        ],
+        [
+          743,
+          746
+        ],
+        [
+          735,
+          746
+        ],
+        [
+          722,
+          725
+        ],
+        [
+          705,
+          716
+        ],
+        [
+          695,
+          712
+        ]
+      ],
+      "part": "left",
+      "changed": 570,
+      "why": "shadowed face of the wrist band (dark fill, max channel 30-45) below the glove: farther than outlineWidth from the band cell, so the distance rule gave it to the gun; it is the band's own face continuing down-right to its tip"
+    }
+  ],
+  "unreachedOutline": 0,
+  "orphanPiecesMoved": [
+    {
+      "pixels": 1,
+      "bbox": [
+        718,
+        693,
+        718,
+        693
+      ],
+      "to": "left"
+    },
+    {
+      "pixels": 3,
+      "bbox": [
+        703,
+        709,
+        703,
+        711
+      ],
+      "to": "left"
+    }
+  ],
+  "darkFillPixelsAddedToMasks": 2143
+}

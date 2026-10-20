@@ -14,8 +14,9 @@ How pixels are assigned (all parameters live in the definition file):
    weapon. Colour alone never decides between weapon and hand: position (region) and the outline structure do.
 3. Outline pixels: the hands are in front of the gun, so a hand owns the outline around it -- an outline pixel within
    outlineWidth (path through outline pixels) of a hand cell goes to that hand unless the weapon is closer by more than
-   outlineWidth; all other outline pixels go to the nearest cell's part. Then small weapon pieces that touch only one
-   hand and not the rest of the weapon (fewer than orphanMaxPixels) join that hand. pixelOverrides (polygons) last.
+   outlineWidth; all other outline pixels go to the nearest cell's part. pixelOverrides (polygons) are applied next,
+   then small weapon pieces that touch only one hand and not the rest of the weapon (fewer than orphanMaxPixels) join
+   that hand.
 4. Masks (hands only; line-black pixels -- max channel below maskLineMax -- are excluded so they keep their colour;
    dark fills between maskLineMax and darkMax join the nearest mask of the same hand): glove body = glove-coloured cells, wrist band
    = cells marked "wrist_band", sleeve base / camo = sleeve-coloured pixels split by local contrast (camo = clearly
@@ -191,6 +192,19 @@ def split(definition):
                 part[y][x] = "weapon"
                 unreached += 1
 
+    pixel_log = []
+    for o in definition.get("pixelOverrides", []):
+        n = 0
+        xs = [p[0] for p in o["polygon"]]
+        ys = [p[1] for p in o["polygon"]]
+        for y in range(max(0, min(ys)), min(H, max(ys) + 1)):
+            for x in range(max(0, min(xs)), min(W, max(xs) + 1)):
+                if px[x, y][3] and point_in_polygon(x + 0.5, y + 0.5, o["polygon"]) and (o.get("outlineOnly", True) is False or is_outline(px[x, y])):
+                    if part[y][x] != o["part"]:
+                        part[y][x] = o["part"]
+                        n += 1
+        pixel_log.append({"polygon": o["polygon"], "part": o["part"], "changed": n, "why": o.get("why", "")})
+
     # Orphan pieces: a small piece of one part (8-connected) that does not touch the rest of that part and touches only
     # one hand (e.g. dark anti-aliased pixels on a glove's outer outline that formed a tiny grey cell) joins that hand.
     orphan_log = []
@@ -229,19 +243,6 @@ def split(definition):
                     xs = [c[0] for c in comp]
                     ys = [c[1] for c in comp]
                     orphan_log.append({"pixels": len(comp), "bbox": [min(xs), min(ys), max(xs), max(ys)], "to": hand})
-
-    pixel_log = []
-    for o in definition.get("pixelOverrides", []):
-        n = 0
-        xs = [p[0] for p in o["polygon"]]
-        ys = [p[1] for p in o["polygon"]]
-        for y in range(max(0, min(ys)), min(H, max(ys) + 1)):
-            for x in range(max(0, min(xs)), min(W, max(xs) + 1)):
-                if px[x, y][3] and point_in_polygon(x + 0.5, y + 0.5, o["polygon"]) and (o.get("outlineOnly", True) is False or is_outline(px[x, y])):
-                    if part[y][x] != o["part"]:
-                        part[y][x] = o["part"]
-                        n += 1
-        pixel_log.append({"polygon": o["polygon"], "part": o["part"], "changed": n, "why": o.get("why", "")})
 
     # ---- 4. masks
     sleeve_rule = definition["sleeveCamo"]

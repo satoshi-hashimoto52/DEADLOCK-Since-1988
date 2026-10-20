@@ -1,0 +1,46 @@
+{
+  "note": "Hand-written split definition for the approved rifle ADS image (read by Tools/pixelart/split_layers.py). Pixel coordinates from the image's top-left. Regions, seeds and colour thresholds were measured on this image (not copied from the hip definition). The base is the image the game shows (rifle_ads_approved_opaque.png); it is only read. See docs/review/player-parts/rifle-ads/README.md.",
+  "base": "Assets/Game/Art/Weapons/Rifle/rifle_ads_approved_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/Rifle/Layers/ADS",
+  "layerFiles": {
+    "weapon": "rifle_ads_weapon.png",
+    "left": "rifle_ads_left_hand_arm.png",
+    "right": "rifle_ads_right_hand_arm.png"
+  },
+  "compositeOrder": ["weapon", "left", "right"],
+  "maskDir": "Masks",
+  "maskFile": "rifle_ads_{hand}_{mask}.png",
+  "maskNames": ["glove_body", "glove_reinforcement", "wrist_band", "sleeve_base", "sleeve_camo"],
+  "darkMax": 45,
+  "maskLineMax": 25,
+  "outlineWidth": 10,
+  "orphanMaxPixels": 50,
+  "colours": {
+    "gray": {"satMax": 0.12},
+    "sleeve": {"hue": [38, 54], "satMin": 0.15, "satMax": 0.36, "lightMax": 0.45},
+    "glove": {"hue": [18, 27], "satMin": 0.40, "lightMax": 0.45},
+    "tan": {"hue": [30, 40], "lightMin": 0.3}
+  },
+  "handColours": {"glove": ["glove"], "sleeve": ["sleeve"]},
+  "hands": {
+    "left": {"region": {"rect": [0, 470, 790, 887]}, "why": "left glove on the left side of the handguard, wrist band, sleeve to the bottom-left edge"},
+    "right": {"region": {"rect": [1090, 700, 1774, 887]}, "why": "right glove at the bottom-right, running off the bottom edge"}
+  },
+  "cellOverrides": [
+    {"seed": [627, 659], "part": "left", "tags": ["wrist_band"], "why": "grey band between the left glove and the sleeve (grey like the gun steel; separated from the gun by outlines)"}
+  ],
+  "pixelOverrides": [
+    {"polygon": [[695, 700], [710, 688], [722, 688], [728, 698], [742, 722], [743, 746], [735, 746], [722, 725], [705, 716], [695, 712]], "part": "left", "why": "shadowed face of the wrist band (dark fill, max channel 30-45) below the glove: farther than outlineWidth from the band cell, so the distance rule gave it to the gun; it is the band's own face continuing down-right to its tip"}
+  ],
+  "sleeveCamo": {"window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05},
+  "review": {
+    "crop": [260, 360, 1320, 887],
+    "areas": [
+      {"name": "A 左手の指先・ハンドガードの左側", "box": [640, 480, 820, 640]},
+      {"name": "B 左グローブの下側と手首の帯", "box": [590, 590, 790, 770]},
+      {"name": "C 袖・帯と機関部の左側面", "box": [660, 680, 830, 887]},
+      {"name": "D 右グローブと銃床の右側面", "box": [1000, 690, 1180, 887]},
+      {"name": "E 照準器（銃のみの確認）", "box": [760, 380, 1020, 520]}
+    ]
+  }
+}
