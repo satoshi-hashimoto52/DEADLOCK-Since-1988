@@ -1,7 +1,5 @@
 {
-  "note": "Placement of the approved hip image (read by PixelWeaponArt). Pixel coordinates from the image's top-left. Written by hand, not by any tool. source = the approved original (kept as is); image = the alpha-cleaned derivative actually imported (Tools/pixelart/make_opaque.py). At 16:9 the image's bottom-right sits on the screen's bottom-right, lowered by offset; wider screens follow the right edge, narrower (4:3) keep the place and let the stock run off the right edge. hipToAds: while raising the sights the hip image only moves down (relative), so its right / bottom edges stay off the screen.",
-  "source": "rifle_hip_approved.png",
-  "image": "rifle_hip_approved_opaque.png",
+  "note": "Placement of the approved rifle hip image (read by PixelWeaponArt through Assets/Game/Data/WeaponArt/WeaponArt_ProtoRifle.asset, which names the source / image files). Pixel coordinates from the image's top-left. Written by hand, not by any tool. At 16:9 the image's bottom-right sits on the screen's bottom-right, lowered by offset; wider screens follow the right edge, narrower (4:3) keep the place and let the stock run off the right edge. hipToAds: while raising the sights the hip image only moves down (relative), so its right / bottom edges stay off the screen.",
   "muzzle": [972, 443],
   "hold": [1260, 880],
   "screenHeightPixels": 1045,

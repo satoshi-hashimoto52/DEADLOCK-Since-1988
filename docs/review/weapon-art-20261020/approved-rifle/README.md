@@ -140,6 +140,8 @@
 
 ## 4．完成ADSの差し替え手順（自動処理で上書きさせない）
 
+（2026-10-20追記：ADSは組み込み済み。その後、取り込みは武器ごとの手元画像定義 `Assets/Game/Data/WeaponArt/WeaponArt_ProtoRifle.asset` 経由に変更した。現在の手順は `docs/DEVELOPMENT.md`「武器ごとの手元画像の取り込み」。以下は組み込み前の記録）
+
 1. 完成画像を `Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` に置く（2400×1200、透明背景）。
 2. `Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.placement.json`（用意済み）の `aim`（狙点）・`muzzle`（銃口）を、完成画像で実際に描かれた位置に合わせる。寸法を変えた場合は `screenHeightPixels`（画面の高さに当たるpx）も直す。
 3. シーン生成（DEADLOCK → Prototype → Rebuild Firing Range）。`PixelWeaponArt` が取り込み設定（Point・非圧縮・ピボット＝狙点）とADSの銃口位置を設定する。ベイク（`Art/Generated`）・`draw_weapons.py`（`Art/Weapons` 直下のSpr_*のみ）・シーン生成は `Rifle/` の画像を書き換えない。

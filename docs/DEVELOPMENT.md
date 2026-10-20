@@ -183,9 +183,40 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 
 ### 手元武器のドット絵（差し替え手順、D-041）
 
-**新しい武器の手元素材の手順（基準：採用ライフル、D-043）**：(1) 腰だめ・ADSの元画像（透明背景のPNG）を `Assets/Game/Art/Weapons/<武器>/` に置き、変更しない。(2) `python3 Tools/pixelart/make_opaque.py 元画像 派生画像` でアルファだけを2値にした派生画像を作る。(3) 画像から銃口・狙点（フロントサイトの先端）・持つ位置を読み取り、ライフルの `*.placement.json` と同じ項目で配置ファイルを書く（寸法は実画像に合わせ、ガイドの座標をそのまま使わない）。(4) シーン生成で取り込み、iPhone 16 Pro・16:9・iPadで腰だめ・ADS・移行・射撃・リロード・持ち替えを描画して確認する（ADSの狙点が画面中央、画像の端が画面内に出ない、銃口炎の位置）。(5) 実機で確認する。現在の取り込み処理（`PixelWeaponArt`）はライフル用のファイル名を扱うので、別の武器を加えるときは武器ごとのフォルダと定義を読めるようにする。
+### 武器ごとの手元画像の取り込み（2026-10-20〜、基準：採用ライフル、D-043）
 
-**採用ライフル（2026-10-20）**：腰だめ `Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、ADS `rifle_ads_approved.png`（どちらもユーザー採用の元画像。どのツールも書き換えない）。ゲームが取り込むのは、アルファだけを2値にした派生画像 `rifle_hip_approved_opaque.png`・`rifle_ads_approved_opaque.png`（作成：`python3 Tools/pixelart/make_opaque.py 元画像 派生画像`。元画像を差し替えたら作り直す）。大きさ・位置は同じフォルダの配置ファイル（`*.placement.json`：使う画像 `image`、元画像 `source`、銃口・狙点・持つ位置のpx座標、画面の高さに当たるpx、腰だめの右下合わせ・下げ幅・画面比ごとの追従・ADSへの移行中の動き）で決まり、`PixelWeaponArt` がシーン生成時に取り込む（Point・非圧縮・ミップマップなし・最大2048／4096px）。手順と確認結果は `docs/review/weapon-art-20261020/approved-rifle/README.md`。以下の表の `Spr_PixelRifleHip.png`・`Spr_PixelRifleAds.png` は、採用画像がある間は使われない（暫定版として残す）。
+武器ごとに **手元画像定義**（`WeaponArtDefinition`、Editor専用のアセット）を作り、**登録リスト** `Assets/Game/Data/WeaponArt/WeaponArtRegistry.asset`（`WeaponArtRegistry`）に載せた定義だけを、シーン生成時に `PixelWeaponArt.ImportRegistered` が取り込む。ファイル名で武器を判別しない（画像・配置ファイルはアセット参照＝GUIDで指定）。
+
+| 定義の項目 | 内容 |
+| --- | --- |
+| `weapon` | その武器の `WeaponDefinition`。**武器IDは `weaponId`**（登録リスト内で一意）。取り込み後、この武器の `viewProfile` が下の `viewProfile` に設定される |
+| `baseProfile` | 動き・見た目の調整値（反動・揺れ・リロード・ADSのクロスフェード・持ち替えなど）の元。取り込みのたびに `viewProfile` へ写す（調整はここで行う） |
+| `viewProfile` | 取り込みが書き込む表示プロファイル（ゲームが使う）。空なら定義と同じフォルダに `WeaponView_<weaponId>_Art.asset` を作る |
+| `muzzleFlash` | 銃口炎のスプライト（任意。武器間で共有してよい） |
+| `hip.source`／`ads.source` | 採用した元画像（どのツールも書き換えない）。表示用画像と同じ寸法であること |
+| `hip.image`／`ads.image` | ゲームが表示する画像（元画像からアルファだけを2値にした派生：`python3 Tools/pixelart/make_opaque.py 元画像 派生画像`）。取り込み設定（Point・非圧縮・ミップマップなし・縮小しない最大サイズ・ピボット）だけが書き換わる |
+| `hip.placement`／`ads.placement` | 手書きの配置ファイル（JSON、画像の左上からのpx）。腰だめ：`muzzle`（銃口＝ピボット、銃口炎の位置）・`hold`（反動・リロードの回転の中心）・`screenHeightPixels`（画面の高さに当たるpx）が必須、任意で `anchorAspect`・`offset`・`hipRightEdgeFollow`・`hipRightEdgeFollowNarrow`・`hipScaleAt4x3`・`hipMuzzleFlashScale`・`hipToAds`。ADS：`aim`（フロントサイトの先端＝ピボット＝画面中央）・`muzzle`（銃口炎の基準点）・`screenHeightPixels` が必須、任意で `hold`・`adsMuzzleFlashScale`。取り込みは読むだけ |
+
+- 取り込みは、まず登録リストの全定義を検査し、1つでも問題があれば**何も取り込まずに**エラー（`WeaponArtException`）でシーン生成を止める。メッセージには武器ID・定義アセットのパス・項目名が出る（例：`[proto_smg] Assets/Game/Data/WeaponArt/WeaponArt_ProtoSMG.asset: 'ads.image' is not set`、`weapon id 'proto_smg' is used twice: …`）。他の武器の画像やベイクの画像で補うことはしない。
+- 元画像・表示用画像の画素・配置ファイルは書き換えない（EditModeテスト `WeaponArtImportTests` で、取り込みの前後でファイルの内容が同じことを確認）。登録していない武器はベイクの表示のまま。
+- 定義はEditor専用のため、元画像はゲームのビルドに含まれない（ゲームが参照するのは表示プロファイルと表示用画像だけ）。
+- 採用ライフルの定義：`Assets/Game/Data/WeaponArt/WeaponArt_ProtoRifle.asset`（`weapon`＝`Weapon_ProtoRifle.asset`〔`proto_rifle`〕、`baseProfile`＝`WeaponView_ProtoRifle.asset`、`viewProfile`＝`WeaponView_ProtoRifle_Pixel.asset`、画像・配置ファイルは `Assets/Game/Art/Weapons/Rifle/`）。
+- 確認と画像：`docs/review/weapon-art-20261020/approved-rifle/README.md`。ナイフと銃口炎は従来の暫定ドット絵（`pixel_weapons.json`、`PixelWeaponArt.PrepareKnife`）。
+
+#### 次の武器（SMG）を追加する手順
+
+今回は文書のみ（SMGの画像・性能・装備選択UIは未作成。未完成の定義は登録リストに入れない）。
+
+1. 元画像を置く（変更しない）：
+   - 腰だめ `Assets/Game/Art/Weapons/SMG/smg_hip_approved.png`
+   - ADS `Assets/Game/Art/Weapons/SMG/smg_ads_approved.png`
+   - 透明背景のPNG。構図はライフルと同じ決まり（腰だめは右下、腕・銃床が画面の下端・右端の外へ続く／ADSはフロントサイトの先端が狙点、下端・左右に動きの余白）。寸法は自由（実寸に合わせて配置ファイルを書く）。
+2. 表示用画像を作る：`python3 Tools/pixelart/make_opaque.py Assets/Game/Art/Weapons/SMG/smg_hip_approved.png Assets/Game/Art/Weapons/SMG/smg_hip_approved_opaque.png`（ADSも同様に `smg_ads_approved_opaque.png`）。
+3. 配置ファイルを書く：`Assets/Game/Art/Weapons/SMG/smg_hip_approved.placement.json`・`smg_ads_approved.placement.json`。ライフルのファイルを手本に、銃口・狙点・持つ位置を**実画像から読み取って**書く（ライフルやガイドの座標をそのまま使わない）。
+4. 性能の定義（`WeaponDefinition`、例：`Assets/Game/Data/Weapon_ProtoSMG.asset`、`weaponId` は一意な値。例 `proto_smg`）と、動きの元にする `WeaponViewProfile`（ライフルの `WeaponView_ProtoRifle.asset` を複製して調整するなど）を用意する。性能値は別途決める。
+5. 手元画像定義を作る：Project ビューで右クリック → Create → DEADLOCK → Weapon Art Definition、`Assets/Game/Data/WeaponArt/WeaponArt_ProtoSMG.asset`。上の表の項目を設定する（`viewProfile` は空でよい）。
+6. 確認できてから登録する：`WeaponArtRegistry.asset` の `weapons` に追加し、シーン生成。エラーが出たら表示された項目を直す。iPhone 16 Pro・16:9・iPadで腰だめ・ADS・移行・射撃・リロード・持ち替えを描画して確認し（ADSの狙点が画面中央、画像の端が画面内に出ない、銃口炎の位置）、実機で確認する。
+7. 現在のゲームはプレイヤーの銃が1丁（`Weapon_ProtoRifle`）だけで、武器の選択はない。SMGをゲームで持たせる処理は別の作業。
 
 | ファイル（`Assets/Game/Art/Weapons/`） | 現在の内容 | キャンバス | 基準点（キャンバス左上からのドット座標） |
 | --- | --- | --- | --- |

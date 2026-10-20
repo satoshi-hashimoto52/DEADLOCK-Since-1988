@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c87e56f70c4443891944abc4f8230a, type: 3}
+  m_Name: WeaponArt_ProtoRifle
+  m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.WeaponArtDefinition
+  weapon: {fileID: 11400000, guid: c95414bfbb6384434ade290dff5ccd24, type: 2}
+  baseProfile: {fileID: 11400000, guid: 869f4a554e455488f8c0a1be473ee411, type: 2}
+  viewProfile: {fileID: 11400000, guid: e58b4586754724c98b7b53561486521a, type: 2}
+  muzzleFlash: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hip:
+    source: {fileID: 2800000, guid: ed5a7514fe0534fb0b16d12500e820ea, type: 3}
+    image: {fileID: 2800000, guid: 3db74ef7c88534750a3c10e87253d17d, type: 3}
+    placement: {fileID: 4900000, guid: b39e98cb27c1b45d7ab84221349f1a42, type: 3}
+  ads:
+    source: {fileID: 2800000, guid: 0a56f8aa8bba446bb99de4754a50ad58, type: 3}
+    image: {fileID: 2800000, guid: 304231e8302ff45e5ab9f355b0883675, type: 3}
+    placement: {fileID: 4900000, guid: 8dc741535ddaf41358ef8b3ddd9c539f, type: 3}

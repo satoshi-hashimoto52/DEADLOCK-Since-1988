@@ -159,14 +159,13 @@ namespace Deadlock.Editor
         static (WeaponDefinition, MeleeDefinition) LoadDefinitions()
         {
             WeaponDefinition weapon = LoadOrCreateWeapon();
-            // Authored pixel art (Assets/Game/Art/Weapons) when present; the baked sprites otherwise.
-            var (rifleView, knifeView) = PixelWeaponArt.Prepare(
-                AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath),
-                AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
-            weapon.viewProfile = rifleView;
+            // Baked sprites first; weapons with a registered art definition (Assets/Game/Data/WeaponArt) then get their
+            // approved art. A problem in a definition stops the build with a message naming it (no silent fallback).
+            weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
             EditorUtility.SetDirty(weapon);
+            PixelWeaponArt.ImportRegistered();
             MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
-            melee.viewProfile = knifeView;
+            melee.viewProfile = PixelWeaponArt.PrepareKnife(AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
             EditorUtility.SetDirty(melee);
             return (weapon, melee);
         }

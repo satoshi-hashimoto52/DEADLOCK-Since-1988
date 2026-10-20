@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Deadlock.View;
 using UnityEditor;
@@ -7,23 +8,25 @@ using UnityEngine;
 namespace Deadlock.Editor
 {
     /// <summary>
-    /// Imports the authored pixel-art weapon sprites in Assets/Game/Art/Weapons (made by Tools/pixelart/draw_weapons.py)
-    /// and makes the "_Pixel" view profiles that use them. Separate from <see cref="WeaponSpriteBaker"/>: the baker and
-    /// the scene builder never write into Assets/Game/Art/Weapons, so re-baking cannot overwrite the art.
-    /// Sprites: Point filter (crisp pixels), uncompressed, no mip maps, clamped, pivots / pixels-per-unit from
-    /// pixel_weapons.json (a sprite entry may carry its own "pixelsPerUnit" for art drawn at another resolution). The _Pixel profiles copy every feel / position value from the baked profiles (one source of
-    /// truth) and swap only the sprites; the art keeps the bake's pivots and scale, so muzzle / sight offsets still hold.
-    /// When the art folder is missing the builder keeps the baked profiles.
+    /// Imports the first-person weapon art. Two paths, both separate from <see cref="WeaponSpriteBaker"/> (the baker and
+    /// the scene builder never write into Assets/Game/Art/Weapons, so re-baking cannot overwrite the art):
+    /// - Per weapon: <see cref="WeaponArtDefinition"/>s listed in <see cref="WeaponArtRegistry"/> (approved hip / ADS
+    ///   images + hand-written placement files). <see cref="ImportRegistered"/> validates every definition first and
+    ///   throws one <see cref="WeaponArtException"/> naming the weapon id, asset and field of each problem (missing art,
+    ///   duplicate ids...), never filling a gap with another weapon's art. Only the image's import settings and the
+    ///   weapon's view profile are written; sources and placement files are only read.
+    /// - The provisional pixel set (pixel_weapons.json, Tools/pixelart/draw_weapons.py): the knife (and the shared
+    ///   muzzle flash sprite); <see cref="PrepareKnife"/>.
+    /// Sprites: Point filter (crisp pixels), uncompressed, no mip maps, clamped, never downscaled.
     /// </summary>
     public static class PixelWeaponArt
     {
         public const string Folder = "Assets/Game/Art/Weapons";
-        public const string RifleProfilePath = "Assets/Game/Data/WeaponView_ProtoRifle_Pixel.asset";
+        public const string RegistryPath = "Assets/Game/Data/WeaponArt/WeaponArtRegistry.asset";
         public const string KnifeProfilePath = "Assets/Game/Data/MeleeView_ProtoKnife_Pixel.asset";
-        const string HipName = "Spr_PixelRifleHip";
-        const string AdsName = "Spr_PixelRifleAds";
         const string KnifeName = "Spr_PixelKnife";
         const string FlashName = "Spr_PixelMuzzleFlash";
+        static readonly float HalfHeight = Mathf.Tan(25f * Mathf.Deg2Rad); // view-model camera, z = 1
 
         [Serializable]
         class SpriteInfo
@@ -31,8 +34,6 @@ namespace Deadlock.Editor
             public string name;
             public float[] size;
             public float[] pivot;
-            [Tooltip("ADS only, optional: muzzle tip in pixels from the top-left; sets the flash position. Empty = the baked offset.")]
-            public float[] muzzle;
             [Tooltip("Optional per-sprite pixels-per-unit (art drawn at another resolution); 0 = the shared value.")]
             public float pixelsPerUnit;
         }
@@ -45,12 +46,12 @@ namespace Deadlock.Editor
             public float flashPixelsPerUnit;
         }
 
-        /// <summary>Imports the art and returns the pixel profiles, or the baked ones when the art is missing.</summary>
-        public static (WeaponViewProfile, MeleeViewProfile) Prepare(WeaponViewProfile baked, MeleeViewProfile bakedMelee)
+        /// <summary>Imports the provisional pixel set and returns the knife's pixel profile (the baked one when the art is missing).</summary>
+        public static MeleeViewProfile PrepareKnife(MeleeViewProfile bakedMelee)
         {
             string jsonPath = $"{Folder}/pixel_weapons.json";
             if (!File.Exists(jsonPath))
-                return (baked, bakedMelee);
+                return bakedMelee;
             var info = JsonUtility.FromJson<ArtInfo>(File.ReadAllText(jsonPath));
             foreach (var sprite in info.sprites)
             {
@@ -58,45 +59,25 @@ namespace Deadlock.Editor
                     : sprite.name == FlashName ? info.flashPixelsPerUnit : info.pixelsPerUnit;
                 Configure($"{Folder}/{sprite.name}.png", new Vector2(sprite.pivot[0], sprite.pivot[1]), ppu);
             }
-            Sprite hip = Load(HipName), ads = Load(AdsName), knife = Load(KnifeName), flash = Load(FlashName);
-            if (hip == null || ads == null || knife == null)
-                return (baked, bakedMelee);
-
-            var rifle = Derive(baked, RifleProfilePath);
-            rifle.hipSprite = hip;
-            rifle.adsSprite = ads;
-            var adsInfo = System.Array.Find(info.sprites, s => s.name == AdsName);
-            if (adsInfo?.muzzle != null && adsInfo.muzzle.Length == 2 && adsInfo.size != null && adsInfo.size.Length == 2)
+            var knife = AssetDatabase.LoadAssetAtPath<Sprite>($"{Folder}/{KnifeName}.png");
+            if (knife == null)
             {
-                // Muzzle relative to the ADS pivot, in units (y up).
-                float ppu = adsInfo.pixelsPerUnit > 0f ? adsInfo.pixelsPerUnit : info.pixelsPerUnit;
-                rifle.adsMuzzleOffset = new Vector2(
-                    (adsInfo.muzzle[0] - adsInfo.pivot[0] * adsInfo.size[0]) / ppu,
-                    ((1f - adsInfo.pivot[1]) * adsInfo.size[1] - adsInfo.muzzle[1]) / ppu);
+                Debug.LogWarning($"[DEADLOCK] Pixel knife art missing: {Folder}/{KnifeName}.png (baked sprite is used instead)");
+                return bakedMelee;
             }
-            rifle.muzzleFlashSprite = flash;
-            ApplyApprovedHip(rifle);
-            ApplyApprovedAds(rifle);
-            EditorUtility.SetDirty(rifle);
             var melee = Derive(bakedMelee, KnifeProfilePath);
             melee.sprite = knife;
             EditorUtility.SetDirty(melee);
             AssetDatabase.SaveAssets();
-            return (rifle, melee);
+            return melee;
         }
 
-        // ---- approved hip art (Assets/Game/Art/Weapons/Rifle) ---------------------------------------------------------
-
-        public const string RifleFolder = Folder + "/Rifle";
-        public const string ApprovedHipPath = RifleFolder + "/rifle_hip_approved.png";
-        public const string ApprovedHipPlacementPath = Folder + "/Rifle/rifle_hip_approved.placement.json";
-        static readonly float HalfHeight = Mathf.Tan(25f * Mathf.Deg2Rad); // view-model camera, z = 1
+        // ---- per-weapon art -----------------------------------------------------------------------------------------
 
         [Serializable]
         class HipPlacement
         {
-            public string image;              // image to import (e.g. the alpha-cleaned derivative); empty = the original
-            public float[] muzzle;            // muzzle tip, pixels from the top-left (the flash sits here)
+            public float[] muzzle;            // muzzle tip, pixels from the top-left (pivot; the flash sits here)
             public float[] hold;              // hold point (kick / reload turn around it), pixels from the top-left
             public float screenHeightPixels;  // how many image pixels make the full screen height (sets the size)
             public float anchorAspect;        // screen aspect at which the image's bottom-right = the screen's (0 = reference)
@@ -108,93 +89,211 @@ namespace Deadlock.Editor
             public float[] hipToAds;          // optional: hip move while raising the sights, offset in units (relative)
         }
 
-        /// <summary>
-        /// The approved hand-made hip image, when present, replaces the hip sprite. The image is never written by any tool;
-        /// only its import settings are set. Size and place come from the placement file next to it: the image's
-        /// bottom-right corner sits on the screen's bottom-right corner at the anchor aspect (arms / stock continue
-        /// off the bottom and right edges; on narrower screens the right side runs off the screen instead of the gun
-        /// moving toward the centre), the pivot is the muzzle (the flash follows it).
-        /// </summary>
-        static void ApplyApprovedHip(WeaponViewProfile rifle)
-        {
-            if (!File.Exists(ApprovedHipPlacementPath))
-                return;
-            var place = JsonUtility.FromJson<HipPlacement>(File.ReadAllText(ApprovedHipPlacementPath));
-            string path = string.IsNullOrEmpty(place.image) ? ApprovedHipPath : $"{RifleFolder}/{place.image}";
-            if (!File.Exists(path))
-                return;
-            AssetDatabase.ImportAsset(path);
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null)
-                return;
-            importer.GetSourceTextureWidthAndHeight(out int width, out int height);
-            float ppu = place.screenHeightPixels / (2f * HalfHeight);
-            var pivot = new Vector2(place.muzzle[0] / width, 1f - place.muzzle[1] / height);
-            Configure(path, pivot, ppu, 2048);
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite == null)
-                return;
-            rifle.hipSprite = sprite;
-            // hipMuzzlePosition is the 16:9 place; with no edge follow it is the place on every screen.
-            float halfWidth = HalfHeight * (place.anchorAspect > 0f ? place.anchorAspect : rifle.referenceAspect);
-            rifle.hipMuzzlePosition = new Vector2(halfWidth - (width - place.muzzle[0]) / ppu, -HalfHeight + (height - place.muzzle[1]) / ppu);
-            if (place.offset != null && place.offset.Length == 2)
-                rifle.hipMuzzlePosition += new Vector2(place.offset[0], place.offset[1]);
-            rifle.hipHoldOffset = new Vector2((place.hold[0] - place.muzzle[0]) / ppu, (place.muzzle[1] - place.hold[1]) / ppu);
-            rifle.hipRightEdgeFollow = place.hipRightEdgeFollow;
-            rifle.hipRightEdgeFollowNarrow = place.hipRightEdgeFollowNarrow;
-            rifle.hipScaleAt4x3 = place.hipScaleAt4x3;
-            if (place.hipMuzzleFlashScale > 0f)
-                rifle.hipMuzzleFlashScale = place.hipMuzzleFlashScale;
-            if (place.hipToAds != null && place.hipToAds.Length == 2)
-            {
-                rifle.hipToAdsMuzzlePosition = new Vector2(place.hipToAds[0], place.hipToAds[1]);
-                rifle.hipToAdsRelative = true;
-            }
-        }
-
-        public const string ApprovedAdsPath = RifleFolder + "/rifle_ads_approved.png";
-        public const string ApprovedAdsPlacementPath = Folder + "/Rifle/rifle_ads_approved.placement.json";
-
         [Serializable]
         class AdsPlacement
         {
-            public string image;              // image to import (e.g. the alpha-cleaned derivative); empty = the original
             public float[] aim;               // front-sight tip = pivot = screen centre, pixels from the top-left
             public float[] muzzle;            // flash reference (the flash is drawn in front of the sprite)
             public float[] hold;              // optional: turn point for kick / reload, pixels from the top-left
-            public float screenHeightPixels;  // image pixels per full screen height (same dot size as the hip)
+            public float screenHeightPixels;  // image pixels per full screen height
             public float adsMuzzleFlashScale;
         }
 
-        /// <summary>
-        /// The ADS image made for the approved rifle (see docs/review/weapon-art-20261020/approved-rifle), when present,
-        /// replaces the provisional ADS sprite. Like the hip image it is never written by a tool.
-        /// </summary>
-        static void ApplyApprovedAds(WeaponViewProfile rifle)
+        /// <summary>Imports every definition in the registry (Assets/Game/Data/WeaponArt/WeaponArtRegistry.asset). No registry = nothing to do.</summary>
+        public static void ImportRegistered()
         {
-            if (!File.Exists(ApprovedAdsPlacementPath))
+            var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(RegistryPath);
+            if (registry == null)
                 return;
-            var place = JsonUtility.FromJson<AdsPlacement>(File.ReadAllText(ApprovedAdsPlacementPath));
-            string path = string.IsNullOrEmpty(place.image) ? ApprovedAdsPath : $"{RifleFolder}/{place.image}";
-            if (!File.Exists(path))
-                return;
-            AssetDatabase.ImportAsset(path);
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null)
-                return;
-            importer.GetSourceTextureWidthAndHeight(out int width, out int height);
+            Import(registry.weapons, RegistryPath);
+        }
+
+        /// <summary>
+        /// Validates all definitions, then imports each: the images' import settings (pivot, size, Point, uncompressed),
+        /// the view profile (base profile values + placement), and the weapon's viewProfile reference.
+        /// Throws <see cref="WeaponArtException"/> (nothing is written) when any definition has a problem.
+        /// </summary>
+        public static void Import(IList<WeaponArtDefinition> definitions, string context)
+        {
+            var problems = new List<string>();
+            var hips = new Dictionary<WeaponArtDefinition, HipPlacement>();
+            var adss = new Dictionary<WeaponArtDefinition, AdsPlacement>();
+            var ids = new Dictionary<string, WeaponArtDefinition>();
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                var d = definitions[i];
+                if (d == null)
+                {
+                    problems.Add($"{context}: entry {i} is empty");
+                    continue;
+                }
+                string where = $"{AssetDatabase.GetAssetPath(d)}";
+                string id = d.WeaponId;
+                if (d.weapon == null)
+                    problems.Add($"{where}: 'weapon' is not set (the weapon id comes from it)");
+                else if (string.IsNullOrWhiteSpace(id))
+                    problems.Add($"{where}: weapon {AssetDatabase.GetAssetPath(d.weapon)} has no weaponId");
+                else if (ids.TryGetValue(id, out var other))
+                    problems.Add($"weapon id '{id}' is used twice: {AssetDatabase.GetAssetPath(other)} and {where}");
+                else
+                    ids[id] = d;
+                string label = $"[{id ?? "?"}] {where}";
+                if (d.baseProfile == null)
+                    problems.Add($"{label}: 'baseProfile' is not set");
+                var hip = CheckView(d.hip, "hip", label, problems);
+                var ads = CheckView(d.ads, "ads", label, problems);
+                if (hip != null)
+                {
+                    var place = Parse<HipPlacement>(d.hip.placement, "hip", label, problems);
+                    if (place != null)
+                    {
+                        Require(place.muzzle, 2, "hip.placement", "muzzle", label, problems);
+                        Require(place.hold, 2, "hip.placement", "hold", label, problems);
+                        if (place.screenHeightPixels <= 0f)
+                            problems.Add($"{label}: hip.placement ({AssetDatabase.GetAssetPath(d.hip.placement)}) needs 'screenHeightPixels' > 0");
+                        hips[d] = place;
+                    }
+                }
+                if (ads != null)
+                {
+                    var place = Parse<AdsPlacement>(d.ads.placement, "ads", label, problems);
+                    if (place != null)
+                    {
+                        Require(place.aim, 2, "ads.placement", "aim", label, problems);
+                        Require(place.muzzle, 2, "ads.placement", "muzzle", label, problems);
+                        if (place.screenHeightPixels <= 0f)
+                            problems.Add($"{label}: ads.placement ({AssetDatabase.GetAssetPath(d.ads.placement)}) needs 'screenHeightPixels' > 0");
+                        adss[d] = place;
+                    }
+                }
+            }
+            if (problems.Count > 0)
+                throw new WeaponArtException(problems);
+
+            foreach (var d in definitions)
+            {
+                var view = d.viewProfile;
+                if (view == null)
+                {
+                    string path = $"{Path.GetDirectoryName(AssetDatabase.GetAssetPath(d)).Replace('\\', '/')}/WeaponView_{d.WeaponId}_Art.asset";
+                    view = Derive(d.baseProfile, path);
+                    d.viewProfile = view;
+                    EditorUtility.SetDirty(d);
+                }
+                else
+                {
+                    EditorUtility.CopySerialized(d.baseProfile, view);
+                    view.name = Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(view));
+                }
+                if (d.muzzleFlash != null)
+                    view.muzzleFlashSprite = d.muzzleFlash;
+                ApplyHip(view, d.hip.image, hips[d]);
+                ApplyAds(view, d.ads.image, adss[d]);
+                EditorUtility.SetDirty(view);
+                d.weapon.viewProfile = view;
+                EditorUtility.SetDirty(d.weapon);
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        static Texture2D CheckView(WeaponArtDefinition.ViewArt art, string slot, string label, List<string> problems)
+        {
+            if (art == null || art.image == null)
+            {
+                problems.Add($"{label}: '{slot}.image' is not set");
+                return null;
+            }
+            if (art.source == null)
+                problems.Add($"{label}: '{slot}.source' (the approved original) is not set");
+            if (art.placement == null)
+                problems.Add($"{label}: '{slot}.placement' is not set");
+            if (art.source != null)
+            {
+                Size(art.source, out int sw, out int sh);
+                Size(art.image, out int iw, out int ih);
+                if (sw != iw || sh != ih)
+                    problems.Add($"{label}: '{slot}.image' {AssetDatabase.GetAssetPath(art.image)} is {iw}x{ih} but its source {AssetDatabase.GetAssetPath(art.source)} is {sw}x{sh}");
+            }
+            return art.placement != null && art.source != null ? art.image : null;
+        }
+
+        static T Parse<T>(TextAsset file, string slot, string label, List<string> problems) where T : class
+        {
+            try
+            {
+                return JsonUtility.FromJson<T>(file.text);
+            }
+            catch (Exception e)
+            {
+                problems.Add($"{label}: {slot}.placement ({AssetDatabase.GetAssetPath(file)}) is not valid JSON: {e.Message}");
+                return null;
+            }
+        }
+
+        static void Require(float[] value, int length, string file, string field, string label, List<string> problems)
+        {
+            if (value == null || value.Length != length)
+                problems.Add($"{label}: {file} needs '{field}' ({length} numbers)");
+        }
+
+        static void Size(Texture2D texture, out int width, out int height)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(texture));
+            importer.GetSourceTextureWidthAndHeight(out width, out height);
+        }
+
+        /// <summary>
+        /// Hip: pivot = muzzle (the flash follows it). At the anchor aspect the image's bottom-right corner sits on the
+        /// screen's bottom-right corner (arms / stock continue off the bottom and right edges); on narrower screens the
+        /// right side runs off the screen instead of the gun moving toward the centre.
+        /// </summary>
+        static void ApplyHip(WeaponViewProfile view, Texture2D image, HipPlacement place)
+        {
+            string path = AssetDatabase.GetAssetPath(image);
+            Size(image, out int width, out int height);
             float ppu = place.screenHeightPixels / (2f * HalfHeight);
-            Configure(path, new Vector2(place.aim[0] / width, 1f - place.aim[1] / height), ppu, 4096);
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite == null)
-                return;
-            rifle.adsSprite = sprite;
-            rifle.adsMuzzleOffset = new Vector2((place.muzzle[0] - place.aim[0]) / ppu, (place.aim[1] - place.muzzle[1]) / ppu);
+            Configure(path, new Vector2(place.muzzle[0] / width, 1f - place.muzzle[1] / height), ppu, MaxSize(width, height));
+            view.hipSprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            // hipMuzzlePosition is the 16:9 place; with no edge follow it is the place on every screen.
+            float halfWidth = HalfHeight * (place.anchorAspect > 0f ? place.anchorAspect : view.referenceAspect);
+            view.hipMuzzlePosition = new Vector2(halfWidth - (width - place.muzzle[0]) / ppu, -HalfHeight + (height - place.muzzle[1]) / ppu);
+            if (place.offset != null && place.offset.Length == 2)
+                view.hipMuzzlePosition += new Vector2(place.offset[0], place.offset[1]);
+            view.hipHoldOffset = new Vector2((place.hold[0] - place.muzzle[0]) / ppu, (place.muzzle[1] - place.hold[1]) / ppu);
+            view.hipRightEdgeFollow = place.hipRightEdgeFollow;
+            view.hipRightEdgeFollowNarrow = place.hipRightEdgeFollowNarrow;
+            view.hipScaleAt4x3 = place.hipScaleAt4x3;
+            if (place.hipMuzzleFlashScale > 0f)
+                view.hipMuzzleFlashScale = place.hipMuzzleFlashScale;
+            if (place.hipToAds != null && place.hipToAds.Length == 2)
+            {
+                view.hipToAdsMuzzlePosition = new Vector2(place.hipToAds[0], place.hipToAds[1]);
+                view.hipToAdsRelative = true;
+            }
+        }
+
+        /// <summary>ADS: pivot = aim point (front-sight tip), which sits on the screen centre when aimed.</summary>
+        static void ApplyAds(WeaponViewProfile view, Texture2D image, AdsPlacement place)
+        {
+            string path = AssetDatabase.GetAssetPath(image);
+            Size(image, out int width, out int height);
+            float ppu = place.screenHeightPixels / (2f * HalfHeight);
+            Configure(path, new Vector2(place.aim[0] / width, 1f - place.aim[1] / height), ppu, MaxSize(width, height));
+            view.adsSprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            view.adsMuzzleOffset = new Vector2((place.muzzle[0] - place.aim[0]) / ppu, (place.aim[1] - place.muzzle[1]) / ppu);
             if (place.hold != null && place.hold.Length == 2)
-                rifle.adsHoldOffset = new Vector2((place.hold[0] - place.aim[0]) / ppu, (place.aim[1] - place.hold[1]) / ppu);
+                view.adsHoldOffset = new Vector2((place.hold[0] - place.aim[0]) / ppu, (place.aim[1] - place.hold[1]) / ppu);
             if (place.adsMuzzleFlashScale > 0f)
-                rifle.adsMuzzleFlashScale = place.adsMuzzleFlashScale;
+                view.adsMuzzleFlashScale = place.adsMuzzleFlashScale;
+        }
+
+        /// <summary>Smallest import size limit that keeps the image at its own size (no downscaling).</summary>
+        static int MaxSize(int width, int height)
+        {
+            int size = 32;
+            while (size < Mathf.Max(width, height))
+                size *= 2;
+            return size;
         }
 
         static T Derive<T>(T source, string path) where T : ScriptableObject
@@ -209,14 +308,6 @@ namespace Deadlock.Editor
                 EditorUtility.CopySerialized(source, asset);
             asset.name = Path.GetFileNameWithoutExtension(path);
             return asset;
-        }
-
-        static Sprite Load(string name)
-        {
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{Folder}/{name}.png");
-            if (sprite == null)
-                Debug.LogWarning($"[DEADLOCK] Pixel weapon art missing: {Folder}/{name}.png (baked sprites are used instead)");
-            return sprite;
         }
 
         static void Configure(string path, Vector2 pivot, float pixelsPerUnit, int maxSize = 1024)
@@ -239,9 +330,21 @@ namespace Deadlock.Editor
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.alphaIsTransparency = true;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
-            importer.maxTextureSize = maxSize;
+            importer.maxTextureSize = Mathf.Max(importer.maxTextureSize, maxSize); // never lowered: no downscaling, existing .meta kept
             importer.sRGBTexture = true;
             importer.SaveAndReimport();
+        }
+    }
+
+    /// <summary>Problems found in weapon art definitions (all of them, one per line, each naming the weapon id / asset / field).</summary>
+    public sealed class WeaponArtException : Exception
+    {
+        public IReadOnlyList<string> Problems { get; }
+
+        public WeaponArtException(IReadOnlyList<string> problems)
+            : base("[DEADLOCK] Weapon art definitions have problems (nothing was imported):\n- " + string.Join("\n- ", problems))
+        {
+            Problems = problems;
         }
     }
 }

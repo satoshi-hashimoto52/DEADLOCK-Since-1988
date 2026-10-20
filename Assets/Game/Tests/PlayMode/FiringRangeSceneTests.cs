@@ -14,6 +14,28 @@ namespace Deadlock.Tests
     public class FiringRangeSceneTests : FiringRangeTestBase
     {
         [UnityTest]
+        public IEnumerator RifleView_InTheBuiltScene_ShowsTheRegisteredArt()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            // Scene -> weapon definition -> view profile written from the rifle's art definition -> approved images.
+            SpriteRenderer Find(string name)
+            {
+                foreach (var r in Object.FindObjectsByType<SpriteRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (r.name == name && r.transform.parent != null && r.transform.parent.name == "WeaponView")
+                        return r;
+                return null;
+            }
+            yield return null; // the view model has set its sprites from the profile
+            var hip = Find("Hip");
+            var ads = Find("Ads");
+            Assert.IsNotNull(hip);
+            Assert.IsNotNull(ads);
+            Assert.AreEqual("rifle_hip_approved_opaque", hip.sprite.texture.name);
+            Assert.AreEqual("rifle_ads_approved_opaque", ads.sprite.texture.name);
+            Assert.AreEqual("WeaponView_ProtoRifle_Pixel", gun.Definition.viewProfile.name);
+        }
+
+        [UnityTest]
         public IEnumerator Desktop_MoveSprintJumpLook()
         {
             yield return LoadScene(InputMode.Desktop);
