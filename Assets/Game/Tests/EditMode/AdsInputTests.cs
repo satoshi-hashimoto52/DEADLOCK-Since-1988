@@ -53,27 +53,44 @@ namespace Deadlock.Tests
             Assert.IsFalse(h.Update(AdsMode.Hold, true, false, true), "Held through the switch: needs a new press");
         }
 
-        [Test]
-        public void Settings_SavedSeparatelyForTouchAndPc_DefaultHold()
+        static readonly string[] Keys =
         {
-            int touch = PlayerPrefs.GetInt(ControlSettings.TouchAdsKey, -1);
-            int desktop = PlayerPrefs.GetInt(ControlSettings.DesktopAdsKey, -1);
+            ControlSettings.TouchAdsKey, ControlSettings.DesktopAdsKey, ControlSettings.TouchAdsDragAimKey, ControlSettings.TouchFireModeKey,
+        };
+
+        [Test]
+        public void Settings_Defaults_SavedSeparately_BrokenValuesFallBack()
+        {
+            var saved = new System.Collections.Generic.Dictionary<string, int>();
+            foreach (var k in Keys)
+                if (PlayerPrefs.HasKey(k))
+                    saved[k] = PlayerPrefs.GetInt(k);
             try
             {
                 ControlSettings.ClearSaved();
                 Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch));
                 Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop));
+                Assert.IsTrue(ControlSettings.TouchAdsDragAim, "Aim with the ADS button: on by default");
+                Assert.AreEqual(TouchFireMode.Normal, ControlSettings.TouchFire, "FIRE: normal by default");
+
                 ControlSettings.SetAdsMode(InputMode.Touch, AdsMode.Toggle);
+                ControlSettings.TouchAdsDragAim = false;
+                ControlSettings.TouchFire = TouchFireMode.AdsLinked;
                 Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Touch));
                 Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "PC unaffected");
+                Assert.IsFalse(ControlSettings.TouchAdsDragAim);
+                Assert.AreEqual(TouchFireMode.AdsLinked, ControlSettings.TouchFire);
+
                 PlayerPrefs.SetInt(ControlSettings.DesktopAdsKey, 99);
+                PlayerPrefs.SetInt(ControlSettings.TouchFireModeKey, 99);
                 Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Desktop), "Broken value: default");
+                Assert.AreEqual(TouchFireMode.Normal, ControlSettings.TouchFire, "Broken value: default");
             }
             finally
             {
                 ControlSettings.ClearSaved();
-                if (touch >= 0) PlayerPrefs.SetInt(ControlSettings.TouchAdsKey, touch);
-                if (desktop >= 0) PlayerPrefs.SetInt(ControlSettings.DesktopAdsKey, desktop);
+                foreach (var pair in saved)
+                    PlayerPrefs.SetInt(pair.Key, pair.Value);
             }
         }
     }

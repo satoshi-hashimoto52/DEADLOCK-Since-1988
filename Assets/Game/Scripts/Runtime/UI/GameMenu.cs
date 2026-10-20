@@ -30,6 +30,8 @@ namespace Deadlock.UI
         GameObject controlsPanel;
         Text touchAdsText;
         Text desktopAdsText;
+        Text dragAimText;
+        Text fireModeText;
         TouchLayoutEditor layoutEditor;
 
         public bool IsOpen { get; private set; }
@@ -85,7 +87,10 @@ namespace Deadlock.UI
             layoutEditor.Open(() => panel.SetActive(true));
         }
 
-        /// <summary>Menu → Settings → Controls: ADS hold / toggle, separately for touch and PC (saved on this device).</summary>
+        /// <summary>
+        /// Menu → Settings → Controls: ADS hold / toggle (touch and PC separately), aiming with the ADS button and the
+        /// FIRE behaviour (touch). Saved on this device; the touch layout is not touched.
+        /// </summary>
         public void OpenControlSettings()
         {
             if (!IsOpen)
@@ -112,39 +117,45 @@ namespace Deadlock.UI
         {
             touchAdsText.text = $"ADS操作方式（タッチ：ADSボタン）　現在：{ControlSettings.Label(ControlSettings.GetAdsMode(InputMode.Touch))}";
             desktopAdsText.text = $"ADS操作方式（PC：右クリック）　現在：{ControlSettings.Label(ControlSettings.GetAdsMode(InputMode.Desktop))}";
+            dragAimText.text = $"ADSボタンで照準操作（タッチ）　現在：{(ControlSettings.TouchAdsDragAim ? "ON" : "OFF")}";
+            fireModeText.text = $"FIREの動作（タッチ）　現在：{ControlSettings.Label(ControlSettings.TouchFire)}";
         }
 
         void BuildControlSettings()
         {
             controlsPanel = UiBuild.Stretch(UiBuild.Rect("ControlSettingsPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)controlsPanel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", controlsPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 640f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", controlsPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 840f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(840f, 60f)),
                 "設定 → 操作設定", 40, TextAnchor.MiddleCenter);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(840f, 64f)),
-                "長押し：押している間だけADS　／　切り替え：押すたびにON・OFF", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+                "ADS 長押し：押している間だけ／切り替え：押すたびにON・OFF　　ADS連動射撃：FIREで覗いてから撃つ", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
 
-            float y = -180f;
-            void Row(InputMode mode, string prefix, out Text label)
+            float y = -170f;
+            Text Row(string prefix, string left, Action onLeft, string right, Action onRight)
             {
-                label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "AdsLabel", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(840f, 40f)),
+                var label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "Label", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(900f, 40f)),
                     "", 26, TextAnchor.MiddleCenter);
-                UiBuild.Button(window, prefix + "AdsHold", "長押し", new Vector2(0.5f, 1f), new Vector2(-130f, y - 52f), new Vector2(240f, 72f),
-                    () => SetAdsMode(mode, AdsMode.Hold), 28);
-                UiBuild.Button(window, prefix + "AdsToggle", "切り替え", new Vector2(0.5f, 1f), new Vector2(130f, y - 52f), new Vector2(240f, 72f),
-                    () => SetAdsMode(mode, AdsMode.Toggle), 28);
+                UiBuild.Button(window, prefix + "Left", left, new Vector2(0.5f, 1f), new Vector2(-150f, y - 50f), new Vector2(280f, 70f),
+                    () => { onLeft(); RefreshControlSettings(); }, 26);
+                UiBuild.Button(window, prefix + "Right", right, new Vector2(0.5f, 1f), new Vector2(150f, y - 50f), new Vector2(280f, 70f),
+                    () => { onRight(); RefreshControlSettings(); }, 26);
                 y -= 150f;
+                return label;
             }
-            Row(InputMode.Touch, "Touch", out touchAdsText);
+            touchAdsText = Row("TouchAds", "長押し", () => SetAdsMode(InputMode.Touch, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Touch, AdsMode.Toggle));
+            dragAimText = Row("DragAim", "ON", () => ControlSettings.TouchAdsDragAim = true, "OFF", () => ControlSettings.TouchAdsDragAim = false);
+            fireModeText = Row("FireMode", "通常射撃", () => ControlSettings.TouchFire = TouchFireMode.Normal,
+                "ADS連動射撃", () => ControlSettings.TouchFire = TouchFireMode.AdsLinked);
             // The PC setting is only meaningful where a mouse can be used (Editor / desktop).
-            Row(InputMode.Desktop, "Desktop", out desktopAdsText);
+            desktopAdsText = Row("DesktopAds", "長押し", () => SetAdsMode(InputMode.Desktop, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Desktop, AdsMode.Toggle));
             if (Application.isMobilePlatform)
             {
-                foreach (var name in new[] { "DesktopAdsLabel", "DesktopAdsHold", "DesktopAdsToggle" })
+                foreach (var name in new[] { "DesktopAdsLabel", "DesktopAdsLeft", "DesktopAdsRight" })
                     window.Find(name).gameObject.SetActive(false);
             }
-            UiBuild.Button(window, "BackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(300f, 72f), CloseControlSettings, 28);
+            UiBuild.Button(window, "BackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(300f, 70f), CloseControlSettings, 28);
             controlsPanel.SetActive(false);
         }
 
@@ -160,7 +171,7 @@ namespace Deadlock.UI
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 800f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 940f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 60f)),
                 "メニュー", 44, TextAnchor.MiddleCenter);

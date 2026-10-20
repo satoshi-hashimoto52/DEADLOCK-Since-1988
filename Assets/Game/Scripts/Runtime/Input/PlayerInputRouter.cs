@@ -64,10 +64,11 @@ namespace Deadlock.Input
         void OnEnable()
         {
             desktop.Enable();
-            ControlSettings.AdsModeChanged += OnAdsModeChanged;
+            ControlSettings.Changed += OnControlSettingsChanged;
         }
 
-        void OnAdsModeChanged(InputMode mode, AdsMode value) => CancelAds();
+        // A changed control setting clears what is held (fire, ADS from every source): a new press is needed.
+        void OnControlSettingsChanged() => ReleaseHeldInput();
 
         /// <summary>
         /// Turns ADS off on every source (menu, layout editor, death, background, input mode or setting change,
@@ -92,7 +93,7 @@ namespace Deadlock.Input
 
         void OnDisable()
         {
-            ControlSettings.AdsModeChanged -= OnAdsModeChanged;
+            ControlSettings.Changed -= OnControlSettingsChanged;
             desktop.Disable();
             SetTouchSimulation(false);
             SetCursorLocked(false);

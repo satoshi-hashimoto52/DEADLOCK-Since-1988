@@ -6,7 +6,8 @@ namespace Deadlock.Input
 {
     /// <summary>
     /// Hold/press button for touch. Handles its own drag events so a finger starting here never rotates the view,
-    /// unless <see cref="dragLooksWith"/> is set (used by the fire button so the player can aim while firing).
+    /// unless <see cref="dragLooksWith"/> is set (FIRE always, ADS when the setting allows): then the finger is
+    /// registered with the look area, which decides whether it is the one turning the view.
     /// </summary>
     public sealed class TouchButton : MonoBehaviour,
         IInitializePotentialDragHandler, IPointerDownHandler, IDragHandler, IPointerUpHandler
@@ -20,6 +21,8 @@ namespace Deadlock.Input
         [SerializeField] Color disabledColor = new Color(0.4f, 0.4f, 0.4f, 0.18f);
 
         int pointerId = NoPointer;
+        bool looking;
+        System.Func<bool> lookEnabled;
         int pressCount;
         bool latched;
         bool interactable = true;
@@ -34,6 +37,7 @@ namespace Deadlock.Input
         /// <summary>Drops the held finger and pending presses (also used when the app loses focus).</summary>
         public void Release()
         {
+            EndLook();
             pointerId = NoPointer;
             pressCount = 0;
             RefreshColor();
@@ -62,10 +66,25 @@ namespace Deadlock.Input
             interactable = value;
             if (!value)
             {
+                EndLook();
                 pointerId = NoPointer;
                 pressCount = 0;
             }
             RefreshColor();
+        }
+
+        /// <summary>Lets a finger starting on this button aim, when <paramref name="enabled"/> says so at the press.</summary>
+        public void SetDragLook(TouchLookArea area, System.Func<bool> enabled)
+        {
+            dragLooksWith = area;
+            lookEnabled = enabled;
+        }
+
+        void EndLook()
+        {
+            if (looking && dragLooksWith != null)
+                dragLooksWith.EndLook(pointerId);
+            looking = false;
         }
 
         public void OnInitializePotentialDrag(PointerEventData eventData) => eventData.useDragThreshold = false;
@@ -75,6 +94,9 @@ namespace Deadlock.Input
             if (IsHeld || !interactable || !TouchControls.IsTouch(eventData))
                 return;
             pointerId = eventData.pointerId;
+            looking = dragLooksWith != null && (lookEnabled == null || lookEnabled());
+            if (looking)
+                dragLooksWith.BeginLook(pointerId);
             pressCount++;
             PressStartTime = Time.time;
             RefreshColor();
@@ -82,14 +104,15 @@ namespace Deadlock.Input
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (eventData.pointerId == pointerId && dragLooksWith != null)
-                dragLooksWith.AddDelta(eventData.delta);
+            if (eventData.pointerId == pointerId && looking)
+                dragLooksWith.AddDelta(pointerId, eventData.delta);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
             if (eventData.pointerId != pointerId)
                 return;
+            EndLook();
             pointerId = NoPointer;
             RefreshColor();
         }

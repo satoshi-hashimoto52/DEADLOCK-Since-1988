@@ -231,5 +231,29 @@ namespace Deadlock.Tests
             Assert.IsFalse(router.IsBlocked);
             Assert.IsFalse(ui.RespawnButton.gameObject.activeSelf);
         }
+
+        [UnityTest]
+        public IEnumerator Touch_AdsLinkedFire_GoesThroughTheHost_AndSyncsTheActualAdsState()
+        {
+            yield return LoadOnline();
+            yield return Host();
+            ControlSettings.TouchFire = TouchFireMode.AdsLinked;
+            router.SetMode(InputMode.Touch);
+            var touchscreen = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Touchscreen>();
+            yield return null;
+            Vector2 fire = ScreenCenter((RectTransform)GameObject.Find("FireButton").transform);
+            int requested = Mine.ShotsRequested;
+            BeginTouch(1, fire, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(gun.Definition.adsTime * 0.5f);
+            Assert.AreEqual(requested, Mine.ShotsRequested, "No shot request before fully aimed");
+            yield return Wait(gun.Definition.adsTime + 0.2f);
+            Assert.IsTrue(Mine.State.Value.Has(AvatarState.Flag.Aiming), "The actual ADS state is synced");
+            Assert.Greater(Mine.ShotsRequested, requested, "Shots go out as host requests");
+            Assert.AreEqual(Mine.ShotsRequested, Mine.ServerShotsAccepted + Mine.ShotsRejected, "Every shot is decided by the host");
+            Assert.Less(Mine.ServerWeapons.Ammo.Loaded, gun.Definition.magazineSize, "Ammo spent on the host");
+            EndTouch(1, fire, queueEventOnly: true, screen: touchscreen);
+            yield return Wait(0.2f);
+            Assert.IsFalse(Mine.State.Value.Has(AvatarState.Flag.Aiming));
+        }
     }
 }

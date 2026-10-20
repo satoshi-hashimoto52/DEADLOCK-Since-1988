@@ -14,6 +14,9 @@ namespace Deadlock.Input
     /// Initial (provisional) layout: posture button tap = stand ⇄ crouch, hold = prone ⇄ stand; weapon button toggles
     /// gun ⇄ melee; FIRE fires or swings depending on the weapon; ADS / R are disabled while the melee weapon is out.
     /// ADS is hold or toggle as set in Menu → Settings → Controls (touch setting, <see cref="ControlSettings"/>).
+    /// ADS has two independent requests: the ADS button and FIRE in ADS-linked mode; ADS is on while either asks, and
+    /// letting go of one never clears the other. Fingers on FIRE (and on ADS when "aim with the ADS button" is on)
+    /// also aim; the look area decides which single finger turns the view.
     /// </summary>
     public sealed class TouchControls : MonoBehaviour
     {
@@ -46,14 +49,21 @@ namespace Deadlock.Input
         [SerializeField, Min(0.1f)] float longPressTime = 0.45f;
 
         readonly AdsInput ads = new AdsInput();
+        bool fireAds;
+        bool fireReady;
+        GunController gun;
         bool sprintLatched;
         bool postureWasHeld;
         bool postureLongFired;
         Color knobColor;
         FirstPersonMotor motor;
 
-        /// <summary>ADS intent from the touch controls (after the hold / toggle setting).</summary>
-        public bool AdsActive => ads.Active;
+        /// <summary>ADS intent from the touch controls (button or FIRE).</summary>
+        public bool AdsActive => ads.Active || fireAds;
+        /// <summary>ADS requested by the ADS button (after the hold / toggle setting).</summary>
+        public bool AdsFromButton => ads.Active;
+        /// <summary>ADS requested by FIRE in ADS-linked mode (only while the finger is down).</summary>
+        public bool AdsFromFire => fireAds;
         public bool SprintLatched => sprintLatched;
         public float LongPressTime => longPressTime;
 
@@ -62,7 +72,12 @@ namespace Deadlock.Input
             if (sprintIndicator != null)
                 knobColor = sprintIndicator.color;
             if (posture != null)
+            {
                 motor = posture.GetComponent<FirstPersonMotor>();
+                gun = posture.GetComponent<GunController>();
+            }
+            // The ADS button aims too when the setting is on (checked at each press).
+            adsButton.SetDragLook(lookArea, () => ControlSettings.TouchAdsDragAim);
         }
 
         public void SetVisible(bool visible)
@@ -99,8 +114,29 @@ namespace Deadlock.Input
             adsButton.SetInteractable(gunOut);
             reloadButton.SetInteractable(gunOut);
             // A finger that leaves the button keeps being tracked by it, so a hold ends wherever the finger lifts.
-            bool adsOn = ads.Update(ControlSettings.GetAdsMode(InputMode.Touch), adsButton.IsHeld, adsButton.ConsumePressed(), gunOut);
-            adsButton.SetLatched(adsOn);
+            bool buttonAds = ads.Update(ControlSettings.GetAdsMode(InputMode.Touch), adsButton.IsHeld, adsButton.ConsumePressed(), gunOut);
+            adsButton.SetLatched(buttonAds);
+
+            // FIRE. With the knife out it always swings (ADS-linked does not apply).
+            bool fireHeld = fireButton.IsHeld;
+            bool firePressed = fireButton.ConsumePressed();
+            if (gunOut && ControlSettings.TouchFire == TouchFireMode.AdsLinked)
+            {
+                // Raise the sights while held; shoot only once fully aimed (the gun's ADS blend is time based, so the
+                // first shot comes adsTime after the sights start rising, independent of the frame rate up to one
+                // frame). Letting go before that never fires late.
+                fireAds = fireHeld;
+                bool ready = fireAds && gun != null && gun.AdsRequested && gun.AdsBlend >= 1f;
+                firePressed = ready && !fireReady;
+                fireHeld = ready;
+                fireReady = ready;
+            }
+            else
+            {
+                fireAds = false;
+                fireReady = false;
+            }
+            bool adsOn = buttonAds || fireAds;
 
             float degreesPerPixel = lookDegreesPerScreenHeight / Mathf.Max(1, Screen.height);
             Vector2 move = moveStick.Value;
@@ -118,8 +154,8 @@ namespace Deadlock.Input
                 LookDegrees = lookArea.ConsumeDelta() * degreesPerPixel,
                 Sprint = sprintLatched,
                 JumpPressed = jumpButton.ConsumePressed(),
-                FireHeld = fireButton.IsHeld,
-                FirePressed = fireButton.ConsumePressed(),
+                FireHeld = fireHeld,
+                FirePressed = firePressed,
                 AdsActive = adsOn,
                 ReloadPressed = gunOut && reloadButton.ConsumePressed(),
                 CrouchPressed = crouch,
@@ -177,7 +213,10 @@ namespace Deadlock.Input
                 sprintIndicator.color = sprintLatched ? sprintColor : knobColor;
         }
 
-        /// <summary>ADS off; a finger still on the button has to lift and press again.</summary>
+        /// <summary>
+        /// ADS off from every source and FIRE let go; fingers still on ADS / FIRE have to lift and press again
+        /// (menu, death, weapon switch, background, setting change).
+        /// </summary>
         public void CancelAds()
         {
             if (adsButton != null)
@@ -185,7 +224,11 @@ namespace Deadlock.Input
                 adsButton.Release();
                 adsButton.SetLatched(false);
             }
+            if (fireButton != null)
+                fireButton.Release();
             ads.Cancel(false);
+            fireAds = false;
+            fireReady = false;
         }
 
         /// <summary>Only real (or simulated) touches drive the touch widgets; mouse pointer events are ignored.</summary>

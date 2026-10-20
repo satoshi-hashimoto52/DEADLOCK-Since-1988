@@ -28,7 +28,11 @@ namespace Deadlock.Tests
         protected ProjectileSystem projectiles;
 
         string savedLayoutJson;
-        int savedTouchAds, savedDesktopAds;
+        readonly System.Collections.Generic.Dictionary<string, int> savedControls = new System.Collections.Generic.Dictionary<string, int>();
+        static readonly string[] ControlKeys =
+        {
+            ControlSettings.TouchAdsKey, ControlSettings.DesktopAdsKey, ControlSettings.TouchAdsDragAimKey, ControlSettings.TouchFireModeKey,
+        };
 
         // Tests run against the default touch layout; a layout the user saved in the Editor is put back afterwards.
         public override void Setup()
@@ -38,9 +42,11 @@ namespace Deadlock.Tests
             mouse = null;
             savedLayoutJson = PlayerPrefs.GetString(TouchLayout.PrefsKey, null);
             TouchLayout.ClearSaved();
-            // Tests start from the default ADS modes (hold); the user's settings are put back afterwards.
-            savedTouchAds = PlayerPrefs.GetInt(ControlSettings.TouchAdsKey, -1);
-            savedDesktopAds = PlayerPrefs.GetInt(ControlSettings.DesktopAdsKey, -1);
+            // Tests start from the default control settings; the user's settings are put back afterwards.
+            savedControls.Clear();
+            foreach (var key in ControlKeys)
+                if (PlayerPrefs.HasKey(key))
+                    savedControls[key] = PlayerPrefs.GetInt(key);
             ControlSettings.ClearSaved();
             Time.timeScale = 1f;
         }
@@ -53,10 +59,8 @@ namespace Deadlock.Tests
             else
                 PlayerPrefs.SetString(TouchLayout.PrefsKey, savedLayoutJson);
             ControlSettings.ClearSaved();
-            if (savedTouchAds >= 0)
-                PlayerPrefs.SetInt(ControlSettings.TouchAdsKey, savedTouchAds);
-            if (savedDesktopAds >= 0)
-                PlayerPrefs.SetInt(ControlSettings.DesktopAdsKey, savedDesktopAds);
+            foreach (var pair in savedControls)
+                PlayerPrefs.SetInt(pair.Key, pair.Value);
             base.TearDown();
         }
 

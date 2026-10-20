@@ -47,7 +47,7 @@ namespace Deadlock.Tests
             yield return Wait(0.1f);
             Assert.IsFalse(gun.AdsRequested, "Hold: off on release");
 
-            yield return ChooseInMenu("DesktopAdsToggle");
+            yield return ChooseInMenu("DesktopAdsRight");
             Assert.AreEqual(AdsMode.Toggle, ControlSettings.GetAdsMode(InputMode.Desktop));
             Assert.AreEqual(AdsMode.Hold, ControlSettings.GetAdsMode(InputMode.Touch), "Touch setting untouched");
             Press(mouse.rightButton, queueEventOnly: true);
