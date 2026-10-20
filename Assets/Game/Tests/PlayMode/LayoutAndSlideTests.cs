@@ -307,6 +307,66 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
+        public IEnumerator Slide_StartedRightBeforeLowGap_EntersIt_CameraEasesDownBelowCeiling()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            // Gap 1.15 m high (bottom of the ceiling), from z = 0 to 2: too low to stand or crouch, enough to slide.
+            var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            spawned.Add(ceiling);
+            ceiling.transform.position = new Vector3(1f, 1.25f, 1f);
+            ceiling.transform.localScale = new Vector3(3f, 0.2f, 2f);
+            Physics.SyncTransforms();
+            const float ceilingBottom = 1.15f;
+
+            // Fixed 60 fps frames so "right before the edge" is reproducible.
+            Time.captureDeltaTime = 1f / 60f;
+            try
+            {
+                // Sprint at it and press C about one frame before the standing capsule (radius 0.35) touches the edge.
+                Teleport(new Vector3(1f, 0.05f, -4f));
+                yield return Wait(0.3f);
+                Press(keyboard.leftShiftKey, queueEventOnly: true);
+                Press(keyboard.wKey, queueEventOnly: true);
+                for (float end = Time.time + 2f; Time.time < end && player.transform.position.z < -0.52f; )
+                    yield return null;
+                Assert.IsTrue(motor.IsSprinting, "Sprinting toward the gap");
+                yield return Tap(keyboard.cKey);
+                Release(keyboard.wKey, queueEventOnly: true);
+                Release(keyboard.leftShiftKey, queueEventOnly: true);
+                Assert.IsTrue(posture.IsSliding, "Slide started in front of the gap");
+                Assert.Less(player.GetComponent<CharacterController>().height, 1.15f, "Movement capsule is low at once");
+                Assert.AreEqual(0.05f, player.transform.position.y, 0.06f, "Feet stay on the floor");
+
+                var cam = CameraPivot();
+                float lastEye = cam.position.y;
+                float biggestDrop = 0f;
+                bool cameraUnderCeiling = false;
+                while (posture.IsSliding)
+                {
+                    yield return null;
+                    float eye = cam.position.y;
+                    biggestDrop = Mathf.Max(biggestDrop, lastEye - eye);
+                    lastEye = eye;
+                    if (cam.position.z > 0f && cam.position.z < 2f)
+                    {
+                        cameraUnderCeiling = true;
+                        Assert.Less(eye, ceilingBottom - 0.02f, "Camera never pokes through the ceiling");
+                    }
+                }
+                Assert.IsTrue(cameraUnderCeiling);
+                Assert.Greater(player.transform.position.z, 0.6f, "The slide enters the gap instead of stopping at its edge");
+                Assert.Less(biggestDrop, 0.2f, "Camera eases down (no single-frame jump)");
+                // No room to crouch under the gap: ends prone (room check before growing is kept).
+                if (player.transform.position.z < 2f)
+                    Assert.AreEqual(Posture.Prone, posture.Current);
+            }
+            finally
+            {
+                Time.captureDeltaTime = 0f;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Touch_PostureButtonWhileSprinting_SlidesAtOnce_HoldDoesNotGoProne()
         {
             yield return LoadTouch();

@@ -64,6 +64,7 @@ namespace Deadlock.Player
         float transitionStart;
         float transitionDuration;
         float progress = 1f;
+        bool collisionAppliedImmediately;
 
         /// <summary>Requested (target) posture. While <see cref="IsTransitioning"/> the body is still changing shape.</summary>
         public Posture Current { get; private set; } = Posture.Standing;
@@ -139,13 +140,27 @@ namespace Deadlock.Player
                 progress = Mathf.Clamp01((Time.time - transitionStart) / transitionDuration);
                 float t = progress * progress * (3f - 2f * progress);
                 Shape to = ShapeOf(Current);
-                Apply(new Shape
+                Shape blended = new Shape
                 {
                     height = Mathf.Lerp(from.height, to.height, t),
                     eyeHeight = Mathf.Lerp(from.eyeHeight, to.eyeHeight, t),
                     speedMultiplier = Mathf.Lerp(from.speedMultiplier, to.speedMultiplier, t),
                     stepOffset = Mathf.Lerp(from.stepOffset, to.stepOffset, t),
-                });
+                };
+                if (collisionAppliedImmediately)
+                {
+                    // The capsule is already low; only the camera eases down. A low ceiling just ahead pulls it down
+                    // sooner (at a capped speed, so the view does not jump), and it is never above a ceiling overhead.
+                    float lookahead = IsSliding ? SlideSpeed * CameraLookaheadTime : 0f;
+                    float soft = Mathf.Min(blended.eyeHeight, CeilingEyeLimit(blended.eyeHeight, lookahead));
+                    float eye = Mathf.Min(blended.eyeHeight, Mathf.MoveTowards(EyeHeight, soft, CameraMaxDropSpeed * Time.deltaTime));
+                    blended.eyeHeight = Mathf.Max(to.eyeHeight, Mathf.Min(eye, CeilingEyeLimit(blended.eyeHeight, 0f)));
+                    ApplyCameraAndSpeed(blended);
+                }
+                else
+                    Apply(blended);
+                if (progress >= 1f)
+                    collisionAppliedImmediately = false;
             }
         }
 
@@ -178,7 +193,8 @@ namespace Deadlock.Player
             SlideDirection = v.normalized;
             slideStartSpeed = v.magnitude * slideStartSpeedMultiplier;
             slideStart = Time.time;
-            StartTransition(Posture.Sliding, slideTransitionTime);
+            // The movement capsule must become low before the next movement step. Only the camera is animated.
+            StartTransition(Posture.Sliding, slideTransitionTime, applyCollisionImmediately: true);
         }
 
         /// <summary>
@@ -196,13 +212,16 @@ namespace Deadlock.Player
             StartTransition(end, end == Posture.Prone ? proneTransitionTime : crouchTransitionTime);
         }
 
-        void StartTransition(Posture target, float duration)
+        void StartTransition(Posture target, float duration, bool applyCollisionImmediately = false)
         {
             from = new Shape { height = Height, eyeHeight = EyeHeight, speedMultiplier = SpeedMultiplier, stepOffset = controller.stepOffset };
             transitionDuration = duration;
             transitionStart = Time.time;
             progress = 0f;
             Current = target;
+            collisionAppliedImmediately = applyCollisionImmediately;
+            if (collisionAppliedImmediately)
+                ApplyCollision(ShapeOf(target));
             Changed?.Invoke(target);
         }
 
@@ -226,15 +245,53 @@ namespace Deadlock.Player
             _ => standing,
         };
 
+        const float CameraLookaheadTime = 0.1f;
+        const float CameraMaxDropSpeed = 10f;
+
+        /// <summary>
+        /// Highest eye height that stays below whatever is above the (already low) capsule, here and
+        /// <paramref name="ahead"/> metres further along the slide.
+        /// </summary>
+        float CeilingEyeLimit(float wanted, float ahead)
+        {
+            const float probe = 0.15f, clearance = 0.1f;
+            float limit = wanted;
+            float distance = wanted + clearance - (Height - probe);
+            if (distance <= 0f)
+                return limit;
+            Vector3 origin = transform.position + Vector3.up * (Height - probe);
+            if (Physics.SphereCast(origin, probe, Vector3.up, out RaycastHit hit, distance, obstacleMask, QueryTriggerInteraction.Ignore))
+                limit = Mathf.Min(limit, hit.point.y - transform.position.y - clearance);
+            if (ahead > 0f)
+            {
+                Vector3 front = origin + SlideDirection * ahead;
+                // Only look ahead through free space (a wall in front is the motor's business, not the camera's).
+                if (!Physics.CheckSphere(front, probe, obstacleMask, QueryTriggerInteraction.Ignore)
+                    && Physics.SphereCast(front, probe, Vector3.up, out hit, distance, obstacleMask, QueryTriggerInteraction.Ignore))
+                    limit = Mathf.Min(limit, hit.point.y - transform.position.y - clearance);
+            }
+            return limit;
+        }
+
         void Apply(Shape shape)
         {
+            ApplyCollision(shape);
+            ApplyCameraAndSpeed(shape);
+        }
+
+        void ApplyCollision(Shape shape)
+        {
             Height = Mathf.Max(shape.height, controller.radius * 2f);
-            EyeHeight = shape.eyeHeight;
-            SpeedMultiplier = shape.speedMultiplier;
             // Feet stay where they are: the capsule bottom is always at the transform origin.
             controller.height = Height;
             controller.center = new Vector3(0f, Height * 0.5f, 0f);
             controller.stepOffset = Mathf.Min(shape.stepOffset, Height);
+        }
+
+        void ApplyCameraAndSpeed(Shape shape)
+        {
+            EyeHeight = shape.eyeHeight;
+            SpeedMultiplier = shape.speedMultiplier;
             Vector3 eye = cameraPivot.localPosition;
             eye.y = EyeHeight;
             cameraPivot.localPosition = eye;
