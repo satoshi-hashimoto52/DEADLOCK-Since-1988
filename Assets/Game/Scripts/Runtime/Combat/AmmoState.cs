@@ -51,6 +51,13 @@ namespace Deadlock.Combat
             return moved;
         }
 
+        /// <summary>Overwrites the counts with authoritative values (e.g. from the host in an online match).</summary>
+        public void Set(int loaded, int reserve)
+        {
+            Loaded = Math.Clamp(loaded, 0, MagazineSize);
+            Reserve = Math.Clamp(reserve, 0, ReserveMax);
+        }
+
         /// <summary>Adds picked-up rounds to reserve, clamped to <see cref="ReserveMax"/>. Returns rounds actually added.</summary>
         public int AddReserve(int amount)
         {

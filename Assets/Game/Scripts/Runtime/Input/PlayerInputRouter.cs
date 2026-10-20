@@ -47,6 +47,12 @@ namespace Deadlock.Input
 
         public event Action<InputMode> ModeChanged;
 
+        /// <summary>
+        /// When set, replaces the devices as the input source (automated network checks, future bots). Blocking
+        /// (menu, death, ...) still applies on top of it.
+        /// </summary>
+        public Func<PlayerInputFrame> ExternalSource { get; set; }
+
         void Awake()
         {
             desktop = new DesktopInputSource();
@@ -133,6 +139,12 @@ namespace Deadlock.Input
             if (IsBlocked)
             {
                 Current = default;
+                return;
+            }
+
+            if (ExternalSource != null)
+            {
+                Current = ExternalSource();
                 return;
             }
 

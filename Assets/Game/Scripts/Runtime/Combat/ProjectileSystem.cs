@@ -35,6 +35,10 @@ namespace Deadlock.Combat
         }
 
         [SerializeField] LayerMask hitMask = ~0;
+        [Tooltip("Off for display-only projectiles (online: the host decides damage, other machines only draw).")]
+        [SerializeField] bool applyDamage = true;
+
+        readonly RaycastHit[] hitBuffer = new RaycastHit[16];
 
         readonly List<Projectile> active = new List<Projectile>();
         int nextId;
@@ -50,6 +54,12 @@ namespace Deadlock.Combat
         {
             get => hitMask;
             set => hitMask = value;
+        }
+
+        public bool ApplyDamage
+        {
+            get => applyDamage;
+            set => applyDamage = value;
         }
 
         public void Fire(Vector3 origin, Vector3 direction, float speed, float maxRange, float damage, GameObject shooter)
@@ -78,10 +88,10 @@ namespace Deadlock.Combat
                 var p = active[i];
                 float distance = Mathf.Min(p.Speed * deltaTime, p.RemainingRange);
 
-                if (Physics.Raycast(p.Position, p.Direction, out RaycastHit hit, distance, hitMask, QueryTriggerInteraction.Ignore))
+                if (FirstHit(p, distance, out RaycastHit hit))
                 {
                     var damageable = hit.collider.GetComponentInParent<IDamageable>();
-                    var result = damageable != null
+                    var result = damageable != null && applyDamage
                         ? damageable.ApplyDamage(p.Damage, hit.point, p.Direction)
                         : DamageResult.Ignored;
                     RemoveAt(i);
@@ -114,6 +124,24 @@ namespace Deadlock.Combat
                     active[i] = p;
                 }
             }
+        }
+
+        /// <summary>Nearest hit along the segment, ignoring the shooter's own colliders (no self-hits).</summary>
+        bool FirstHit(Projectile p, float distance, out RaycastHit nearest)
+        {
+            nearest = default;
+            int count = Physics.RaycastNonAlloc(p.Position, p.Direction, hitBuffer, distance, hitMask, QueryTriggerInteraction.Ignore);
+            float best = float.MaxValue;
+            Transform shooter = p.Shooter != null ? p.Shooter.transform : null;
+            for (int i = 0; i < count; i++)
+            {
+                var h = hitBuffer[i];
+                if (h.distance >= best || (shooter != null && h.collider.transform.IsChildOf(shooter)))
+                    continue;
+                best = h.distance;
+                nearest = h;
+            }
+            return best < float.MaxValue;
         }
 
         void RemoveAt(int index)

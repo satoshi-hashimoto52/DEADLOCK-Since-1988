@@ -26,6 +26,33 @@ namespace Deadlock.Player
             Health = maxHealth;
         }
 
+        /// <summary>
+        /// Online: the host owns the hit points. Applies its value here so the HUD, damage flash and death handling
+        /// behave as offline. A higher value than the current one (respawn) revives.
+        /// </summary>
+        public void SetAuthoritative(float health, Vector3 sourcePosition)
+        {
+            health = Mathf.Clamp(health, 0f, maxHealth);
+            if (health > Health || (IsDead && health > 0f))
+            {
+                Revive(health);
+                return;
+            }
+            if (health < Health)
+                TakeDamage(Health - health, sourcePosition);
+        }
+
+        /// <summary>Back to life (respawn) with the given hit points.</summary>
+        public void Revive(float health)
+        {
+            Health = Mathf.Clamp(health, 1f, maxHealth);
+            if (!IsDead)
+                return;
+            IsDead = false;
+            if (input != null)
+                input.Unblock("dead");
+        }
+
         public void TakeDamage(float amount, Vector3 sourcePosition)
         {
             if (IsDead || amount <= 0f)

@@ -38,6 +38,9 @@ namespace Deadlock.Combat
         public bool IsSwinging => Phase != MeleePhase.Idle;
         public int SwingCount { get; private set; }
 
+        /// <summary>Off online: the swing is only shown locally and the host decides what it hits.</summary>
+        public bool LocalHitDetection { get; set; } = true;
+
         public LayerMask HitMask
         {
             get => hitMask;
@@ -118,29 +121,16 @@ namespace Deadlock.Combat
 
         void Sweep()
         {
-            Vector3 origin = aimOrigin.position;
-            Vector3 direction = aimOrigin.forward;
-            if (!Physics.SphereCast(origin, definition.radius, direction, out RaycastHit hit, definition.range, hitMask,
-                    QueryTriggerInteraction.Ignore))
+            if (!LocalHitDetection)
+            {
+                swingResolved = true; // online: the host runs the check
+                return;
+            }
+            var result = MeleeSweep.Run(aimOrigin.position, aimOrigin.forward, definition, hitMask, transform);
+            if (!result.Resolved)
                 return; // nothing yet: keep checking for the rest of the active window
-
             swingResolved = true;
-            var damageable = hit.collider.GetComponentInParent<IDamageable>();
-            DamageResult result = DamageResult.Ignored;
-            if (damageable != null && HasLineOfSight(origin, hit.collider))
-                result = damageable.ApplyDamage(definition.damage, hit.point, direction);
-            Hit?.Invoke(hit.collider, result);
-        }
-
-        /// <summary>The sphere can graze a target past the edge of cover; require a clear ray to the target as well.</summary>
-        bool HasLineOfSight(Vector3 origin, Collider target)
-        {
-            Vector3 to = target.bounds.center;
-            to.y = Mathf.Clamp(origin.y, target.bounds.min.y, target.bounds.max.y);
-            Vector3 delta = to - origin;
-            if (!Physics.Raycast(origin, delta, out RaycastHit hit, delta.magnitude + 0.5f, hitMask, QueryTriggerInteraction.Ignore))
-                return true;
-            return hit.collider == target;
+            Hit?.Invoke(result.Collider, result.Damage);
         }
 
 #if UNITY_EDITOR

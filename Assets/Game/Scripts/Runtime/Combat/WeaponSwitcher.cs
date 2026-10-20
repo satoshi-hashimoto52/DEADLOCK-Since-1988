@@ -32,6 +32,8 @@ namespace Deadlock.Combat
         public float SwitchTime => switchTime;
 
         public event Action<WeaponSlot> Equipped;
+        /// <summary>A switch toward this slot has started.</summary>
+        public event Action<WeaponSlot> SwitchStarted;
 
         void Start()
         {
@@ -67,7 +69,18 @@ namespace Deadlock.Combat
             switchStart = Time.time;
             gun.SetEquipped(false);
             melee.SetEquipped(false);
+            SwitchStarted?.Invoke(target);
             return true;
+        }
+
+        /// <summary>Equips a slot at once, without a switch (respawn).</summary>
+        public void ForceSlot(WeaponSlot slot)
+        {
+            Current = slot;
+            IsSwitching = false;
+            gun.SetEquipped(slot == WeaponSlot.Gun);
+            melee.SetEquipped(slot == WeaponSlot.Melee);
+            Equipped?.Invoke(slot);
         }
 
         void Finish()

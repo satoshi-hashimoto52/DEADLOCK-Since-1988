@@ -42,6 +42,12 @@ namespace Deadlock.Combat
         public event Action ReloadCanceled;
         public event Action AmmoChanged;
 
+        /// <summary>
+        /// When set (online), a shot calls this with (origin, direction) instead of firing a local damaging projectile:
+        /// the host decides whether the shot happens and what it hits. Ammo, recoil and effects stay local predictions.
+        /// </summary>
+        public Action<Vector3, Vector3> ShotOverride { get; set; }
+
         void Awake()
         {
             ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
@@ -103,6 +109,26 @@ namespace Deadlock.Combat
             motor.LookSensitivityMultiplier = Mathf.Lerp(1f, definition.adsLookSensitivityMultiplier, AdsBlend);
         }
 
+        /// <summary>Applies authoritative ammo counts (online: from the host).</summary>
+        public void SetAmmo(int loaded, int reserve)
+        {
+            if (ammo.Loaded == loaded && ammo.Reserve == reserve)
+                return;
+            ammo.Set(loaded, reserve);
+            AmmoChanged?.Invoke();
+        }
+
+        /// <summary>Back to a fresh gun (respawn): full magazine, starting reserve, no reload, no ADS.</summary>
+        public void ResetState()
+        {
+            ammo.Set(definition.magazineSize, definition.startReserve);
+            IsReloading = false;
+            AdsBlend = 0f;
+            nextFireTime = 0f;
+            waitForTriggerRelease = true;
+            AmmoChanged?.Invoke();
+        }
+
         /// <summary>Adds rounds to reserve (pickups). Returns the amount actually added.</summary>
         public int AddReserveAmmo(int amount)
         {
@@ -150,7 +176,10 @@ namespace Deadlock.Combat
             lastFireTime = now;
 
             Vector3 direction = ApplySpread(aimOrigin.forward, CurrentSpreadDegrees);
-            projectiles.Fire(aimOrigin.position, direction, definition.projectileSpeed, definition.maxRange, definition.damage, gameObject);
+            if (ShotOverride != null)
+                ShotOverride(aimOrigin.position, direction);
+            else
+                projectiles.Fire(aimOrigin.position, direction, definition.projectileSpeed, definition.maxRange, definition.damage, gameObject);
 
             float recoilScale = Mathf.Lerp(1f, definition.adsRecoilMultiplier, AdsBlend);
             motor.AddRecoil(

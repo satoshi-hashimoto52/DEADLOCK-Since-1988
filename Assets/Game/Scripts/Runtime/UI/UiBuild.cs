@@ -72,5 +72,29 @@ namespace Deadlock.UI
             Text(Stretch(Rect("Label", rect)), label, fontSize, TextAnchor.MiddleCenter);
             return button;
         }
+
+        /// <summary>Single-line text field (opens the on-screen keyboard on mobile).</summary>
+        public static InputField InputField(RectTransform parent, string name, string placeholder, Vector2 anchor, Vector2 position, Vector2 size,
+            int fontSize = 30, UnityEngine.UI.InputField.ContentType contentType = UnityEngine.UI.InputField.ContentType.Standard)
+        {
+            var rect = Place(Rect(name, parent), anchor, position, size);
+            var image = Image(rect, new Color(0.05f, 0.06f, 0.08f, 0.95f), true);
+            var textRect = Stretch(Rect("Text", rect));
+            textRect.offsetMin = new Vector2(16f, 0f);
+            textRect.offsetMax = new Vector2(-16f, 0f);
+            var text = Text(textRect, "", fontSize, TextAnchor.MiddleLeft);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var hintRect = Stretch(Rect("Placeholder", rect));
+            hintRect.offsetMin = textRect.offsetMin;
+            hintRect.offsetMax = textRect.offsetMax;
+            var hint = Text(hintRect, placeholder, fontSize, TextAnchor.MiddleLeft, new Color(1f, 1f, 1f, 0.35f));
+            var field = rect.gameObject.AddComponent<UnityEngine.UI.InputField>();
+            field.targetGraphic = image;
+            field.textComponent = text;
+            field.placeholder = hint;
+            field.contentType = contentType;
+            field.lineType = UnityEngine.UI.InputField.LineType.SingleLine;
+            return field;
+        }
     }
 }

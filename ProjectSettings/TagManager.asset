@@ -14,8 +14,8 @@ TagManager:
   - Player
   - ViewModel
   - Enemy
-  - 
-  - 
+  - Hitbox
+  - OwnHitbox
   - 
   - 
   - 

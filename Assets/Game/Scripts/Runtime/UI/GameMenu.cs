@@ -6,6 +6,13 @@ using UnityEngine.UI;
 
 namespace Deadlock.UI
 {
+    /// <summary>Adds scene-specific entries to the in-game menu (e.g. online: leave). Put it on the menu's GameObject.</summary>
+    public interface IGameMenuItems
+    {
+        /// <param name="add">(object name, label, action)</param>
+        void AddMenuItems(Action<string, string, Action> add);
+    }
+
     /// <summary>
     /// In-game menu: a menu button that is always on screen (top centre, never covered by movable touch widgets),
     /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout.
@@ -85,7 +92,7 @@ namespace Deadlock.UI
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 700f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 800f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 60f)),
                 "メニュー", 44, TextAnchor.MiddleCenter);
@@ -101,9 +108,15 @@ namespace Deadlock.UI
             Add("ResumeButton", "再開", Close);
             if (session != null)
                 Add("RetryButton", "再挑戦（最初から）", () => session.Retry());
-            bool training = session != null;
-            Add("SceneButton", training ? "射撃場へ" : "トレーニングへ",
-                () => GameScenes.Load(training ? GameScenes.FiringRange : GameScenes.Training));
+            foreach (var extra in GetComponents<IGameMenuItems>())
+                extra.AddMenuItems((name, label, action) => Add(name, label, action));
+            string current = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (current != GameScenes.FiringRange)
+                Add("SceneButton", "射撃場へ", () => GameScenes.Load(GameScenes.FiringRange));
+            if (current != GameScenes.Training)
+                Add("TrainingButton", "トレーニングへ", () => GameScenes.Load(GameScenes.Training));
+            if (current != GameScenes.Online)
+                Add("OnlineButton", "オンライン検証（LAN）へ", () => GameScenes.Load(GameScenes.Online));
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),
                 "設定", 26, TextAnchor.MiddleLeft, new Color(1f, 1f, 1f, 0.6f));
             y -= 52f;

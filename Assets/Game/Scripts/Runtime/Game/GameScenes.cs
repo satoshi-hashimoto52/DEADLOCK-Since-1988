@@ -8,6 +8,8 @@ namespace Deadlock.Game
     {
         public const string FiringRange = "Proto_FiringRange";
         public const string Training = "Proto_Training";
+        /// <summary>LAN two-player test scene (host + one client).</summary>
+        public const string Online = "Proto_Online";
 
         public static bool IsTraining => SceneManager.GetActiveScene().name == Training;
 

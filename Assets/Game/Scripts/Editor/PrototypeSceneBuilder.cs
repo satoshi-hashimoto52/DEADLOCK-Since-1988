@@ -25,7 +25,7 @@ namespace Deadlock.Editor
     /// Batch: -batchmode -quit -executeMethod Deadlock.Editor.PrototypeSceneBuilder.Build
     /// (use -quit rather than exiting from code so the Editor saves ProjectSettings on shutdown).
     /// </summary>
-    public static class PrototypeSceneBuilder
+    public static partial class PrototypeSceneBuilder
     {
         public const string ScenePath = "Assets/Game/Scenes/Proto_FiringRange.unity";
         public const string TrainingScenePath = "Assets/Game/Scenes/Proto_Training.unity";
@@ -78,11 +78,15 @@ namespace Deadlock.Editor
             WeaponSpriteBaker.Bake(); // uses its own temporary scene
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
 
+            int hitboxLayer = EnsureLayer(Deadlock.Network.NetworkSession.HitboxLayerName, 9);
+            int ownHitboxLayer = EnsureLayer(Deadlock.Network.NetworkSession.OwnHitboxLayerName, 10);
+
             BuildScene(false, playerLayer, viewModelLayer, enemyLayer);
             BuildScene(true, playerLayer, viewModelLayer, enemyLayer);
+            BuildOnlineScene(playerLayer, viewModelLayer, hitboxLayer, ownHitboxLayer);
             ConfigureProject();
             AssetDatabase.SaveAssets();
-            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}");
+            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}");
         }
 
         /// <summary>Firing range or training: same player rig, HUD, touch controls and menu; different stage.</summary>
@@ -92,23 +96,8 @@ namespace Deadlock.Editor
             // which would leave dangling references to anything loaded earlier.
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            var mats = new Materials
-            {
-                Wall = LitMaterial("Mat_WallBrick", PlaceholderArtGenerator.WallBrick),
-                Floor = LitMaterial("Mat_FloorTile", PlaceholderArtGenerator.FloorTile),
-                Crate = LitMaterial("Mat_Crate", PlaceholderArtGenerator.Crate),
-                Concrete = LitMaterial("Mat_Concrete", PlaceholderArtGenerator.Concrete),
-                Ammo = LitMaterial("Mat_AmmoBox", PlaceholderArtGenerator.AmmoBox),
-                ImpactWall = UnlitMaterial("Mat_ImpactWall", PlaceholderArtGenerator.ImpactWall, Color.white),
-                ImpactTarget = UnlitMaterial("Mat_ImpactTarget", PlaceholderArtGenerator.ImpactTarget, Color.white),
-                Tracer = UnlitMaterial("Mat_Tracer", null, new Color(1f, 0.85f, 0.4f)),
-            };
-            WeaponDefinition weapon = LoadOrCreateWeapon();
-            weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
-            EditorUtility.SetDirty(weapon);
-            MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
-            melee.viewProfile = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath);
-            EditorUtility.SetDirty(melee);
+            var mats = CreateMaterials();
+            var (weapon, melee) = LoadDefinitions();
 
             SetupLighting();
 
@@ -151,6 +140,29 @@ namespace Deadlock.Editor
             EditorSceneManager.SaveScene(scene, training ? TrainingScenePath : ScenePath);
         }
 
+        static Materials CreateMaterials() => new Materials
+        {
+            Wall = LitMaterial("Mat_WallBrick", PlaceholderArtGenerator.WallBrick),
+            Floor = LitMaterial("Mat_FloorTile", PlaceholderArtGenerator.FloorTile),
+            Crate = LitMaterial("Mat_Crate", PlaceholderArtGenerator.Crate),
+            Concrete = LitMaterial("Mat_Concrete", PlaceholderArtGenerator.Concrete),
+            Ammo = LitMaterial("Mat_AmmoBox", PlaceholderArtGenerator.AmmoBox),
+            ImpactWall = UnlitMaterial("Mat_ImpactWall", PlaceholderArtGenerator.ImpactWall, Color.white),
+            ImpactTarget = UnlitMaterial("Mat_ImpactTarget", PlaceholderArtGenerator.ImpactTarget, Color.white),
+            Tracer = UnlitMaterial("Mat_Tracer", null, new Color(1f, 0.85f, 0.4f)),
+        };
+
+        static (WeaponDefinition, MeleeDefinition) LoadDefinitions()
+        {
+            WeaponDefinition weapon = LoadOrCreateWeapon();
+            weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
+            EditorUtility.SetDirty(weapon);
+            MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
+            melee.viewProfile = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath);
+            EditorUtility.SetDirty(melee);
+            return (weapon, melee);
+        }
+
         // ------------------------------------------------------------------ project / assets
 
         static int EnsureLayer(string name, int preferredIndex)
@@ -191,6 +203,7 @@ namespace Deadlock.Editor
             {
                 new EditorBuildSettingsScene(ScenePath, true),
                 new EditorBuildSettingsScene(TrainingScenePath, true),
+                new EditorBuildSettingsScene(OnlineScenePath, true),
             };
 
             // The template sample scene is replaced by the prototype scene.
@@ -265,7 +278,7 @@ namespace Deadlock.Editor
             public Material Wall, Floor, Crate, Concrete, Ammo, ImpactWall, ImpactTarget, Tracer;
         }
 
-        sealed class PlayerRig
+        sealed class PlayerParts
         {
             public GameObject Root;
             public PlayerInputRouter Input;
@@ -274,6 +287,7 @@ namespace Deadlock.Editor
             public PostureController Posture;
             public WeaponSwitcher Weapons;
             public PlayerHealth Health;
+            public PlayerRig Rig;
         }
 
         static void SetupLighting()
@@ -402,7 +416,7 @@ namespace Deadlock.Editor
             return system;
         }
 
-        static PlayerRig BuildPlayer(WeaponDefinition weapon, MeleeDefinition meleeDefinition, ProjectileSystem projectiles, int playerLayer, int viewModelLayer, Vector3 spawn)
+        static PlayerParts BuildPlayer(WeaponDefinition weapon, MeleeDefinition meleeDefinition, ProjectileSystem projectiles, int playerLayer, int viewModelLayer, Vector3 spawn)
         {
             var root = new GameObject("Player") { layer = playerLayer };
             root.transform.position = spawn;
@@ -473,7 +487,9 @@ namespace Deadlock.Editor
             Set(gun, "projectiles", projectiles);
 
             // Everything that can block the body or a swing: all layers except the player, view model, UI and triggers' layer.
-            int solid = ~((1 << playerLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI")));
+            // Online: your own hit volumes (OwnHitbox) never block your posture changes, camera or knife.
+            int solid = ~((1 << playerLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI"))
+                          | (1 << LayerMask.NameToLayer(Deadlock.Network.NetworkSession.OwnHitboxLayerName)));
             Set(posture, "input", router);
             Set(posture, "cameraPivot", pivot.transform);
             SetMask(posture, "obstacleMask", solid);
@@ -496,7 +512,17 @@ namespace Deadlock.Editor
             Set(meleeView, "worldCamera", cam);
             Set(meleeView, "sprite", knifeSprite.GetComponent<SpriteRenderer>());
 
-            return new PlayerRig { Root = root, Input = router, Gun = gun, WorldCamera = cam, Posture = posture, Weapons = weapons, Health = health };
+            var rig = root.AddComponent<PlayerRig>();
+            Set(rig, "input", router);
+            Set(rig, "motor", motor);
+            Set(rig, "posture", posture);
+            Set(rig, "gun", gun);
+            Set(rig, "melee", melee);
+            Set(rig, "weapons", weapons);
+            Set(rig, "health", health);
+            Set(rig, "aim", camGo.transform);
+
+            return new PlayerParts { Root = root, Input = router, Gun = gun, WorldCamera = cam, Posture = posture, Weapons = weapons, Health = health, Rig = rig };
         }
 
         static GameObject BuildWeaponView(Transform parent, int layer)
@@ -554,7 +580,7 @@ namespace Deadlock.Editor
             AssetDatabase.CreateAsset(surface.navMeshData, TrainingNavMeshPath);
         }
 
-        static Zombie[] BuildZombies(PlayerRig player, int playerLayer, int viewModelLayer, int enemyLayer)
+        static Zombie[] BuildZombies(PlayerParts player, int playerLayer, int viewModelLayer, int enemyLayer)
         {
             var root = new GameObject("Zombies").transform;
             Sprite walkA = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkA);
@@ -666,7 +692,7 @@ namespace Deadlock.Editor
 
         // ------------------------------------------------------------------ UI
 
-        static GameObject BuildUi(PlayerRig player, ProjectileSystem projectiles)
+        static GameObject BuildUi(PlayerParts player, ProjectileSystem projectiles)
         {
             var esGo = new GameObject("EventSystem");
             esGo.AddComponent<EventSystem>();
@@ -689,7 +715,7 @@ namespace Deadlock.Editor
             return canvasGo;
         }
 
-        static void BuildTouchControls(RectTransform canvas, PlayerRig player)
+        static void BuildTouchControls(RectTransform canvas, PlayerParts player)
         {
             var root = Rect("TouchControls", canvas);
             Stretch(root);
@@ -763,7 +789,7 @@ namespace Deadlock.Editor
             return button;
         }
 
-        static void BuildHud(RectTransform canvas, PlayerRig player, ProjectileSystem projectiles)
+        static void BuildHud(RectTransform canvas, PlayerParts player, ProjectileSystem projectiles)
         {
             var root = Rect("HUD", canvas);
             Stretch(root);

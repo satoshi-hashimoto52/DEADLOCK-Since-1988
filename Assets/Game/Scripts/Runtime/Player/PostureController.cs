@@ -164,6 +164,17 @@ namespace Deadlock.Player
             }
         }
 
+        /// <summary>Standing at once, no transition (respawn at an open spawn point).</summary>
+        public void ResetToStanding()
+        {
+            Current = Posture.Standing;
+            progress = 1f;
+            collisionAppliedImmediately = false;
+            from = standing;
+            Apply(standing);
+            Changed?.Invoke(Current);
+        }
+
         /// <summary>Asks for a posture. Returns false (and keeps the current one) when there is no room or not grounded.</summary>
         public bool Request(Posture target)
         {

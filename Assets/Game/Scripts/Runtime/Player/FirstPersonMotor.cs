@@ -69,6 +69,17 @@ namespace Deadlock.Player
             cameraPivot.localRotation = Quaternion.Euler(-pitch, 0f, 0f);
         }
 
+        /// <summary>Moves the player to a spawn point (respawn): no velocity carried over.</summary>
+        public void Teleport(Vector3 position, float yawDegrees)
+        {
+            controller.enabled = false;
+            transform.position = position;
+            controller.enabled = true;
+            horizontalVelocity = Vector3.zero;
+            verticalVelocity = 0f;
+            SetYawPitch(yawDegrees, 0f);
+        }
+
         /// <summary>Kicks the aim. Positive pitch is upward. Part of it recovers over time.</summary>
         public void AddRecoil(float pitchDegrees, float yawDegrees)
         {
