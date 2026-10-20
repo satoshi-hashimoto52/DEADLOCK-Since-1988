@@ -14,11 +14,20 @@ namespace Deadlock.Input
     {
         const int NoPointer = int.MinValue;
 
+        [Tooltip("The plate (and the touch area).")]
         [SerializeField] Graphic graphic;
+        [Tooltip("Icon drawn on the plate. Display only: Raycast Target off, so the plate alone takes touches.")]
+        [SerializeField] Image icon;
+        [Tooltip("Ring shown while the button's state is on (e.g. ADS active).")]
+        [SerializeField] Graphic activeRing;
         [SerializeField] TouchLookArea dragLooksWith;
         [SerializeField] Color normalColor = new Color(1f, 1f, 1f, 0.35f);
         [SerializeField] Color pressedColor = new Color(1f, 0.85f, 0.4f, 0.75f);
+        [SerializeField] Color activeColor = new Color(1f, 0.6f, 0.15f, 0.85f);
         [SerializeField] Color disabledColor = new Color(0.4f, 0.4f, 0.4f, 0.18f);
+        [SerializeField] Color iconColor = new Color(1f, 1f, 1f, 0.95f);
+        [SerializeField] Color iconActiveColor = new Color(0.12f, 0.08f, 0.04f, 1f);
+        [SerializeField] Color iconDisabledColor = new Color(1f, 1f, 1f, 0.3f);
 
         int pointerId = NoPointer;
         bool looking;
@@ -28,9 +37,14 @@ namespace Deadlock.Input
         bool interactable = true;
 
         public bool IsHeld => pointerId != NoPointer;
+        /// <summary>The "on" display state (e.g. ADS active), as set by <see cref="SetLatched"/>.</summary>
+        public bool IsLatched => latched;
+        public Image Icon => icon;
         public bool Interactable => interactable;
         /// <summary>Time.time when the current press began.</summary>
         public float PressStartTime { get; private set; }
+
+        void Awake() => RefreshColor();
 
         void OnDisable() => Release();
 
@@ -51,11 +65,20 @@ namespace Deadlock.Input
             return pressed;
         }
 
-        /// <summary>Keeps the pressed tint while a toggle (e.g. ADS) is on.</summary>
+        /// <summary>Shows the "on" state (active plate colour and ring), e.g. while ADS is actually active.</summary>
         public void SetLatched(bool on)
         {
+            if (latched == on)
+                return;
             latched = on;
             RefreshColor();
+        }
+
+        /// <summary>Changes the icon (e.g. gun / knife, current posture). Display only.</summary>
+        public void SetIcon(Sprite sprite)
+        {
+            if (icon != null && icon.sprite != sprite)
+                icon.sprite = sprite;
         }
 
         /// <summary>Disabled buttons look greyed out and ignore new presses (a held press is released).</summary>
@@ -117,10 +140,15 @@ namespace Deadlock.Input
             RefreshColor();
         }
 
+        // Normal / pressed / on (latched) / disabled: plate colour, the ring and the icon's colour and opacity.
         void RefreshColor()
         {
             if (graphic != null)
-                graphic.color = !interactable ? disabledColor : IsHeld || latched ? pressedColor : normalColor;
+                graphic.color = !interactable ? disabledColor : latched ? activeColor : IsHeld ? pressedColor : normalColor;
+            if (activeRing != null)
+                activeRing.enabled = interactable && latched;
+            if (icon != null)
+                icon.color = !interactable ? iconDisabledColor : latched ? iconActiveColor : iconColor;
         }
     }
 }

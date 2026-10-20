@@ -24,6 +24,8 @@ namespace Deadlock.UI
         [SerializeField] PlayerInputRouter input;
         [Tooltip("Optional: present in the training scene (enables Retry).")]
         [SerializeField] TrainingSession session;
+        [Tooltip("Menu / settings icons and the title logo (falls back to text when unset).")]
+        [SerializeField] ControlIconSet icons;
 
         RectTransform layer;
         GameObject panel;
@@ -167,15 +169,21 @@ namespace Deadlock.UI
             safe.gameObject.AddComponent<SafeAreaFitter>();
 
             // Size / position shared with the layout editor, which keeps this spot (and a small margin) free.
-            MenuButton = UiBuild.Button(safe, "MenuButton", "メニュー", new Vector2(0.5f, 1f), new Vector2(0f, -TouchLayout.MenuButtonTopOffset),
+            bool iconMenu = icons != null && icons.menu != null;
+            MenuButton = UiBuild.Button(safe, "MenuButton", iconMenu ? "" : "メニュー", new Vector2(0.5f, 1f), new Vector2(0f, -TouchLayout.MenuButtonTopOffset),
                 TouchLayout.MenuButtonSize, () => { if (IsOpen) Close(); else Open(); }, 28);
+            if (iconMenu)
+                UiBuild.Icon((RectTransform)MenuButton.transform, icons.menu, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f));
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
             var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 940f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 60f)),
-                "メニュー", 44, TextAnchor.MiddleCenter);
+            if (icons != null && icons.titleLogo != null)
+                UiBuild.Icon(window, icons.titleLogo, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(300f, 100f)).name = "TitleLogo";
+            else
+                UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 60f)),
+                    "メニュー", 44, TextAnchor.MiddleCenter);
 
             float y = -120f;
             Vector2 size = new Vector2(480f, 76f);
@@ -197,10 +205,17 @@ namespace Deadlock.UI
                 Add("TrainingButton", "トレーニングへ", () => GameScenes.Load(GameScenes.Training));
             if (current != GameScenes.Online)
                 Add("OnlineButton", "オンライン検証（LAN）へ", () => GameScenes.Load(GameScenes.Online));
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),
+            var header = UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),
                 "設定", 26, TextAnchor.MiddleLeft, new Color(1f, 1f, 1f, 0.6f));
+            if (icons != null && icons.settings != null)
+            {
+                header.rectTransform.offsetMin += new Vector2(46f, 0f);
+                UiBuild.Icon((RectTransform)window, icons.settings, new Vector2(0.5f, 1f), new Vector2(-222f, y - 6f), new Vector2(36f, 36f)).color = new Color(1f, 1f, 1f, 0.6f);
+            }
             y -= 52f;
             Add("ControlSettingsButton", "操作設定", OpenControlSettings);
+            if (icons != null && icons.settings != null)
+                UiBuild.Icon((RectTransform)window.Find("ControlSettingsButton"), icons.settings, new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(44f, 44f));
             Add("LayoutButton", "操作レイアウト", OpenLayoutEditor);
             panel.SetActive(false);
             BuildControlSettings();

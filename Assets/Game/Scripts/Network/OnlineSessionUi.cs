@@ -21,6 +21,8 @@ namespace Deadlock.Network
 
         [SerializeField] NetworkSession session;
         [SerializeField] PlayerInputRouter input;
+        [Tooltip("Title logo shown at the top of the lobby (optional).")]
+        [SerializeField] ControlIconSet icons;
 
         GameObject lobby;
         Text addressText;
@@ -232,28 +234,33 @@ namespace Deadlock.Network
 
             lobby = UiBuild.Stretch(UiBuild.Rect("Lobby", root)).gameObject;
             UiBuild.Image((RectTransform)lobby.transform, new Color(0f, 0f, 0f, 0.7f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", lobby.transform), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(1100f, 640f));
+            // Title logo above the existing lobby content (same panel, no new screen).
+            bool logo = icons != null && icons.titleLogo != null;
+            float top = logo ? -130f : 0f;
+            var window = UiBuild.Place(UiBuild.Rect("Window", lobby.transform), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(1100f, logo ? 770f : 640f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.96f), true);
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(1000f, 56f)),
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, top + -24f), new Vector2(1000f, 56f)),
                 "オンライン検証（同じLAN・2人まで）", 40, TextAnchor.MiddleCenter);
-            addressText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Address", window), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(1040f, 40f)),
+            addressText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Address", window), new Vector2(0.5f, 1f), new Vector2(0f, top + -96f), new Vector2(1040f, 40f)),
                 "", 26, TextAnchor.MiddleCenter, new Color(0.7f, 0.95f, 1f));
 
-            hostButton = UiBuild.Button(window, "HostButton", "ホスト開始", new Vector2(0.5f, 1f), new Vector2(0f, -160f), new Vector2(520f, 84f), OnHost, 32);
+            hostButton = UiBuild.Button(window, "HostButton", "ホスト開始", new Vector2(0.5f, 1f), new Vector2(0f, top + -160f), new Vector2(520f, 84f), OnHost, 32);
 
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("JoinLabel", window), new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(1000f, 36f)),
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("JoinLabel", window), new Vector2(0.5f, 1f), new Vector2(0f, top + -268f), new Vector2(1000f, 36f)),
                 "参加する：ホストの端末に表示されたアドレスを入力", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.75f));
-            hostField = UiBuild.InputField(window, "HostAddressField", "192.168.x.x", new Vector2(0.5f, 1f), new Vector2(-150f, -316f), new Vector2(560f, 80f),
+            hostField = UiBuild.InputField(window, "HostAddressField", "192.168.x.x", new Vector2(0.5f, 1f), new Vector2(-150f, top + -316f), new Vector2(560f, 80f),
                 32, InputField.ContentType.Standard);
             hostField.keyboardType = TouchScreenKeyboardType.DecimalPad;
             try { hostField.text = PlayerPrefs.GetString(LastHostKey, ""); } catch (Exception) { /* storage optional */ }
-            joinButton = UiBuild.Button(window, "JoinButton", "参加", new Vector2(0.5f, 1f), new Vector2(300f, -316f), new Vector2(240f, 80f), OnJoin, 32);
-            cancelButton = UiBuild.Button(window, "CancelButton", "キャンセル", new Vector2(0.5f, 1f), new Vector2(0f, -316f), new Vector2(320f, 80f), session.Leave, 30);
+            joinButton = UiBuild.Button(window, "JoinButton", "参加", new Vector2(0.5f, 1f), new Vector2(300f, top + -316f), new Vector2(240f, 80f), OnJoin, 32);
+            cancelButton = UiBuild.Button(window, "CancelButton", "キャンセル", new Vector2(0.5f, 1f), new Vector2(0f, top + -316f), new Vector2(320f, 80f), session.Leave, 30);
 
-            messageText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Message", window), new Vector2(0.5f, 1f), new Vector2(0f, -420f), new Vector2(1000f, 110f)),
+            messageText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Message", window), new Vector2(0.5f, 1f), new Vector2(0f, top + -420f), new Vector2(1000f, 110f)),
                 "", 24, TextAnchor.UpperCenter, new Color(1f, 0.75f, 0.5f));
             messageText.horizontalOverflow = HorizontalWrapMode.Wrap;
 
+            if (logo)
+                UiBuild.Icon(window, icons.titleLogo, new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(360f, 120f)).name = "TitleLogo";
             UiBuild.Button(window, "BackButton", "射撃場へ戻る", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(360f, 70f),
                 () => GameScenes.Load(GameScenes.FiringRange), 28);
         }

@@ -32,6 +32,9 @@ namespace Deadlock.Input
         [Header("State display")]
         [SerializeField] PostureController posture;
         [SerializeField] WeaponSwitcher weapons;
+        [Tooltip("Icons. FIRE shows the gun or knife; the posture button shows the CURRENT posture (stand / crouch / prone, slide while sliding).")]
+        [SerializeField] UI.ControlIconSet icons;
+        [Tooltip("Optional text labels (used only when no icons are set).")]
         [SerializeField] Text postureLabel;
         [SerializeField] Text weaponLabel;
         [Tooltip("Tinted while sprinting (the stick knob).")]
@@ -115,7 +118,6 @@ namespace Deadlock.Input
             reloadButton.SetInteractable(gunOut);
             // A finger that leaves the button keeps being tracked by it, so a hold ends wherever the finger lifts.
             bool buttonAds = ads.Update(ControlSettings.GetAdsMode(InputMode.Touch), adsButton.IsHeld, adsButton.ConsumePressed(), gunOut);
-            adsButton.SetLatched(buttonAds);
 
             // FIRE. With the knife out it always swings (ADS-linked does not apply).
             bool fireHeld = fireButton.IsHeld;
@@ -137,6 +139,8 @@ namespace Deadlock.Input
                 fireReady = false;
             }
             bool adsOn = buttonAds || fireAds;
+            // The ADS button shows the gun's actual ADS state (whichever source asked for it).
+            adsButton.SetLatched(gun != null ? gun.AdsRequested : adsOn);
 
             float degreesPerPixel = lookDegreesPerScreenHeight / Mathf.Max(1, Screen.height);
             Vector2 move = moveStick.Value;
@@ -199,6 +203,19 @@ namespace Deadlock.Input
 
         void UpdateDisplay()
         {
+            if (icons != null)
+            {
+                bool melee = weapons != null && weapons.Current == WeaponSlot.Melee;
+                fireButton.SetIcon(melee ? icons.melee : icons.fire);
+                if (posture != null)
+                    postureButton.SetIcon(posture.Current switch
+                    {
+                        Posture.Crouching => icons.crouch,
+                        Posture.Prone => icons.prone,
+                        Posture.Sliding => icons.slide,
+                        _ => icons.stand,
+                    });
+            }
             if (postureLabel != null && posture != null)
                 postureLabel.text = posture.Current switch
                 {

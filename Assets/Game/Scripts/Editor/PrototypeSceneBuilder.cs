@@ -41,6 +41,8 @@ namespace Deadlock.Editor
         const float TextureWorldSize = 2f; // one 32 px tile per 2 m => 16 px / m
 
         static readonly Color SkyColor = new Color(0.16f, 0.17f, 0.21f);
+        /// <summary>Control icons / logo for this build run (see <see cref="UiArtSetup"/>).</summary>
+        static ControlIconSet uiIcons;
 
         [MenuItem("DEADLOCK/Prototype/Rebuild Firing Range")]
         public static void BuildFromMenu()
@@ -76,6 +78,7 @@ namespace Deadlock.Editor
             Directory.CreateDirectory(MeshFolder);
             Directory.CreateDirectory(DataFolder);
             WeaponSpriteBaker.Bake(); // uses its own temporary scene
+            uiIcons = UiArtSetup.Prepare();
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
 
             int hitboxLayer = EnsureLayer(Deadlock.Network.NetworkSession.HitboxLayerName, 9);
@@ -128,6 +131,7 @@ namespace Deadlock.Editor
 
             var menu = canvas.AddComponent<GameMenu>();
             Set(menu, "input", player.Input);
+            Set(menu, "icons", uiIcons);
             if (session != null)
             {
                 Set(menu, "session", session);
@@ -757,13 +761,15 @@ namespace Deadlock.Editor
             Set(stick, "stickBase", stickBase);
             Set(stick, "knob", knob);
 
-            var fire = Button(safe, "FireButton", "FIRE", new Vector2(-250f, 260f), 240f, lookArea);
-            var ads = Button(safe, "AdsButton", "ADS", new Vector2(-520f, 170f), 160f, null);
-            var reload = Button(safe, "ReloadButton", "R", new Vector2(-170f, 540f), 140f, null);
-            var jump = Button(safe, "JumpButton", "JUMP", new Vector2(-470f, 430f), 140f, null);
+            var i = uiIcons;
+            var fire = Button(safe, "FireButton", i ? i.fire : null, "FIRE", new Vector2(-250f, 260f), 240f, lookArea);
+            var ads = Button(safe, "AdsButton", i ? i.ads : null, "ADS", new Vector2(-520f, 170f), 160f, null);
+            var reload = Button(safe, "ReloadButton", i ? i.reload : null, "R", new Vector2(-170f, 540f), 140f, null);
+            var jump = Button(safe, "JumpButton", i ? i.jump : null, "JUMP", new Vector2(-470f, 430f), 140f, null);
             // Posture (tap: crouch, hold: prone) and weapon switch, kept clear of FIRE / ADS / R / JUMP.
-            var postureButton = Button(safe, "PostureButton", "立ち", new Vector2(-765f, 150f), 130f, null);
-            var weaponButton = Button(safe, "WeaponButton", "銃", new Vector2(-170f, 730f), 130f, null);
+            // The posture icon shows the current posture; the weapon button always shows "swap".
+            var postureButton = Button(safe, "PostureButton", i ? i.stand : null, "立ち", new Vector2(-765f, 150f), 130f, null);
+            var weaponButton = Button(safe, "WeaponButton", i ? i.weaponSwap : null, "銃", new Vector2(-170f, 730f), 130f, null);
 
             Set(controls, "moveStick", stick);
             Set(controls, "lookArea", lookArea);
@@ -775,23 +781,54 @@ namespace Deadlock.Editor
             Set(controls, "weaponButton", weaponButton);
             Set(controls, "posture", player.Posture);
             Set(controls, "weapons", player.Weapons);
-            Set(controls, "postureLabel", postureButton.transform.Find("Label").GetComponent<Text>());
-            Set(controls, "weaponLabel", weaponButton.transform.Find("Label").GetComponent<Text>());
+            Set(controls, "icons", uiIcons);
+            var postureLabel = postureButton.transform.Find("Label");
+            var weaponLabel = weaponButton.transform.Find("Label");
+            if (postureLabel != null)
+                Set(controls, "postureLabel", postureLabel.GetComponent<Text>());
+            if (weaponLabel != null)
+                Set(controls, "weaponLabel", weaponLabel.GetComponent<Text>());
             Set(controls, "sprintIndicator", knob.GetComponent<Image>());
             Set(player.Input, "touchControls", controls);
         }
 
-        static TouchButton Button(RectTransform parent, string name, string label, Vector2 fromBottomRight, float size, TouchLookArea dragLooksWith)
+        /// <summary>
+        /// Touch button: the plate (UI-drawn circle, the only touch target), a ring shown while the button's state is
+        /// on, and the icon as a display-only child (aspect kept, Raycast Target off, fitted into the middle 76 % so it
+        /// scales with the button when the layout changes its size). Text label only when there is no icon.
+        /// </summary>
+        static TouchButton Button(RectTransform parent, string name, Sprite icon, string label, Vector2 fromBottomRight, float size, TouchLookArea dragLooksWith)
         {
             var rect = Rect(name, parent);
             rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
             rect.sizeDelta = new Vector2(size, size);
             rect.anchoredPosition = fromBottomRight;
             var image = AddImage(rect, PlaceholderArtGenerator.UiCircle, new Color(1f, 1f, 1f, 0.35f), raycast: true);
-            var text = AddText(Rect("Label", rect), label, Mathf.RoundToInt(size * 0.2f), TextAnchor.MiddleCenter);
-            Stretch((RectTransform)text.transform);
+            var ring = Rect("ActiveRing", rect);
+            Stretch(ring);
+            var ringImage = AddImage(ring, PlaceholderArtGenerator.UiRing, new Color(1f, 0.9f, 0.6f, 1f), raycast: false);
+            ringImage.enabled = false;
+            Image iconImage = null;
+            if (icon != null)
+            {
+                var iconRect = Rect("Icon", rect);
+                iconRect.anchorMin = new Vector2(0.12f, 0.12f);
+                iconRect.anchorMax = new Vector2(0.88f, 0.88f);
+                iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
+                iconImage = iconRect.gameObject.AddComponent<Image>();
+                iconImage.sprite = icon;
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+            }
+            else
+            {
+                var text = AddText(Rect("Label", rect), label, Mathf.RoundToInt(size * 0.2f), TextAnchor.MiddleCenter);
+                Stretch((RectTransform)text.transform);
+            }
             var button = rect.gameObject.AddComponent<TouchButton>();
             Set(button, "graphic", image);
+            Set(button, "icon", iconImage);
+            Set(button, "activeRing", ringImage);
             Set(button, "dragLooksWith", dragLooksWith);
             return button;
         }

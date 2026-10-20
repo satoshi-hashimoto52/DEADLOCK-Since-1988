@@ -1,5 +1,9 @@
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
+#if UNITY_IOS
+using UnityEditor.iOS;
+#endif
 
 namespace Deadlock.Editor
 {
@@ -34,6 +38,35 @@ namespace Deadlock.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssetIfDirty(asset);
             Debug.Log($"[DEADLOCK] iOS player settings: {BundleIdentifier}, '{DisplayName}', team {DevelopmentTeam}, automatic signing.");
+            ApplyAppIcon();
+        }
+
+        /// <summary>
+        /// iOS app icon from Assets/Game/Art/UI/Branding/deadlock_app_icon.png (1024x1024, square corners: iOS applies
+        /// its own mask). Every iOS icon size and the App Store (marketing) icon use the same image; Unity scales it.
+        /// Changes only the icons (bundle id, signing, OS version and orientation are left alone).
+        /// </summary>
+        public static void ApplyAppIcon()
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(UiArtSetup.AppIconPath);
+            if (texture == null)
+            {
+                Debug.LogWarning($"[DEADLOCK] App icon not found: {UiArtSetup.AppIconPath}");
+                return;
+            }
+#if UNITY_IOS
+            foreach (var kind in new[] { iOSPlatformIconKind.Application, iOSPlatformIconKind.Marketing })
+            {
+                var icons = PlayerSettings.GetPlatformIcons(NamedBuildTarget.iOS, kind);
+                foreach (var icon in icons)
+                    icon.SetTextures(texture);
+                PlayerSettings.SetPlatformIcons(NamedBuildTarget.iOS, kind, icons);
+            }
+            AssetDatabase.SaveAssets();
+            Debug.Log("[DEADLOCK] iOS app icon set from " + UiArtSetup.AppIconPath);
+#else
+            Debug.LogWarning("[DEADLOCK] The iOS app icon is applied when the active build target is iOS (export / Apply iOS Player Settings).");
+#endif
         }
 
         static void SetMapValue(SerializedProperty map, string key, string value)

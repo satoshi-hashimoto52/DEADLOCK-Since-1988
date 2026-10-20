@@ -104,8 +104,10 @@ namespace Deadlock.Editor
             var ui = canvas.AddComponent<OnlineSessionUi>();
             Set(ui, "session", session);
             Set(ui, "input", player.Input);
+            Set(ui, "icons", uiIcons);
             var menu = canvas.AddComponent<GameMenu>();
             Set(menu, "input", player.Input);
+            Set(menu, "icons", uiIcons);
             // No OfflineSessionPause here: online, the menu never stops the match.
 
             EditorSceneManager.SaveScene(scene, OnlineScenePath);

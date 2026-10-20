@@ -73,6 +73,20 @@ namespace Deadlock.UI
             return button;
         }
 
+        /// <summary>
+        /// Display-only icon (aspect kept, Raycast Target off so the parent button still takes the touch). The rect is
+        /// the box the sprite is fitted into; the sprite is never stretched.
+        /// </summary>
+        public static Image Icon(RectTransform parent, Sprite sprite, Vector2 anchor, Vector2 position, Vector2 size)
+        {
+            var rect = Place(Rect("Icon", parent), anchor, position, size);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
         /// <summary>Single-line text field (opens the on-screen keyboard on mobile).</summary>
         public static InputField InputField(RectTransform parent, string name, string placeholder, Vector2 anchor, Vector2 position, Vector2 size,
             int fontSize = 30, UnityEngine.UI.InputField.ContentType contentType = UnityEngine.UI.InputField.ContentType.Standard)

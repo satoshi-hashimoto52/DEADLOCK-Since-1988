@@ -28,6 +28,7 @@ namespace Deadlock.Editor
 
         static bool Export(bool development)
         {
+            IOSPlayerSetup.ApplyAppIcon();
             var options = new BuildPlayerOptions
             {
                 scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),

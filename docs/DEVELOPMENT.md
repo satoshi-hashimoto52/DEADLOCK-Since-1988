@@ -126,6 +126,19 @@ Editor上でタッチ操作を確認するときは **F2** でタッチモード
 
 ナイフの射程・幅・時間帯は、Sceneビュー（またはGame ViewのGizmosをオン）で `Player` のギズモとして表示される（待機：水色、振り始め：黄、命中時間帯：赤、振り終わり：灰）。ゲームのUIには表示しない。
 
+### 操作アイコン・ブランド画像（差し替え手順）
+
+| 種類 | 置き場所 | 用途 |
+| --- | --- | --- |
+| 操作アイコン（512×512、白・透過PNG） | `Assets/Game/Art/UI/Controls/icon_*.png` | fire（銃の攻撃）、melee（ナイフ）、ads、reload、jump、stand／crouch／prone（現在の姿勢）、slide（スライディング中）、weapon_swap、menu、settings |
+| タイトルロゴ（2172×724、透過） | `Assets/Game/Art/UI/Branding/deadlock_title_logo.png` | メニュー上部、オンライン接続画面の上部 |
+| アプリアイコン（1024×1024、角は四角のまま） | `Assets/Game/Art/UI/Branding/deadlock_app_icon.png` | iOSのアプリアイコン（全サイズ・App Store用を同じ画像から生成） |
+
+- 参照は `Assets/Game/Data/UI_ControlIcons.asset`（`ControlIconSet`）にまとめ、シーン生成（DEADLOCK → Prototype → Rebuild Firing Range）で入力・メニュー・接続画面へ渡す。
+- 差し替え：同じファイル名のPNGで上書きし、**.metaは残す**（GUIDが変わらないので参照が保たれる）。その後シーン生成を実行（取り込み設定もそこで揃える）。アプリアイコンはiOS書き出し時に自動で設定される（または DEADLOCK → Build → Apply iOS Player Settings）。
+- 取り込み設定（`UiArtSetup`）：操作アイコンは Sprite (2D and UI)・Single・Mip Mapsなし・Clamp・Bilinear・非圧縮・Alpha Is Transparency・最大256px。ゲーム世界のドット絵用のPoint設定は使わない。ロゴは同じ設定で最大1024px。アプリアイコンは通常のテクスチャ・非圧縮・1024px。
+- アイコンは各ボタンの子要素（Raycast Target無効、縦横比維持、ボタンの中央76%の枠に収める）。ボタンの大きさを変えるとアイコンも同じ割合で変わる。画像がない場合は従来の文字表示になる。
+
 ## 6. 構成
 
 | 項目 | 内容 |
