@@ -48,6 +48,13 @@ namespace Deadlock.Network
         [SerializeField] LayerMask worldMask = ~0;
         [SerializeField] ushort port = DefaultPort;
 
+        [Header("PvPvE check")]
+        [SerializeField] GameObject roundPrefab;
+        [SerializeField] GameObject zombiePrefab;
+        [SerializeField] GameObject ammoBoxPrefab;
+        [SerializeField] Transform[] zombieSpawns;
+        [SerializeField] Transform[] ammoBoxSpawns;
+
         public static NetworkSession Instance { get; private set; }
         public static int HitboxLayer => LayerMask.NameToLayer(HitboxLayerName);
         public static int OwnHitboxLayer => LayerMask.NameToLayer(OwnHitboxLayerName);
@@ -63,6 +70,11 @@ namespace Deadlock.Network
         public LayerMask HitMask => hitMask;
         public LayerMask WorldMask => worldMask;
         public NetworkManager Manager => manager;
+        public GameObject ZombiePrefab => zombiePrefab;
+        public GameObject AmmoBoxPrefab => ammoBoxPrefab;
+        public Transform[] ZombieSpawns => zombieSpawns;
+        public Transform[] AmmoBoxSpawns => ammoBoxSpawns;
+        public PvPvERound Round => PvPvERound.Instance;
         public bool IsActive => State != SessionState.Offline;
         /// <summary>A previous session is still shutting down (it finishes on the next network update).</summary>
         public bool IsBusy => manager != null && (manager.ShutdownInProgress || manager.IsListening) && State == SessionState.Offline;
@@ -121,6 +133,9 @@ namespace Deadlock.Network
                 return false;
             }
             HostAddress = LocalAddresses().Count > 0 ? LocalAddresses()[0] : "127.0.0.1";
+            // The PvPvE round controller exists for the whole session (it starts in the normal mode).
+            var round = Instantiate(roundPrefab);
+            round.GetComponent<NetworkObject>().Spawn(true);
             SetState(SessionState.Hosting);
             return true;
         }
@@ -160,21 +175,28 @@ namespace Deadlock.Network
 
         // ---------------------------------------------------------------- host
 
+        /// <summary>Why a join request is refused, or null when it is accepted.</summary>
+        public static string RefusalReason(string version, int connected, RoundPhase phase)
+        {
+            if (version != NetworkAvatar.ProtocolVersion)
+                return "ホストとバージョンが違います";
+            if (phase == RoundPhase.Running)
+                return "PvPvE検証の戦闘中のため参加できません"; // joining mid-round is not restored (out of scope)
+            if (connected >= MaxPlayers)
+                return $"満員です（{MaxPlayers}人まで）";
+            return null;
+        }
+
         void ApproveConnection(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
         {
             string version = request.Payload != null ? Encoding.UTF8.GetString(request.Payload) : "";
             int connected = manager.ConnectedClientsIds.Count;
             response.Pending = false;
-            if (version != NetworkAvatar.ProtocolVersion)
+            string refusal = RefusalReason(version, connected, PvPvERound.Instance != null ? PvPvERound.Instance.Phase : RoundPhase.Off);
+            if (refusal != null)
             {
                 response.Approved = false;
-                response.Reason = "ホストとバージョンが違います";
-                return;
-            }
-            if (connected >= MaxPlayers)
-            {
-                response.Approved = false;
-                response.Reason = $"満員です（{MaxPlayers}人まで）";
+                response.Reason = refusal;
                 return;
             }
             var (position, yaw) = SpawnPoint(connected);
@@ -183,6 +205,8 @@ namespace Deadlock.Network
             response.Position = position;
             response.Rotation = Quaternion.Euler(0f, yaw, 0f);
         }
+
+        public (Vector3, float) SpawnPointFor(int index) => SpawnPoint(index);
 
         (Vector3, float) SpawnPoint(int index)
         {

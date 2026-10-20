@@ -174,7 +174,11 @@ namespace Deadlock.Network
             var other = Other;
             if (other == null)
                 return;
-            Vector3 target = other.transform.position + Vector3.up * Chest(other.State.Value.PostureValue);
+            AimAt(other.transform.position + Vector3.up * Chest(other.State.Value.PostureValue));
+        }
+
+        void AimAt(Vector3 target)
+        {
             Vector3 d = target - rig.Aim.position;
             float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
             float pitch = Mathf.Asin(Mathf.Clamp(d.normalized.y, -1f, 1f)) * Mathf.Rad2Deg;
@@ -208,6 +212,15 @@ namespace Deadlock.Network
                 $"rejected={(mine != null ? mine.ShotsRejected : -1)}",
                 $"lastrej={(mine != null ? mine.LastRejection : ShotRejection.None)}",
                 $"timescale={Time.timeScale:0.##}",
+                $"reserve={rig.Gun.Ammo.Reserve}",
+                $"phase={(PvPvERound.Instance != null ? PvPvERound.Instance.Phase : RoundPhase.Off)}",
+                $"round={(PvPvERound.Instance != null ? PvPvERound.Instance.RoundNumber.Value : -1)}",
+                $"summary={(PvPvERound.Instance != null ? PvPvERound.Instance.SummaryText : "")}",
+                $"zombies={NetworkZombie.All.Count}",
+                $"zalive={NetworkZombie.All.Count(z => !z.IsDead)}",
+                $"boxes={NetworkAmmoBox.All.Count}",
+                $"boxes_taken={NetworkAmmoBox.All.Count(b => b.Taken.Value)}",
+                $"zs={string.Join("|", NetworkZombie.All.Select(z => string.Format(CultureInfo.InvariantCulture, "{0},{1:0.00},{2:0.00},{3},{4:0}", z.NetworkObjectId, z.transform.position.x, z.transform.position.z, z.State, z.Health.Value)))}",
             });
         }
 
@@ -336,6 +349,24 @@ namespace Deadlock.Network
                     ads = false;
                     yield return new WaitForSeconds(0.4f);
                     break;
+                case "shootz":
+                {
+                    ulong id = ulong.Parse(p[1], CultureInfo.InvariantCulture);
+                    ads = true;
+                    yield return new WaitForSeconds(0.3f);
+                    for (int i = 0; i < (int)Num(2); i++)
+                    {
+                        var z = NetworkZombie.All.FirstOrDefault(x => x.NetworkObjectId == id);
+                        if (z != null)
+                            AimAt(z.transform.position + Vector3.up * 1.4f);
+                        yield return null;
+                        pending |= Press.Fire;
+                        yield return new WaitForSeconds(0.25f);
+                    }
+                    ads = false;
+                    yield return new WaitForSeconds(0.4f);
+                    break;
+                }
                 case "rawfire":
                     for (int i = 0; i < (int)Num(1); i++)
                         RawFire();
@@ -693,6 +724,8 @@ namespace Deadlock.Network
             Check("menu open on client: client still takes hits, no pause", Hp(Other) < clientHp && S(c, "timescale") == "1" && S(c, "blocked") == "True", lastReply);
             yield return Remote("menu close");
 
+            yield return PvPvEScenario();
+
             // --- Leave and rejoin: no duplicated players or subscriptions
             int requestedBefore;
             yield return Remote("leave_rejoin");
@@ -722,6 +755,151 @@ namespace Deadlock.Network
             yield return new WaitForSeconds(1f);
             Check("host back in the lobby after ending", FindAnyObjectByType<OnlineSessionUi>().Lobby.activeSelf && !session.IsActive);
             Finish();
+        }
+
+        // ---------------------------------------------------------------- host: PvPvE (2 players + host-run zombies)
+
+        static NetworkZombie ZombieById(ulong id) => NetworkZombie.All.FirstOrDefault(z => z.NetworkObjectId == id);
+
+        /// <summary>Client's view of each zombie: id → (x, z, state, hp).</summary>
+        static Dictionary<ulong, (float x, float z, string state, float hp)> ParseZombies(string zs)
+        {
+            var map = new Dictionary<ulong, (float, float, string, float)>();
+            if (string.IsNullOrEmpty(zs))
+                return map;
+            foreach (var item in zs.Split('|'))
+            {
+                var f = item.Split(',');
+                if (f.Length < 5)
+                    continue;
+                map[ulong.Parse(f[0], CultureInfo.InvariantCulture)] = (float.Parse(f[1], CultureInfo.InvariantCulture),
+                    float.Parse(f[2], CultureInfo.InvariantCulture), f[3], float.Parse(f[4], CultureInfo.InvariantCulture));
+            }
+            return map;
+        }
+
+        static void Warp(NetworkZombie z, Vector3 position) => z.GetComponent<UnityEngine.AI.NavMeshAgent>().Warp(position);
+
+        IEnumerator PvPvEScenario()
+        {
+            var ui = FindAnyObjectByType<OnlineSessionUi>();
+            yield return Local("tp -4 -8 0");
+            yield return Remote("tp 4 8 180");
+            ui.StartPvPvE();
+            yield return new WaitForSeconds(1.5f);
+            var round = PvPvERound.Instance;
+            Check("PvPvE: host started a round with 3 zombies and 2 ammo boxes",
+                round != null && round.Phase == RoundPhase.Running && NetworkZombie.All.Count == 3 && NetworkAmmoBox.All.Count == 2);
+            if (round == null || round.Phase != RoundPhase.Running)
+                yield break;
+            yield return Remote("q");
+            var c = Parse(lastReply);
+            Check("PvPvE: client sees the round, 3 zombies, 2 boxes", S(c, "phase") == "Running" && S(c, "zombies") == "3" && S(c, "boxes") == "2", lastReply);
+            var seen = ParseZombies(S(c, "zs"));
+            bool same = NetworkZombie.All.All(z => seen.TryGetValue(z.NetworkObjectId, out var v)
+                && Mathf.Abs(v.x - z.transform.position.x) < 1.2f && Mathf.Abs(v.z - z.transform.position.z) < 1.2f);
+            Check("PvPvE: the same zombies at the same places on both (moving, within 1.2 m)", same, S(c, "zs"));
+            Check("PvPvE: zombie AI runs on the host only", NetworkZombie.All.All(z => z.Brain.enabled));
+
+            // Damage, decided by the host and the same on both sides. Zombies held still for this part.
+            var zs = NetworkZombie.All.OrderBy(z => z.NetworkObjectId).ToArray();
+            foreach (var z in zs)
+                z.Brain.Active = false;
+            Warp(zs[0], new Vector3(-6f, 0f, 6f));
+            Warp(zs[1], new Vector3(6f, 0f, -6f));
+            Warp(zs[2], new Vector3(9f, 0f, 12f));
+            yield return new WaitForSeconds(1f);
+            yield return Local($"shootz {zs[0].NetworkObjectId} 1");
+            yield return Remote($"shootz {zs[0].NetworkObjectId} 1");
+            yield return new WaitForSeconds(0.5f);
+            yield return Remote("q");
+            c = Parse(lastReply);
+            seen = ParseZombies(S(c, "zs"));
+            float clientHp = seen.TryGetValue(zs[0].NetworkObjectId, out var z0) ? z0.hp : -1f;
+            Check("PvPvE: host and client shots hit a zombie, same HP on both (100 → 50)",
+                Mathf.Approximately(zs[0].Health.Value, 50f) && Mathf.Approximately(clientHp, 50f), $"host {zs[0].Health.Value}, client {clientHp}");
+
+            // Both shoot the same weakened zombie at the same time: it dies once.
+            zs[1].Brain.ApplyDamage(75f, zs[1].transform.position, Vector3.forward);
+            int deaths = 0;
+            zs[1].Died += _ => deaths++;
+            int clientShot = Send($"shootz {zs[1].NetworkObjectId} 1");
+            yield return Local($"shootz {zs[1].NetworkObjectId} 1");
+            yield return Await(clientShot);
+            yield return new WaitForSeconds(0.5f);
+            Check("PvPvE: simultaneous killing shots: one death, counted once", zs[1].IsDead && deaths == 1 && round.ZombiesAlive.Value == 2,
+                $"dead={zs[1].IsDead} deaths={deaths} alive={round.ZombiesAlive.Value}");
+
+            // Shared ammo box: both step on it at the same moment.
+            var box = NetworkAmmoBox.All[0];
+            int reserveBefore = Mine.ServerWeapons.Ammo.Reserve + Other.ServerWeapons.Ammo.Reserve;
+            Vector3 bp = box.transform.position;
+            int clientTp = Send(string.Format(CultureInfo.InvariantCulture, "tp {0:0.00} {1:0.00} 0", bp.x - 0.2f, bp.z));
+            yield return Local(string.Format(CultureInfo.InvariantCulture, "tp {0:0.00} {1:0.00} 0", bp.x + 0.2f, bp.z));
+            yield return Await(clientTp);
+            yield return new WaitForSeconds(0.6f);
+            int reserveAfter = Mine.ServerWeapons.Ammo.Reserve + Other.ServerWeapons.Ammo.Reserve;
+            yield return Remote("q");
+            c = Parse(lastReply);
+            Check("PvPvE: ammo box touched by both at once: taken once, rounds added once", box.Taken.Value && reserveAfter - reserveBefore == box.Amount,
+                $"+{reserveAfter - reserveBefore} (box {box.Amount}), taken by {box.TakenBy.Value}");
+            Check("PvPvE: client sees the box gone", S(c, "boxes_taken") == "1", lastReply);
+
+            // Chasing: the last zombie goes for the client; the client opens the menu and is still hit.
+            var hunter = zs[2];
+            yield return Local("tp -10 -12 0");
+            yield return Remote("tp 7 11 180");
+            hunter.Brain.Active = true;
+            yield return new WaitForSeconds(1.2f);
+            Check("PvPvE: the zombie chases the nearer player (client)", hunter.TargetClientId == Other.OwnerClientId, $"target {hunter.TargetClientId}");
+            float hpBefore = Hp(Other);
+            yield return Remote("menu open");
+            float end = Time.realtimeSinceStartup + 6f;
+            while (Hp(Other) >= hpBefore && Time.realtimeSinceStartup < end)
+                yield return null;
+            yield return new WaitForSeconds(0.4f); // let the new HP reach the client before asking it
+            yield return Remote("q");
+            c = Parse(lastReply);
+            Check("PvPvE: menu open on the client: the match goes on and the client is hit", Hp(Other) < hpBefore && S(c, "blocked") == "True"
+                && Mathf.Approximately(F(c, "hp_self"), Hp(Other)), $"{hpBefore} → {Hp(Other)}, client sees {S(c, "hp_self")}");
+            yield return Remote("menu close");
+
+            // The client dies: the zombie switches to the host. No free respawn in PvPvE.
+            Other.ServerTakeDamage(1000f, hunter.transform.position);
+            yield return new WaitForSeconds(1.2f);
+            Check("PvPvE: target died → the zombie switches to the living host", hunter.TargetClientId == Mine.OwnerClientId, $"target {hunter.TargetClientId}");
+            yield return Remote("respawn");
+            Check("PvPvE: no free respawn during the round", Other.Dead.Value);
+
+            // End: the last zombies die. Decided once, the same result on both, no damage afterwards.
+            foreach (var z in zs)
+                z.Brain.ApplyDamage(1000f, z.transform.position, Vector3.forward);
+            yield return new WaitForSeconds(0.6f);
+            yield return Remote("q");
+            c = Parse(lastReply);
+            Check("PvPvE: round over: cleared, decided once", round.Phase == RoundPhase.Ended && round.Result == RoundResult.Cleared && round.ServerResultsDecided == 1);
+            Check("PvPvE: the client shows the same result", S(c, "phase") == "Ended" && S(c, "summary") == round.SummaryText && round.SummaryText.Contains("ゾンビ残り 0 / 3"),
+                $"host '{round.SummaryText}' / client '{S(c, "summary")}'");
+            float hostHp = rig.Health.Health;
+            Check("PvPvE: no damage after the round", Mine.ServerTakeDamage(10f, Vector3.zero) == DamageResult.Ignored && Mathf.Approximately(rig.Health.Health, hostHp));
+
+            // Restart: fresh players, zombies and boxes; nothing doubled.
+            ui.StartPvPvE();
+            yield return new WaitForSeconds(1.5f);
+            yield return Remote("q");
+            c = Parse(lastReply);
+            Check("PvPvE restart (host): round 2, 3 new zombies, boxes back, both alive", round.Phase == RoundPhase.Running && round.RoundNumber.Value == 2
+                && NetworkZombie.All.Count == 3 && NetworkZombie.All.All(z => !z.IsDead) && NetworkAmmoBox.All.Count == 2 && NetworkAmmoBox.All.All(b => !b.Taken.Value)
+                && !Other.Dead.Value && Mathf.Approximately(Hp(Other), 100f) && round.ServerResultsDecided == 1);
+            Check("PvPvE restart (client): 3 zombies, 2 boxes, alive with full HP and input back", S(c, "zombies") == "3" && S(c, "zalive") == "3"
+                && S(c, "boxes") == "2" && S(c, "boxes_taken") == "0" && S(c, "dead_self") == "False" && S(c, "hp_self") == "100" && S(c, "blocked") == "False", lastReply);
+
+            ui.StopPvPvE();
+            yield return new WaitForSeconds(0.8f);
+            yield return Remote("q");
+            c = Parse(lastReply);
+            Check("PvPvE ended by the host: back to the player-vs-player check on both", round.Phase == RoundPhase.Off && NetworkZombie.All.Count == 0
+                && S(c, "phase") == "Off" && S(c, "zombies") == "0", lastReply);
         }
     }
 }

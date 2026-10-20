@@ -317,6 +317,9 @@ namespace Deadlock.Network
         {
             if (!IsServer || Dead.Value || amount <= 0f)
                 return DamageResult.Ignored;
+            // A finished PvPvE round takes no more damage (shots still in flight, late swings).
+            if (PvPvERound.Instance != null && PvPvERound.Instance.DamageBlocked)
+                return DamageResult.Ignored;
             float next = Mathf.Max(0f, Health.Value - amount);
             Health.Value = next;
             if (next > 0f)
@@ -331,6 +334,9 @@ namespace Deadlock.Network
         {
             if (!IsServer || !Dead.Value)
                 return;
+            // No free respawn during a PvPvE round (only the host's restart resets players).
+            if (PvPvERound.Instance != null && PvPvERound.Instance.Phase != RoundPhase.Off)
+                return;
             weapons.Reset();
             Health.Value = maxHealth;
             Dead.Value = false;
@@ -338,6 +344,63 @@ namespace Deadlock.Network
             SyncAmmo();
             var (position, yaw) = session.PickRespawn(this);
             RespawnedRpc(position, yaw);
+        }
+
+        /// <summary>Host: fresh player at a spawn point (PvPvE start / restart).</summary>
+        public void ServerResetForRound(Vector3 position, float yaw)
+        {
+            if (!IsServer)
+                return;
+            weapons.Reset();
+            Health.Value = maxHealth;
+            Dead.Value = false;
+            swingPending = false;
+            SyncAmmo();
+            if (dummy)
+                MoveDummy(position, yaw); // a stand-in has no owner to move it
+            RespawnedRpc(position, yaw);
+        }
+
+        void MoveDummy(Vector3 position, float yaw)
+        {
+            var s = State.Value;
+            s.Position = position;
+            s.Yaw = yaw;
+            s.Posture = (byte)Posture.Standing;
+            State.Value = s;
+            transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
+        }
+
+        /// <summary>Host: adds picked-up rounds to the reserve (same rule as offline). Returns the rounds added.</summary>
+        public int ServerAddReserve(int amount)
+        {
+            if (!IsServer || Dead.Value)
+                return 0;
+            int added = weapons.Ammo.AddReserve(amount);
+            if (added > 0)
+                SyncAmmo();
+            return added;
+        }
+
+        /// <summary>This player as a zombie target (host only).</summary>
+        public IZombieTarget ZombieTarget => zombieTarget ??= new AvatarZombieTarget(this);
+        IZombieTarget zombieTarget;
+
+        sealed class AvatarZombieTarget : IZombieTarget
+        {
+            readonly NetworkAvatar avatar;
+            public AvatarZombieTarget(NetworkAvatar avatar) => this.avatar = avatar;
+            public Vector3 Position => avatar.transform.position;
+            public bool IsAlive => avatar != null && avatar.IsSpawned && !avatar.Dead.Value;
+            public float BodyHeight => avatar.State.Value.PostureValue switch
+            {
+                Posture.Crouching => 1.2f,
+                Posture.Prone => 0.5f,
+                Posture.Sliding => 1.0f,
+                _ => 1.8f,
+            };
+            public bool Owns(Collider collider) => collider.transform.IsChildOf(avatar.transform);
+            public void TakeHit(float damage, Vector3 from) => avatar.ServerTakeDamage(damage, from);
         }
 
         void ServerUpdate()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Deadlock.Player;
 using UnityEngine;
 using UnityEngine.AI;
@@ -15,12 +16,17 @@ namespace Deadlock.Combat
     }
 
     /// <summary>
-    /// Training zombie (prototype PvE enemy): chases the player on the NavMesh, attacks in melee with a windup,
-    /// a short hit window and a recovery, staggers when hit during the windup, and dies at 0 HP.
-    /// Hits are taken on its own collider (sprite display is separate). Values are provisional.
+    /// Prototype PvE zombie (training, and on the host in the online PvPvE check): chases a living target on the
+    /// NavMesh, attacks in melee with a windup, a short hit window and a recovery, staggers when hit during the windup,
+    /// and dies at 0 HP. Hits are taken on its own collider (sprite display is separate). Values are provisional.
+    ///
+    /// Targets: the nearest living one, kept unless another is clearly closer (no flip-flopping between two players at
+    /// similar distances); a target that cannot be reached is skipped for a while instead of re-planning a path to it
+    /// every few frames. The target of an attack is fixed when the windup starts, and at the hit moment that same
+    /// target must still be alive, in reach and in sight (switching targets mid-swing never hits someone else).
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
-    public sealed class Zombie : MonoBehaviour, IDamageable
+    public sealed class Zombie : MonoBehaviour, IDamageable, IZombieStatus
     {
         [SerializeField] PlayerHealth target;
         [SerializeField, Min(1f)] float maxHealth = 100f;
@@ -41,10 +47,22 @@ namespace Deadlock.Combat
         [SerializeField, Min(0.05f)] float repathInterval = 0.2f;
         [Tooltip("What blocks the zombie's line of sight to the player (not other zombies).")]
         [SerializeField] LayerMask sightMask = ~0;
+        [Header("Targets (several players)")]
+        [Tooltip("Seconds between target re-evaluations.")]
+        [SerializeField, Min(0.05f)] float retargetInterval = 0.5f;
+        [Tooltip("Switch to another target only if it is this much closer (metres).")]
+        [SerializeField, Min(0f)] float switchMargin = 1.5f;
+        [Tooltip("A target without a complete path is skipped for this long.")]
+        [SerializeField, Min(0.1f)] float unreachableBackoff = 3f;
 
         NavMeshAgent agent;
-        CharacterController targetBody;
         Collider[] colliders;
+        readonly List<IZombieTarget> candidates = new List<IZombieTarget>();
+        readonly Dictionary<IZombieTarget, float> unreachableUntil = new Dictionary<IZombieTarget, float>();
+        IZombieTarget current;
+        IZombieTarget attackTarget;
+        float nextRetarget;
+        bool pathCheckPending;
         float stateStart;
         float nextRepath;
         float nextAttackTime;
@@ -63,6 +81,15 @@ namespace Deadlock.Combat
 
         public event Action<Zombie> Died;
 
+        /// <summary>Where targets come from. Unset: the scene's player (offline training).</summary>
+        public IZombieTargetSource Targets { get; set; }
+        /// <summary>The target being chased now (null when there is none).</summary>
+        public IZombieTarget CurrentTarget => current;
+        /// <summary>The target of the attack in progress (fixed at the windup start).</summary>
+        public IZombieTarget AttackTarget => State == ZombieState.Attack ? attackTarget : null;
+        /// <summary>False stops chasing and attacking (e.g. the round is over). Taking damage still works.</summary>
+        public bool Active { get; set; } = true;
+
         void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
@@ -74,24 +101,38 @@ namespace Deadlock.Combat
 
         void Start()
         {
-            if (target == null)
-                target = FindAnyObjectByType<PlayerHealth>();
-            if (target != null)
-                targetBody = target.GetComponent<CharacterController>();
+            if (Targets == null)
+            {
+                if (target == null)
+                    target = FindAnyObjectByType<PlayerHealth>();
+                if (target != null)
+                    Targets = new SinglePlayer(new PlayerZombieTarget(target));
+            }
             if (agent.isOnNavMesh == false && NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2f, NavMesh.AllAreas))
                 agent.Warp(hit.position);
             Enter(ZombieState.Chase);
+        }
+
+        sealed class SinglePlayer : IZombieTargetSource
+        {
+            readonly IZombieTarget player;
+            public SinglePlayer(IZombieTarget player) => this.player = player;
+            public void GetTargets(List<IZombieTarget> into) => into.Add(player);
         }
 
         void Update()
         {
             if (State == ZombieState.Dead)
                 return;
-            if (target == null || target.IsDead)
+            UpdateTarget();
+            if (!Active || current == null)
             {
-                if (State != ZombieState.Idle)
+                if (State != ZombieState.Idle && State != ZombieState.Attack)
                     Enter(ZombieState.Idle);
-                return;
+                else if (State == ZombieState.Attack && (!Active || attackTarget == null || !attackTarget.IsAlive))
+                    Enter(ZombieState.Idle); // the target died / left mid-swing, or the round ended: no hit
+                if (State == ZombieState.Idle)
+                    return;
             }
 
             float elapsed = Time.time - stateStart;
@@ -103,20 +144,26 @@ namespace Deadlock.Combat
                 case ZombieState.Chase:
                     if (Time.time >= nextRepath && agent.isOnNavMesh)
                     {
-                        agent.SetDestination(target.transform.position);
+                        agent.SetDestination(current.Position);
                         nextRepath = Time.time + repathInterval;
+                        pathCheckPending = true;
                     }
-                    if (Time.time >= nextAttackTime && HorizontalDistance() <= attackRange && CanSeeTarget())
+                    CheckReachable();
+                    if (Time.time >= nextAttackTime && HorizontalDistance(current) <= attackRange && CanSee(current))
+                    {
+                        attackTarget = current; // fixed for this swing
                         Enter(ZombieState.Attack);
+                    }
                     break;
                 case ZombieState.Attack:
-                    FaceTarget();
+                    Face(attackTarget);
                     if (!hitApplied && elapsed >= windup && elapsed < windup + hitWindow)
                     {
-                        if (HorizontalDistance() <= attackRange + attackReachBonus && CanSeeTarget())
+                        // Re-checked at the hit moment, on the target chosen at the windup start.
+                        if (attackTarget.IsAlive && HorizontalDistance(attackTarget) <= attackRange + attackReachBonus && CanSee(attackTarget))
                         {
                             hitApplied = true; // one hit per attack
-                            target.TakeDamage(attackDamage, transform.position);
+                            attackTarget.TakeHit(attackDamage, transform.position);
                         }
                     }
                     if (elapsed >= windup + hitWindow + recovery)
@@ -127,6 +174,54 @@ namespace Deadlock.Combat
                         Enter(ZombieState.Chase);
                     break;
             }
+        }
+
+        /// <summary>Nearest living, reachable target; keeps the current one unless another is clearly closer.</summary>
+        void UpdateTarget()
+        {
+            bool currentValid = current != null && current.IsAlive && !IsSkipped(current);
+            if (currentValid && Time.time < nextRetarget)
+                return;
+            nextRetarget = Time.time + retargetInterval;
+            candidates.Clear();
+            Targets?.GetTargets(candidates);
+            IZombieTarget best = null;
+            float bestDistance = float.MaxValue;
+            foreach (var t in candidates)
+            {
+                if (t == null || !t.IsAlive || IsSkipped(t))
+                    continue;
+                float d = HorizontalDistance(t);
+                if (d < bestDistance)
+                {
+                    bestDistance = d;
+                    best = t;
+                }
+            }
+            if (!currentValid || (best != null && best != current && bestDistance < HorizontalDistance(current) - switchMargin))
+            {
+                if (best != current)
+                    nextRepath = 0f;
+                current = best;
+            }
+        }
+
+        bool IsSkipped(IZombieTarget t) => unreachableUntil.TryGetValue(t, out float until) && Time.time < until;
+
+        /// <summary>A target whose path cannot be completed is skipped for a while (no endless re-planning).</summary>
+        void CheckReachable()
+        {
+            if (!pathCheckPending || agent.pathPending || !agent.isOnNavMesh)
+                return;
+            pathCheckPending = false;
+            if (agent.pathStatus == NavMeshPathStatus.PathComplete || current == null)
+                return;
+            // Already in reach (e.g. the path ends just short of a player standing on an edge): keep it.
+            if (HorizontalDistance(current) <= attackRange + attackReachBonus)
+                return;
+            unreachableUntil[current] = Time.time + unreachableBackoff;
+            current = null;
+            nextRetarget = 0f;
         }
 
         public DamageResult ApplyDamage(float amount, Vector3 point, Vector3 direction)
@@ -177,32 +272,33 @@ namespace Deadlock.Combat
                 nextRepath = 0f;
         }
 
-        float HorizontalDistance()
+        float HorizontalDistance(IZombieTarget t)
         {
-            Vector3 d = target.transform.position - transform.position;
+            Vector3 d = t.Position - transform.position;
             d.y = 0f;
             return d.magnitude;
         }
 
-        void FaceTarget()
+        void Face(IZombieTarget t)
         {
-            Vector3 d = target.transform.position - transform.position;
+            if (t == null)
+                return;
+            Vector3 d = t.Position - transform.position;
             d.y = 0f;
             if (d.sqrMagnitude > 0.0001f)
                 transform.rotation = Quaternion.LookRotation(d);
         }
 
-        /// <summary>Clear line from the zombie's head to the player's body (walls and cover block attacks).</summary>
-        bool CanSeeTarget()
+        /// <summary>Clear line from the zombie's head to the target's body (walls and cover block attacks).</summary>
+        bool CanSee(IZombieTarget t)
         {
             Vector3 from = transform.position + Vector3.up * 1.5f;
-            // Aim at the middle of the player's current body (lower when crouched / prone).
-            float bodyHeight = targetBody != null ? targetBody.height : 1.8f;
-            Vector3 to = target.transform.position + Vector3.up * (bodyHeight * 0.55f);
+            // Aim at the middle of the target's current body (lower when crouched / prone).
+            Vector3 to = t.Position + Vector3.up * (t.BodyHeight * 0.55f);
             Vector3 delta = to - from;
             if (!Physics.Raycast(from, delta, out RaycastHit hit, delta.magnitude + 0.5f, sightMask, QueryTriggerInteraction.Ignore))
                 return true;
-            return hit.collider.GetComponentInParent<PlayerHealth>() == target;
+            return t.Owns(hit.collider);
         }
     }
 }

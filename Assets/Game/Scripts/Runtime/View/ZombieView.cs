@@ -22,18 +22,22 @@ namespace Deadlock.View
 
         float stride;
 
+        /// <summary>Where the displayed state comes from (default: the zombie; online clients use a synced mirror).</summary>
+        public IZombieStatus Source { get; set; }
+
         void LateUpdate()
         {
-            if (zombie.IsDead)
+            var z = Source ?? zombie;
+            if (z.IsDead)
             {
                 sprite.sprite = dead;
                 sprite.color = new Color(0.75f, 0.75f, 0.75f);
                 return;
             }
-            Vector3 v = zombie.Velocity;
+            Vector3 v = z.Velocity;
             stride += new Vector2(v.x, v.z).magnitude * Time.deltaTime * stepsPerMetre;
-            sprite.sprite = zombie.State == ZombieState.Attack ? attack : (Mathf.FloorToInt(stride) % 2 == 0 ? walkA : walkB);
-            float hit = 1f - Mathf.Clamp01((Time.time - zombie.LastDamagedTime) / hitFadeTime);
+            sprite.sprite = z.State == ZombieState.Attack ? attack : (Mathf.FloorToInt(stride) % 2 == 0 ? walkA : walkB);
+            float hit = 1f - Mathf.Clamp01((Time.time - z.LastDamagedTime) / hitFadeTime);
             sprite.color = Color.Lerp(Color.white, hitColor, hit);
         }
     }

@@ -2,6 +2,7 @@ using System.IO;
 using Deadlock.Combat;
 using Deadlock.Network;
 using Deadlock.UI;
+using Unity.AI.Navigation;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
@@ -19,6 +20,11 @@ namespace Deadlock.Editor
     {
         public const string OnlineScenePath = "Assets/Game/Scenes/Proto_Online.unity";
         public const string AvatarPrefabPath = "Assets/Game/Prefabs/Net_Avatar.prefab";
+        const string ZombiePrefabPath = "Assets/Game/Prefabs/Net_Zombie.prefab";
+        const string AmmoBoxPrefabPath = "Assets/Game/Prefabs/Net_AmmoBox.prefab";
+        const string RoundPrefabPath = "Assets/Game/Prefabs/Net_PvPvERound.prefab";
+        const string PrefabListPath = "Assets/Game/Prefabs/Net_Prefabs.asset";
+        const string OnlineNavMeshPath = "Assets/Game/Generated/NavMesh_Online.asset";
 
         [MenuItem("DEADLOCK/Prototype/Open Online Test")]
         public static void OpenOnlineScene()
@@ -27,12 +33,18 @@ namespace Deadlock.Editor
                 EditorSceneManager.OpenScene(OnlineScenePath);
         }
 
-        static void BuildOnlineScene(int playerLayer, int viewModelLayer, int hitboxLayer, int ownHitboxLayer)
+        static void BuildOnlineScene(int playerLayer, int viewModelLayer, int enemyLayer, int hitboxLayer, int ownHitboxLayer)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var mats = CreateMaterials();
             var (weapon, melee) = LoadDefinitions();
             var prefab = BuildAvatarPrefab(weapon, melee, hitboxLayer);
+            // Online zombies see players through their hit volumes (not the local movement capsule), not through walls.
+            int zombieSight = ~((1 << playerLayer) | (1 << enemyLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI")));
+            var zombiePrefab = BuildNetworkZombiePrefab(enemyLayer, zombieSight);
+            var boxPrefab = BuildNetworkAmmoBoxPrefab(mats);
+            var roundPrefab = BuildRoundPrefab();
+            var prefabList = BuildPrefabList(zombiePrefab, boxPrefab, roundPrefab);
 
             SetupLighting();
             BuildOnlineArena(mats);
@@ -70,6 +82,7 @@ namespace Deadlock.Editor
                 EnableSceneManagement = false,
                 TickRate = 30,
             };
+            manager.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(prefabList);
 
             var sessionGo = new GameObject("NetworkSession");
             var session = sessionGo.AddComponent<NetworkSession>();
@@ -81,6 +94,11 @@ namespace Deadlock.Editor
             SetArray(session, "spawnPoints", new Object[] { spawnA, spawnB });
             SetMask(session, "hitMask", hitMask);
             SetMask(session, "worldMask", worldMask);
+            Set(session, "roundPrefab", roundPrefab);
+            Set(session, "zombiePrefab", zombiePrefab);
+            Set(session, "ammoBoxPrefab", boxPrefab);
+            SetArray(session, "zombieSpawns", Points("ZombieSpawns", new Vector3(-10f, 0f, 11f), new Vector3(10f, 0f, -11f), new Vector3(-10f, 0f, -11f)));
+            SetArray(session, "ammoBoxSpawns", Points("AmmoBoxSpawns", new Vector3(-6f, 0f, 1f), new Vector3(6f, 0f, -1f)));
 
             // The online items must exist before the menu builds itself.
             var ui = canvas.AddComponent<OnlineSessionUi>();
@@ -112,6 +130,86 @@ namespace Deadlock.Editor
             // Crawl gap (ceiling 0.85 m) and crouch gap (1.35 m) along the west wall.
             Box(root, "CrouchGap_Roof", new Vector3(-10.5f, 1.45f, 2f), new Vector3(3f, 0.2f, 3f), m.Concrete);
             Box(root, "ProneGap_Roof", new Vector3(-10.5f, 0.95f, -3f), new Vector3(3f, 0.2f, 3f), m.Concrete);
+
+            // Zombie paths (PvPvE check), baked here like the training arena.
+            var surface = root.gameObject.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.Children;
+            surface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.PhysicsColliders;
+            surface.layerMask = 1 << LayerMask.NameToLayer("Default");
+            surface.BuildNavMesh();
+            AssetDatabase.DeleteAsset(OnlineNavMeshPath);
+            AssetDatabase.CreateAsset(surface.navMeshData, OnlineNavMeshPath);
+        }
+
+        static Object[] Points(string name, params Vector3[] positions)
+        {
+            var root = new GameObject(name).transform;
+            var result = new Object[positions.Length];
+            for (int i = 0; i < positions.Length; i++)
+            {
+                var t = new GameObject($"{name}_{i + 1}").transform;
+                t.SetParent(root, false);
+                t.position = positions[i];
+                result[i] = t;
+            }
+            return result;
+        }
+
+        // ------------------------------------------------------------------ PvPvE network prefabs
+
+        static GameObject BuildNetworkZombiePrefab(int enemyLayer, int sightMask)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ZombiePrefabPath));
+            var (go, zombie, view) = CreateZombieObject("Net_Zombie", enemyLayer, sightMask);
+            go.AddComponent<NetworkObject>();
+            var net = go.AddComponent<NetworkZombie>();
+            // AI and movement are switched on by the host only (clients mirror the synced state).
+            zombie.enabled = false;
+            var agent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            agent.enabled = false;
+            Set(net, "zombie", zombie);
+            Set(net, "agent", agent);
+            Set(net, "view", view);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, ZombiePrefabPath);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildNetworkAmmoBoxPrefab(Materials m)
+        {
+            var go = new GameObject("Net_AmmoBox");
+            go.AddComponent<NetworkObject>();
+            var box = go.AddComponent<NetworkAmmoBox>();
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(go.transform, false);
+            visual.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+            visual.AddComponent<MeshFilter>().sharedMesh = WorldUvBox(new Vector3(0.6f, 0.4f, 0.4f));
+            visual.AddComponent<MeshRenderer>().sharedMaterial = m.Ammo;
+            Set(box, "visual", visual);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, AmmoBoxPrefabPath);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        static GameObject BuildRoundPrefab()
+        {
+            var go = new GameObject("Net_PvPvERound");
+            go.AddComponent<NetworkObject>();
+            go.AddComponent<PvPvERound>();
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, RoundPrefabPath);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        /// <summary>Network prefabs the host spawns at runtime (the player prefab is registered by itself).</summary>
+        static NetworkPrefabsList BuildPrefabList(params GameObject[] prefabs)
+        {
+            AssetDatabase.DeleteAsset(PrefabListPath);
+            var list = ScriptableObject.CreateInstance<NetworkPrefabsList>();
+            foreach (var p in prefabs)
+                list.Add(new NetworkPrefab { Prefab = p });
+            AssetDatabase.CreateAsset(list, PrefabListPath);
+            return list;
         }
 
         // ------------------------------------------------------------------ network player prefab

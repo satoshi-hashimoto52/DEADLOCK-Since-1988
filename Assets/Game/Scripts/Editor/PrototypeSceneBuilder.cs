@@ -83,7 +83,7 @@ namespace Deadlock.Editor
 
             BuildScene(false, playerLayer, viewModelLayer, enemyLayer);
             BuildScene(true, playerLayer, viewModelLayer, enemyLayer);
-            BuildOnlineScene(playerLayer, viewModelLayer, hitboxLayer, ownHitboxLayer);
+            BuildOnlineScene(playerLayer, viewModelLayer, enemyLayer, hitboxLayer, ownHitboxLayer);
             ConfigureProject();
             AssetDatabase.SaveAssets();
             Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}");
@@ -583,51 +583,58 @@ namespace Deadlock.Editor
         static Zombie[] BuildZombies(PlayerParts player, int playerLayer, int viewModelLayer, int enemyLayer)
         {
             var root = new GameObject("Zombies").transform;
-            Sprite walkA = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkA);
-            Sprite walkB = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkB);
-            Sprite attack = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieAttack);
-            Sprite dead = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieDead);
             // Zombies see through each other (and the view model / UI), not through walls.
             int sight = ~((1 << enemyLayer) | (1 << viewModelLayer) | (1 << LayerMask.NameToLayer("Ignore Raycast")) | (1 << LayerMask.NameToLayer("UI")));
             var spawns = new[] { new Vector3(-8f, 0f, 10f), new Vector3(0f, 0f, 12f), new Vector3(8f, 0f, 10f) };
             var zombies = new Zombie[spawns.Length];
             for (int i = 0; i < spawns.Length; i++)
             {
-                var go = new GameObject($"Zombie_{i + 1}") { layer = enemyLayer };
+                var (go, zombie, _) = CreateZombieObject($"Zombie_{i + 1}", enemyLayer, sight);
                 go.transform.SetParent(root, false);
                 go.transform.SetPositionAndRotation(spawns[i], Quaternion.Euler(0f, 180f, 0f));
-                var capsule = go.AddComponent<CapsuleCollider>();
-                capsule.center = new Vector3(0f, 0.9f, 0f);
-                capsule.height = 1.8f;
-                capsule.radius = 0.35f;
-                var body = go.AddComponent<Rigidbody>();
-                body.isKinematic = true;
-                body.useGravity = false;
-                var agent = go.AddComponent<NavMeshAgent>();
-                agent.radius = 0.35f;
-                agent.height = 1.8f;
-                agent.angularSpeed = 360f;
-                agent.acceleration = 12f;
-                var zombie = go.AddComponent<Zombie>();
                 Set(zombie, "target", player.Health);
-                SetMask(zombie, "sightMask", sight);
-
-                var visual = new GameObject("Sprite");
-                visual.transform.SetParent(go.transform, false);
-                var sr = visual.AddComponent<SpriteRenderer>();
-                sr.sprite = walkA;
-                sr.shadowCastingMode = ShadowCastingMode.Off;
-                visual.AddComponent<Billboard>();
-                var view = go.AddComponent<ZombieView>();
-                Set(view, "zombie", zombie);
-                Set(view, "sprite", sr);
-                Set(view, "walkA", walkA);
-                Set(view, "walkB", walkB);
-                Set(view, "attack", attack);
-                Set(view, "dead", dead);
                 zombies[i] = zombie;
             }
             return zombies;
+        }
+
+        /// <summary>A zombie: hit capsule, NavMesh agent, the shared Zombie logic, and a billboard sprite view.</summary>
+        static (GameObject, Zombie, ZombieView) CreateZombieObject(string name, int enemyLayer, int sightMask)
+        {
+            Sprite walkA = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkA);
+            Sprite walkB = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieWalkB);
+            Sprite attack = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieAttack);
+            Sprite dead = AssetDatabase.LoadAssetAtPath<Sprite>(PlaceholderArtGenerator.ZombieDead);
+            var go = new GameObject(name) { layer = enemyLayer };
+            var capsule = go.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            capsule.height = 1.8f;
+            capsule.radius = 0.35f;
+            var body = go.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = false;
+            var agent = go.AddComponent<NavMeshAgent>();
+            agent.radius = 0.35f;
+            agent.height = 1.8f;
+            agent.angularSpeed = 360f;
+            agent.acceleration = 12f;
+            var zombie = go.AddComponent<Zombie>();
+            SetMask(zombie, "sightMask", sightMask);
+
+            var visual = new GameObject("Sprite");
+            visual.transform.SetParent(go.transform, false);
+            var sr = visual.AddComponent<SpriteRenderer>();
+            sr.sprite = walkA;
+            sr.shadowCastingMode = ShadowCastingMode.Off;
+            visual.AddComponent<Billboard>();
+            var view = go.AddComponent<ZombieView>();
+            Set(view, "zombie", zombie);
+            Set(view, "sprite", sr);
+            Set(view, "walkA", walkA);
+            Set(view, "walkB", walkB);
+            Set(view, "attack", attack);
+            Set(view, "dead", dead);
+            return (go, zombie, view);
         }
 
         static void BuildTargets()

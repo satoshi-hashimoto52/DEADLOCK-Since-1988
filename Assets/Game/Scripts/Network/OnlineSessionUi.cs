@@ -31,6 +31,12 @@ namespace Deadlock.Network
         Button cancelButton;
         Text statusText;
         Button respawnButton;
+        GameObject pvpvePanel;
+        Text pvpveText;
+        Text pvpveHint;
+        GameObject pvpveHostButtons;
+        Text noticeText;
+        float noticeUntil;
         GameMenu menu;
 
         public GameObject Lobby => lobby;
@@ -38,16 +44,60 @@ namespace Deadlock.Network
         public Button HostButton => hostButton;
         public Button JoinButton => joinButton;
         public Button RespawnButton => respawnButton;
+        public GameObject PvPvEPanel => pvpvePanel;
+        public string PvPvEText => pvpveText.text;
         public string Message => messageText.text;
         public string Status => statusText.text;
 
-        public void AddMenuItems(Action<string, string, Action> add) =>
+        public void AddMenuItems(Action<string, string, Action> add)
+        {
             add("LeaveButton", "退出（接続を終了）", () =>
             {
                 session.Leave();
                 if (menu != null)
                     menu.Close();
             });
+            add("PvPvEStartButton", "PvPvE検証：開始／再開始（ホスト）", () =>
+            {
+                StartPvPvE();
+                if (menu != null)
+                    menu.Close();
+            });
+            add("PvPvEStopButton", "PvPvE検証：終了（対人検証へ）", () =>
+            {
+                StopPvPvE();
+                if (menu != null)
+                    menu.Close();
+            });
+        }
+
+        /// <summary>Host: start or restart the PvPvE check round.</summary>
+        public void StartPvPvE()
+        {
+            if (session.State != SessionState.Hosting || session.Round == null)
+            {
+                Notice("PvPvE検証の開始・再開始はホストのみ操作できます");
+                return;
+            }
+            if (!session.Round.ServerStart(out string message))
+                Notice(message);
+        }
+
+        public void StopPvPvE()
+        {
+            if (session.State != SessionState.Hosting || session.Round == null)
+            {
+                Notice("PvPvE検証の終了はホストのみ操作できます");
+                return;
+            }
+            session.Round.ServerStop();
+        }
+
+        void Notice(string text)
+        {
+            noticeText.text = text;
+            noticeUntil = Time.unscaledTime + 4f;
+        }
 
         void Awake()
         {
@@ -98,10 +148,12 @@ namespace Deadlock.Network
             hostButton.interactable = !busy;
             joinButton.interactable = !busy;
 
+            noticeText.gameObject.SetActive(Time.unscaledTime < noticeUntil);
             if (!session.IsActive || session.State == SessionState.Connecting)
             {
                 statusText.text = "";
                 respawnButton.gameObject.SetActive(false);
+                pvpvePanel.SetActive(false);
                 return;
             }
 
@@ -116,7 +168,21 @@ namespace Deadlock.Network
             statusText.text = $"オンライン検証　{role}　{NetworkAvatar.All.Count}/{NetworkSession.MaxPlayers}人　{others}";
             if (!string.IsNullOrEmpty(session.LastMessage) && session.State == SessionState.Hosting && other == null)
                 statusText.text += $"　（{session.LastMessage}）";
-            respawnButton.gameObject.SetActive(mine != null && mine.Dead.Value);
+            var round = session.Round;
+            RoundPhase phase = round != null ? round.Phase : RoundPhase.Off;
+            if (phase == RoundPhase.Running)
+                statusText.text += $"　PvPvE検証中：ゾンビ {round.ZombiesAlive.Value} / {PvPvERound.ZombieCount}";
+            // Free respawn is a player-vs-player test tool only; in PvPvE only the host's restart revives.
+            respawnButton.gameObject.SetActive(mine != null && mine.Dead.Value && phase == RoundPhase.Off);
+            bool ended = phase == RoundPhase.Ended;
+            pvpvePanel.SetActive(ended || (phase == RoundPhase.Running && mine != null && mine.Dead.Value));
+            if (pvpvePanel.activeSelf)
+            {
+                bool host = session.State == SessionState.Hosting;
+                pvpveText.text = ended ? $"PvPvE検証 終了：{round.SummaryText}" : "PvPvE検証：死亡（ラウンド終了まで観戦）";
+                pvpveHostButtons.SetActive(ended && host);
+                pvpveHint.text = ended && !host ? "ホストの再開始を待っています" : "";
+            }
         }
 
         void OnHost() => session.StartHost();
@@ -145,6 +211,24 @@ namespace Deadlock.Network
                 "", 24, TextAnchor.MiddleCenter, new Color(0.7f, 0.95f, 1f));
             respawnButton = UiBuild.Button(safe, "RespawnButton", "リスポーン（検証用）", new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(420f, 90f), OnRespawn, 32);
             respawnButton.gameObject.SetActive(false);
+            noticeText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Notice", safe), new Vector2(0.5f, 1f), new Vector2(0f, -160f), new Vector2(1300f, 36f)),
+                "", 24, TextAnchor.MiddleCenter, new Color(1f, 0.8f, 0.5f));
+            noticeText.gameObject.SetActive(false);
+
+            // PvPvE result (everyone) with the host's restart / end buttons; also shown while dead mid-round.
+            var panel = UiBuild.Place(UiBuild.Rect("PvPvEPanel", safe), new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(1240f, 260f));
+            UiBuild.Image(panel, new Color(0.08f, 0.09f, 0.12f, 0.92f), false);
+            pvpvePanel = panel.gameObject;
+            pvpveText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Result", panel), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(1180f, 100f)),
+                "", 28, TextAnchor.UpperCenter, new Color(1f, 0.9f, 0.6f));
+            pvpveText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            pvpveHint = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", panel), new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(1180f, 40f)),
+                "", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+            var hostButtons = UiBuild.Place(UiBuild.Rect("HostButtons", panel), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(1000f, 80f));
+            UiBuild.Button(hostButtons, "PvPvERestartButton", "再開始", new Vector2(0.5f, 0.5f), new Vector2(-200f, 0f), new Vector2(340f, 76f), StartPvPvE, 30);
+            UiBuild.Button(hostButtons, "PvPvEEndButton", "対人検証へ戻る", new Vector2(0.5f, 0.5f), new Vector2(200f, 0f), new Vector2(340f, 76f), StopPvPvE, 30);
+            pvpveHostButtons = hostButtons.gameObject;
+            pvpvePanel.SetActive(false);
 
             lobby = UiBuild.Stretch(UiBuild.Rect("Lobby", root)).gameObject;
             UiBuild.Image((RectTransform)lobby.transform, new Color(0f, 0f, 0f, 0.7f), true);
