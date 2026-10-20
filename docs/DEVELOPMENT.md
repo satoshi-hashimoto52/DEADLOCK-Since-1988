@@ -23,6 +23,8 @@
 | com.unity.ugui | 2.0.0 |
 | com.unity.test-framework | 1.6.0 |
 | com.unity.ai.navigation | 2.0.14（トレーニングのゾンビの経路。テンプレートに含まれていたもの） |
+| com.unity.netcode.gameobjects | 2.13.3（オンライン試作。3.x は Unity 6000.7 以上が必要なため 2.x の最新） |
+| com.unity.transport | 2.7.4（オンライン試作の通信。UDP） |
 
 正確な依存関係は `Packages/packages-lock.json` を正とする。
 
@@ -80,7 +82,7 @@ open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
 | ダッシュ | Shift＋前進（立ちのみ） | スティックを前方へ深く倒す（0.9で開始、0.75未満で解除。立ちのみ） |
 | ジャンプ | Space | JUMP |
 | 射撃 | 左クリック | FIRE |
-| ADS | 右クリック長押し | ADS（トグル） |
+| ADS | 右クリック（長押し。設定で切り替え式に変更可） | ADSボタン（長押し。設定で切り替え式に変更可） |
 | リロード | R | R（ナイフ装備中は無効） |
 | しゃがみ | C（立ち⇄しゃがみ。伏せ中はしゃがみへ） | 姿勢ボタンを短押し |
 | スライディング | ダッシュ中にC | ダッシュ中に姿勢ボタンを押す（押した瞬間に開始。押し続けても伏せにならない） |
@@ -98,6 +100,8 @@ open -na /Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app --args \
 Editor上でタッチ操作を確認するときは **F2** でタッチモードへ切り替える（マウスが1本指のタッチとして扱われる。マウス自体の入力は無効化される）。2本指の同時操作は、Editorでは自動テストでのみ確認できる。実機確認が必要。
 
 ### メニュー・操作レイアウト
+
+操作設定：メニュー → 設定 → 操作設定 で、ADS操作方式（長押し／切り替え）をタッチ用・PC用それぞれ選ぶ（モバイル実機ではタッチ用のみ表示）。保存先は PlayerPrefs（キー `deadlock.controls.adsMode.touch` / `deadlock.controls.adsMode.desktop`）。
 
 メニュー：再開／再挑戦（最初から。トレーニングのみ）／射撃場へ・トレーニングへ／設定 → 操作レイアウト。1人用のシーンでは、メニューを開いている間ゲームが止まる（オンライン対戦では止めない設計。DECISIONS D-032）。
 
@@ -124,20 +128,22 @@ Editor上でタッチ操作を確認するときは **F2** でタッチモード
 | 項目 | 内容 |
 | --- | --- |
 | 入力 | Input System 1.20.0（Active Input Handling = Input System Package）。デスクトップはコード定義のInputAction、タッチはuGUI（InputSystemUIInputModule）上の部品。Editorのタッチ確認は EnhancedTouch の TouchSimulation |
-| 描画 | URP。ワールド用のBaseカメラ＋手元武器用のOverlayカメラ（Camera Stack）。レイヤー `Player`(6)・`ViewModel`(7)・`Enemy`(8) |
+| 描画 | URP。ワールド用のBaseカメラ＋手元武器用のOverlayカメラ（Camera Stack）。レイヤー `Player`(6)・`ViewModel`(7)・`Enemy`(8)・`Hitbox`(9：相手の被弾判定)・`OwnHitbox`(10：自分の被弾判定。自分の移動・姿勢・カメラの判定には使わない) |
 | UI | uGUI（Screen Space Overlay、基準1920×1080、高さ基準でスケール）。テキストは組み込みのLegacyRuntimeフォント |
 | データ | 武器パラメータは ScriptableObject `WeaponDefinition`（`Assets/Game/Data/Weapon_ProtoRifle.asset`） |
 
 主なフォルダ：
 
 - `Assets/Game/Scripts/Runtime/`（`Deadlock.Runtime`）：Input／Player／Combat／View／UI／Game（シーン切り替え・トレーニングの進行・1人用の一時停止）
-- `Assets/Game/Scripts/Editor/`（`Deadlock.Editor`）：シーン生成、仮素材生成、iOS書き出し
+- `Assets/Game/Scripts/Network/`（`Deadlock.Network`）：オンライン試作（接続・アバター・ホスト側の判定・接続画面・自動確認）。1人用の `Deadlock.Runtime` はネットワークに依存しない
+- `Assets/Game/Scripts/Editor/`（`Deadlock.Editor`）：シーン生成、仮素材生成、iOS書き出し、macOS開発用ビルド
+- `Assets/Game/Prefabs/Net_Avatar.prefab`：オンラインのプレイヤー（シーン生成時に作成）
 - `Assets/Game/Tests/`：EditMode／PlayModeテスト
 - `Assets/Game/Art/Generated/`、`Assets/Game/Materials/`、`Assets/Game/Generated/Meshes/`：生成した仮素材
 
 ## 7. シーン・仮素材の再生成
 
-メニュー **DEADLOCK → Prototype → Rebuild Firing Range**。射撃場とトレーニングの2シーン、仮素材（テクスチャ・マテリアル・メッシュ・ゾンビのスプライト）、トレーニングのNavMeshを作り直し、ビルド設定に2シーンを登録する。`Weapon_ProtoRifle.asset` は既存の値を保持する。シーンを手作業で編集した場合、再生成で上書きされる点に注意。
+メニュー **DEADLOCK → Prototype → Rebuild Firing Range**。射撃場・トレーニング・オンライン検証の3シーン、仮素材（テクスチャ・マテリアル・メッシュ・ゾンビのスプライト）、オンラインのプレイヤーprefab、トレーニングのNavMeshを作り直し、ビルド設定に3シーンを登録する。`Weapon_ProtoRifle.asset` は既存の値を保持する。シーンを手作業で編集した場合、再生成で上書きされる点に注意。
 
 batchmodeの場合（Editorを閉じてから）：
 
@@ -223,3 +229,57 @@ xcrun devicectl device process launch --device <ID> --terminate-existing --conso
 ```
 
 開発ビルドでは `[DEADLOCK][perf]` の行で平均fps・最悪フレーム時間が読める（端末の発熱は取得できない）。
+
+## 11. オンライン検証（同じLAN・2人）
+
+方式：Netcode for GameObjects 2.13.3 ＋ Unity Transport 2.7.4（UDP、ポート7777、IPアドレス直接指定）。ホスト（プレイヤー兼任）1人＋クライアント1人。検証用で、本番のサーバー構成ではない（DECISIONS D-033）。
+
+### つなぎ方
+
+1. 2台を同じWi-Fiにつなぐ。
+2. 両方でゲームを起動し、メニュー → 「オンライン検証（LAN）へ」（またはEditorで DEADLOCK → Prototype → Open Online Test）。
+3. ホスト側：「ホスト開始」。画面上部に「ホスト（アドレス:7777）」が出る。接続画面の「この端末のアドレス」がクライアントに入力するアドレス。
+4. クライアント側：そのアドレスを入力して「参加」。約8秒で応答がなければ理由が表示され、接続画面に戻る。
+5. 退出：メニュー → 「退出（接続を終了）」。ホストが退出すると試合は終わり、クライアントには「ホストが終了しました」と表示される。3人目は「満員です（2人まで）」で拒否される。
+
+組み合わせ：Mac（macOS開発用ビルド）＋iPhone、iPhone＋iPad など。Editorの再生でもホスト・クライアントになれるが、同じプロジェクトをEditor 2つで開いて試すことはしない（別プロセスはmacOSビルドを使う）。
+
+### iOSのローカルネットワーク許可
+
+iOS 14以降、LAN内の別端末へUDPを送るにはユーザーの許可が必要（Apple TN3179）。ビルド時に `NSLocalNetworkUsageDescription` をInfo.plistへ追加している（`IOSLocalNetworkPermission`）。初めてホスト開始／参加したときに「ローカルネットワーク上のデバイスの検索および接続」の確認が出るので「許可」を選ぶ。拒否した場合は 設定 → プライバシーとセキュリティ → ローカルネットワーク でこのアプリをオンにする。Bonjour・マルチキャストは使わないため、それらの設定は不要。
+
+macOS：ファイアウォールが有効な場合、ホストとして使うアプリへの着信を許可する必要がある（2026-10-20時点のこのMacではファイアウォールは無効）。
+
+### macOS開発用ビルド（別プロセス・LANの相手として使う）
+
+```sh
+"$UNITY" -batchmode -quit -projectPath "$PWD" -buildTarget OSXUniversal \
+  -executeMethod Deadlock.Editor.MacStandaloneBuilder.BuildFromCommandLine -logFile Logs/mac-build.log
+open -n Builds/Mac/DEADLOCK.app      # 画面付きで1つ起動（もう1つ起動すれば同じMacで2人）
+```
+
+### 自動確認（2プロセス・2端末）
+
+起動引数 `-netCheck host` / `-netCheck client -netHost <ホストのアドレス>` を付けると、ホストが決まった手順（移動・姿勢・ダッシュ・ジャンプ・スライディング・持ち替え・射撃・近接・壁・不正な射撃要求・死亡・リスポーン・メニュー中・退出と再接続・ホスト終了）を実行し、両側で見えた結果をログに `NETCHECK PASS|FAIL` として出す。引数がなければ何もしない。
+
+```sh
+Tools/net-check-local.sh [--build]   # このMac上でホストとクライアントの2プロセス（127.0.0.1）。ログは Logs/netcheck/
+```
+
+実機（例：Macがホスト、iPhoneがクライアント）：
+
+```sh
+"$(ls Builds/Mac/DEADLOCK.app/Contents/MacOS/* | head -1)" -batchmode -nographics -netCheck host -logFile "$PWD/Logs/netcheck/host.log" &
+xcrun devicectl device process launch --device <iPhoneのID> --terminate-existing --console \
+  com.satoshihashimoto52.deadlock1988 -netCheck client -netHost <Macのアドレス>
+```
+
+iOSアプリには起動引数が渡らないため、端末では環境変数で指定する（Macのプレイヤーは起動引数でよい）：
+
+```sh
+"$(ls Builds/Mac/DEADLOCK.app/Contents/MacOS/* | head -1)" -batchmode -nographics -netCheck host -logFile "$PWD/Logs/netcheck/mac-host.log" &
+xcrun devicectl device process launch --device <iPhoneのID> --terminate-existing --console \
+  -e '{"DEADLOCK_NETCHECK":"client","DEADLOCK_NETHOST":"<Macのアドレス>"}' com.satoshihashimoto52.deadlock1988
+```
+
+端末同士（iPhoneがホスト、iPadがクライアント）は、iPhoneに `{"DEADLOCK_NETCHECK":"host"}`、iPadに `{"DEADLOCK_NETCHECK":"client","DEADLOCK_NETHOST":"<iPhoneのアドレス>"}` を渡す。端末はロックを解除し（自動ロックで止まるので確認中は「なし」が確実）、同じWi-Fiに接続し、ローカルネットワークの許可をオンにしておく。端末のアドレスは `--console` のログ先頭の「Found N interfaces」で分かる。
