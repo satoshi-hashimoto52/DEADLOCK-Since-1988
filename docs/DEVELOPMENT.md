@@ -183,6 +183,8 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 
 ### 手元武器のドット絵（差し替え手順、D-041）
 
+**新しい武器の手元素材の手順（基準：採用ライフル、D-043）**：(1) 腰だめ・ADSの元画像（透明背景のPNG）を `Assets/Game/Art/Weapons/<武器>/` に置き、変更しない。(2) `python3 Tools/pixelart/make_opaque.py 元画像 派生画像` でアルファだけを2値にした派生画像を作る。(3) 画像から銃口・狙点（フロントサイトの先端）・持つ位置を読み取り、ライフルの `*.placement.json` と同じ項目で配置ファイルを書く（寸法は実画像に合わせ、ガイドの座標をそのまま使わない）。(4) シーン生成で取り込み、iPhone 16 Pro・16:9・iPadで腰だめ・ADS・移行・射撃・リロード・持ち替えを描画して確認する（ADSの狙点が画面中央、画像の端が画面内に出ない、銃口炎の位置）。(5) 実機で確認する。現在の取り込み処理（`PixelWeaponArt`）はライフル用のファイル名を扱うので、別の武器を加えるときは武器ごとのフォルダと定義を読めるようにする。
+
 **採用ライフル（2026-10-20）**：腰だめ `Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、ADS `rifle_ads_approved.png`（どちらもユーザー採用の元画像。どのツールも書き換えない）。ゲームが取り込むのは、アルファだけを2値にした派生画像 `rifle_hip_approved_opaque.png`・`rifle_ads_approved_opaque.png`（作成：`python3 Tools/pixelart/make_opaque.py 元画像 派生画像`。元画像を差し替えたら作り直す）。大きさ・位置は同じフォルダの配置ファイル（`*.placement.json`：使う画像 `image`、元画像 `source`、銃口・狙点・持つ位置のpx座標、画面の高さに当たるpx、腰だめの右下合わせ・下げ幅・画面比ごとの追従・ADSへの移行中の動き）で決まり、`PixelWeaponArt` がシーン生成時に取り込む（Point・非圧縮・ミップマップなし・最大2048／4096px）。手順と確認結果は `docs/review/weapon-art-20261020/approved-rifle/README.md`。以下の表の `Spr_PixelRifleHip.png`・`Spr_PixelRifleAds.png` は、採用画像がある間は使われない（暫定版として残す）。
 
 | ファイル（`Assets/Game/Art/Weapons/`） | 現在の内容 | キャンバス | 基準点（キャンバス左上からのドット座標） |
