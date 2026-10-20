@@ -105,7 +105,7 @@ Editor上でタッチ操作を確認するときは **F2** でタッチモード
 
 ### トレーニングシーン
 
-`Assets/Game/Scenes/Proto_Training.unity`（メニュー DEADLOCK → Prototype → Open Training、またはゲーム内メニューの「トレーニングへ」）。ゾンビ3体を全滅させるとクリア、HPが0になると失敗。結果画面またはメニューから再挑戦。ゾンビの経路（NavMesh）はシーン生成時にベイクされ `Assets/Game/Generated/NavMesh_Training.asset` に保存される。
+`Assets/Game/Scenes/Proto_Training.unity`（メニュー DEADLOCK → Prototype → Open Training、またはゲーム内メニューの「トレーニングへ」）。ゾンビ3体を全滅させるとクリア、HPが0になると失敗。結果画面またはメニューから再挑戦。討伐数と経過時間を表示し、ガチャポイントや恒久報酬は付与しない。試作用の初期値はプレイヤーHP 100、ゾンビHP 100、攻撃力10、攻撃予備動作0.5秒、攻撃開始から次の攻撃開始まで1.5秒以上、移動速度2.2 m/s（通常歩行4.5 m/s未満）である。弾薬箱は開始位置の左右前方に2個。ゾンビの経路（NavMesh）はシーン生成時にベイクされ `Assets/Game/Generated/NavMesh_Training.asset` に保存される。
 
 ### テストステージの確認場所
 
