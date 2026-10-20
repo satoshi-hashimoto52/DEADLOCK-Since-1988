@@ -1,0 +1,131 @@
+{
+  "base": "Assets/Game/Art/Weapons/Rifle/rifle_hip_approved_opaque.png",
+  "size": [
+    1672,
+    941
+  ],
+  "cells": 131,
+  "layerPixels": {
+    "weapon": 151744,
+    "left": 89281,
+    "right": 21389
+  },
+  "maskPixels": {
+    "left.glove_body": 13119,
+    "left.glove_reinforcement": 0,
+    "left.wrist_band": 2303,
+    "left.sleeve_base": 35133,
+    "left.sleeve_camo": 21630,
+    "right.glove_body": 15685,
+    "right.glove_reinforcement": 0,
+    "right.wrist_band": 0,
+    "right.sleeve_base": 0,
+    "right.sleeve_camo": 0
+  },
+  "emptyMasks": [
+    "left.glove_reinforcement",
+    "right.glove_reinforcement",
+    "right.wrist_band",
+    "right.sleeve_base",
+    "right.sleeve_camo"
+  ],
+  "cellOverrides": [
+    {
+      "seed": [
+        967,
+        652
+      ],
+      "cellPixels": 576,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "grey band between the left glove and the sleeve (grey like the gun steel, separated from it by outlines)"
+    },
+    {
+      "seed": [
+        989,
+        652
+      ],
+      "cellPixels": 872,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "wrist band"
+    },
+    {
+      "seed": [
+        1013,
+        658
+      ],
+      "cellPixels": 17,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "wrist band"
+    },
+    {
+      "seed": [
+        1016,
+        690
+      ],
+      "cellPixels": 17,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "wrist band (lower part)"
+    },
+    {
+      "seed": [
+        1010,
+        692
+      ],
+      "cellPixels": 2,
+      "part": "left",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "wrist band (lower part)"
+    },
+    {
+      "seed": [
+        950,
+        638
+      ],
+      "cellPixels": 1,
+      "part": "left",
+      "tags": [
+        "glove"
+      ],
+      "why": "single edge pixel of the left glove next to the band"
+    }
+  ],
+  "pixelOverrides": [],
+  "unreachedOutline": 0,
+  "orphanPiecesMoved": [
+    {
+      "pixels": 4,
+      "bbox": [
+        1012,
+        507,
+        1014,
+        509
+      ],
+      "to": "left"
+    },
+    {
+      "pixels": 22,
+      "bbox": [
+        978,
+        550,
+        985,
+        559
+      ],
+      "to": "left"
+    }
+  ],
+  "darkFillPixelsAddedToMasks": 5821
+}

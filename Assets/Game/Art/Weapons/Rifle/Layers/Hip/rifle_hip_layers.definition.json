@@ -1,0 +1,39 @@
+{
+  "note": "Hand-written split definition for the approved rifle hip image (read by Tools/pixelart/split_layers.py). Pixel coordinates from the image's top-left. The base is the image the game shows (rifle_hip_approved_opaque.png); it is only read. See docs/review/player-parts/rifle-hip/README.md.",
+  "base": "Assets/Game/Art/Weapons/Rifle/rifle_hip_approved_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/Rifle/Layers/Hip",
+  "layerFiles": {
+    "weapon": "rifle_hip_weapon.png",
+    "left": "rifle_hip_left_hand_arm.png",
+    "right": "rifle_hip_right_hand_arm.png"
+  },
+  "compositeOrder": ["weapon", "left", "right"],
+  "maskDir": "Masks",
+  "maskFile": "rifle_hip_{hand}_{mask}.png",
+  "maskNames": ["glove_body", "glove_reinforcement", "wrist_band", "sleeve_base", "sleeve_camo"],
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "outlineWidth": 7,
+  "orphanMaxPixels": 50,
+  "colours": {
+    "gray": {"satMax": 0.14},
+    "olive": {"hue": [40, 75], "lightMax": 0.5},
+    "brown": {"hue": [0, 30], "lightMax": 0.5},
+    "tan": {"hue": [25, 55], "lightMin": 0.45}
+  },
+  "handColours": {"glove": ["brown"], "sleeve": ["olive"]},
+  "hands": {
+    "left": {"region": {"rect": [0, 490, 1120, 941]}, "why": "left glove on the handguard, wrist band, sleeve to the bottom-left edge"},
+    "right": {"region": {"rect": [1180, 780, 1420, 941]}, "why": "right glove on the pistol grip, running off the bottom edge"}
+  },
+  "cellOverrides": [
+    {"seed": [967, 652], "part": "left", "tags": ["wrist_band"], "why": "grey band between the left glove and the sleeve (grey like the gun steel, separated from it by outlines)"},
+    {"seed": [989, 652], "part": "left", "tags": ["wrist_band"], "why": "wrist band"},
+    {"seed": [1013, 658], "part": "left", "tags": ["wrist_band"], "why": "wrist band"},
+    {"seed": [1016, 690], "part": "left", "tags": ["wrist_band"], "why": "wrist band (lower part)"},
+    {"seed": [1010, 692], "part": "left", "tags": ["wrist_band"], "why": "wrist band (lower part)"},
+    {"seed": [950, 638], "part": "left", "tags": ["glove"], "why": "single edge pixel of the left glove next to the band"}
+  ],
+  "pixelOverrides": [],
+  "sleeveCamo": {"window": 24, "sampleStep": 8, "lightPercentile": 0.8, "darkerBy": 0.07}
+}

@@ -203,6 +203,27 @@ UNITY=/Applications/Unity/Hub/Editor/6000.3.23f1/Unity.app/Contents/MacOS/Unity
 - 採用ライフルの定義：`Assets/Game/Data/WeaponArt/WeaponArt_ProtoRifle.asset`（`weapon`＝`Weapon_ProtoRifle.asset`〔`proto_rifle`〕、`baseProfile`＝`WeaponView_ProtoRifle.asset`、`viewProfile`＝`WeaponView_ProtoRifle_Pixel.asset`、画像・配置ファイルは `Assets/Game/Art/Weapons/Rifle/`）。
 - 確認と画像：`docs/review/weapon-art-20261020/approved-rifle/README.md`。ナイフと銃口炎は従来の暫定ドット絵（`pixel_weapons.json`、`PixelWeaponArt.PrepareKnife`）。
 
+#### 手元画像の部位分離（スキンの色替え用、2026-10-20〜）
+
+採用ライフルの腰だめ1組で、銃・左手と腕・右手と腕への分離と色変更用マスクの手順を作った（ゲームでは未使用。登録リスト・表示は従来のまま）。**固定された構えの分離素材**で、手を動かす用途には使えない。詳細と確認結果：`docs/review/player-parts/rifle-hip/README.md`。
+
+| 物 | 場所 |
+| --- | --- |
+| 分離素材（基準画像と同じ寸法・座標の透過PNG） | `Assets/Game/Art/Weapons/Rifle/Layers/Hip/rifle_hip_weapon.png`・`rifle_hip_left_hand_arm.png`・`rifle_hip_right_hand_arm.png` |
+| 色変更用マスク（白・不透明＝対象） | `Assets/Game/Art/Weapons/Rifle/Layers/Hip/Masks/rifle_hip_{left,right}_{glove_body,glove_reinforcement,wrist_band,sleeve_base,sleeve_camo}.png` |
+| 分離の定義（手書き） | `Assets/Game/Art/Weapons/Rifle/Layers/Hip/rifle_hip_layers.definition.json`（基準画像、手の範囲、帯などの区画の指定、色の規則、輪郭の太さ、マスクの判定値、合成順） |
+
+手順（別の構え・武器でも同じ）：
+
+1. 基準はゲームが表示している画像（`*_opaque.png`）。元画像・表示用画像・配置ファイルは変えない。
+2. 定義ファイルを書く（ライフルの定義を手本に、手の範囲・特別な区画（帯など、色で分けられないもの）を画像から読み取って指定）。
+3. `python3 Tools/pixelart/split_layers.py 定義 [--force] [--report レポート]`：黒い輪郭で区切られた区画ごとに部位を決め（色と位置。色だけでは決めない）、手に接する輪郭は手前の手に、残りは近い部位に割り当てる。既存の出力は `--force` がないと上書きしない。
+4. `python3 Tools/pixelart/verify_layers.py 定義 --report … --diff …`：再合成（アルファ・表示画素のRGBの完全一致、重複・欠落0）と、マスクの条件（重複なし、銃の画素なし、色を保つ黒い線なし、白・不透明のみ）を数値で確認。
+5. 部位を別色にした分類画像と、銃と手の接触部（指・手首・袖の境界）の拡大画像で**目視確認**する（数値の一致だけでは部位の正しさは分からない）。
+6. 色替えの確認：`python3 Tools/pixelart/recolor_preview.py 定義 出力.png 手:マスク=色相,彩度 …`（明度を保って色相・彩度だけを変える。`Assets` へは出力しない）。
+
+制約：手に隠れた銃・銃に隠れた指は描かれていない。形の違うスキン（指ぬきグローブなど）は色替えでは作れず、この構えに合わせて描いた手・腕の素材と、隠れていた部分を描き足した銃のレイヤーが必要。掌の補強は今の画像では判別できない（マスクは空）。
+
 #### 次の武器（SMG）を追加する手順
 
 今回は文書のみ（SMGの画像・性能・装備選択UIは未作成。未完成の定義は登録リストに入れない）。

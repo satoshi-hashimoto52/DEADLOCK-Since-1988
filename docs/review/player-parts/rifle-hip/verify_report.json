@@ -1,0 +1,110 @@
+{
+  "base": "Assets/Game/Art/Weapons/Rifle/rifle_hip_approved_opaque.png",
+  "size": [
+    1672,
+    941
+  ],
+  "baseOpaquePixels": 262414,
+  "layerOpaquePixels": {
+    "weapon": 151744,
+    "left": 89281,
+    "right": 21389
+  },
+  "recomposition": {
+    "alphaMismatches": 0,
+    "visibleRgbMismatches": 0,
+    "transparentRgbDifferences": 395,
+    "overlaps": 0,
+    "missing": 0,
+    "extra": 0,
+    "layerPixelsChanged": 0
+  },
+  "weaponLayerRgbaSameAsBase": true,
+  "masks": {
+    "left": {
+      "glove_body": {
+        "pixels": 13119,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "glove_reinforcement": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "wrist_band": {
+        "pixels": 2303,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_base": {
+        "pixels": 35133,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_camo": {
+        "pixels": 21630,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      }
+    },
+    "right": {
+      "glove_body": {
+        "pixels": 15685,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "glove_reinforcement": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "wrist_band": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_base": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_camo": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      }
+    }
+  },
+  "ok": true
+}
