@@ -339,7 +339,7 @@
           260
         ],
         "head_gear",
-        "fixed",
+        "future:head_gear",
         "頭部装備（提案）"
       ],
       [
@@ -351,7 +351,7 @@
           380
         ],
         "head",
-        "fixed",
+        "future:skin",
         "顔・頭（提案）"
       ],
       [
@@ -363,7 +363,7 @@
           410
         ],
         "head",
-        "fixed",
+        "future:skin",
         "首"
       ],
       [
@@ -375,7 +375,7 @@
           860
         ],
         "top",
-        "future:uniform_camo",
+        "future:uniform",
         "上着の胴（袖と同じ迷彩の提案）"
       ],
       [
@@ -387,7 +387,7 @@
           800
         ],
         "vest",
-        "fixed",
+        "future:vest",
         "胴体装備（提案）"
       ],
       [
@@ -399,7 +399,7 @@
           868
         ],
         "vest",
-        "fixed",
+        "future:vest",
         "ベルト（提案）"
       ],
       [
@@ -543,7 +543,7 @@
           1456
         ],
         "feet",
-        "fixed",
+        "future:boots",
         "靴（提案）"
       ],
       [
@@ -555,7 +555,7 @@
           1456
         ],
         "feet",
-        "fixed",
+        "future:boots",
         "靴（提案）"
       ]
     ],

@@ -80,12 +80,12 @@ SPEC = {
         "view": "front view, full body, standing, arms held slightly away from the body, no weapon",
         # areas: name, box, layer, region (skin region of the current implementation, or a future / fixed one), label
         "parts": [
-            ["helmet", [402, 140, 622, 260], "head_gear", "fixed", "頭部装備（提案）"],
-            ["head", [432, 200, 592, 380], "head", "fixed", "顔・頭（提案）"],
-            ["neck", [472, 370, 552, 410], "head", "fixed", "首"],
-            ["torso_shirt", [362, 400, 662, 860], "top", "future:uniform_camo", "上着の胴（袖と同じ迷彩の提案）"],
-            ["vest", [382, 430, 642, 800], "vest", "fixed", "胴体装備（提案）"],
-            ["belt", [372, 820, 652, 868], "vest", "fixed", "ベルト（提案）"],
+            ["helmet", [402, 140, 622, 260], "head_gear", "future:head_gear", "頭部装備（提案）"],
+            ["head", [432, 200, 592, 380], "head", "future:skin", "顔・頭（提案）"],
+            ["neck", [472, 370, 552, 410], "head", "future:skin", "首"],
+            ["torso_shirt", [362, 400, 662, 860], "top", "future:uniform", "上着の胴（袖と同じ迷彩の提案）"],
+            ["vest", [382, 430, 642, 800], "vest", "future:vest", "胴体装備（提案）"],
+            ["belt", [372, 820, 652, 868], "vest", "future:vest", "ベルト（提案）"],
             ["sleeve_left_upper", [252, 410, 352, 640], "arms", "sleeve_base+sleeve_camo", "袖（迷彩・一人称と対応）"],
             ["sleeve_right_upper", [672, 410, 772, 640], "arms", "sleeve_base+sleeve_camo", "袖（迷彩・一人称と対応）"],
             ["sleeve_left_lower", [212, 630, 312, 830], "arms", "sleeve_base+sleeve_camo", "前腕の袖"],
@@ -97,8 +97,8 @@ SPEC = {
             ["pants_hip", [382, 860, 642, 960], "legs", "future:pants", "ズボンの腰（提案）"],
             ["pants_left", [382, 960, 500, 1370], "legs", "future:pants", "ズボン（提案）"],
             ["pants_right", [524, 960, 642, 1370], "legs", "future:pants", "ズボン（提案）"],
-            ["boot_left", [370, 1360, 504, 1456], "feet", "fixed", "靴（提案）"],
-            ["boot_right", [520, 1360, 654, 1456], "feet", "fixed", "靴（提案）"],
+            ["boot_left", [370, 1360, 504, 1456], "feet", "future:boots", "靴（提案）"],
+            ["boot_right", [520, 1360, 654, 1456], "feet", "future:boots", "靴（提案）"],
         ],
         "gaps": [
             ["gap_left", [318, 660, 360, 990], "腕と胴の間：背景が見える隙間（目安24px以上）"],
@@ -246,7 +246,8 @@ def player_guide(out, pal):
         return [box[0], box[1] + oy, box[2], box[3] + oy]
 
     region_col = {"glove_body": (130, 78, 45), "wrist_band": (60, 58, 60), "sleeve_base+sleeve_camo": (110, 100, 60),
-                  "future:uniform_camo": (150, 140, 90), "future:pants": (120, 120, 90), "fixed": (170, 170, 175)}
+                  "future:uniform": (150, 140, 90), "future:pants": (120, 120, 90), "future:vest": (95, 100, 70),
+                  "future:boots": (90, 70, 55), "future:head_gear": (200, 180, 130), "future:skin": (215, 180, 150)}
     for name, box, layer, region, text in p["parts"]:
         c = region_col[region]
         now = region in ("glove_body", "wrist_band", "sleeve_base+sleeve_camo")
@@ -270,19 +271,20 @@ def player_guide(out, pal):
 
     label(dr, (16, 10), f"標準プレイヤー正面立ち絵：構図ガイド　キャンバス {W}×{H}（青枠、透明背景）　図形は範囲の目安で、絵ではない", 26)
     label(dr, (16, 48), f"正面・全身・武器なし。腕は胴から少し離す（水色＝背景が見える隙間）。1ドット≈{p['dotPx']}px、黒い輪郭線 {p['outlinePx'][0]}〜{p['outlinePx'][1]}px", 19)
-    label(dr, (16, 80), "実線の枠＝今のスキン機能で色替えできる領域（手・腕）　灰の破線＝今の実装の対象外（固定、または後続の領域）", 19)
+    label(dr, (16, 80), "実線の枠＝今の実装で色替えできる領域（手・腕）　灰の破線＝今回の実装範囲外（将来の全身スキンで部位ごとに色替えできるよう分けて描く）", 19)
 
     sx = W + 30
     label(dr, (sx, oy + 10), "領域（今の実装との対応）", 22)
     rows = [("glove_body", "茶の革グローブ → glove_body（2）"), ("wrist_band", "手首の帯 → wrist_band（4）"),
             ("sleeve_base+sleeve_camo", "迷彩の袖 → sleeve_base（5）・sleeve_camo（6）"),
-            ("future:uniform_camo", "上着の胴 → 対象外（後続：袖と同じ扱いにするか未決定）"),
-            ("future:pants", "ズボン → 対象外（後続）"), ("fixed", "顔・頭部装備・胴体装備・靴 → 固定（対象外）")]
+            ("future:uniform", "上着の胴 → 今回の範囲外（将来の領域）"), ("future:pants", "ズボン → 今回の範囲外（将来の領域）"),
+            ("future:vest", "胴体装備・ベルト → 今回の範囲外（将来の領域）"), ("future:boots", "靴 → 今回の範囲外（将来の領域）"),
+            ("future:head_gear", "頭部装備 → 今回の範囲外（将来の領域）"), ("future:skin", "顔・首（肌）→ 今回の範囲外（将来の領域）")]
     for j, (r, t) in enumerate(rows):
         y = oy + 50 + j * 40
         dr.rectangle([sx, y, sx + 34, y + 26], fill=region_col[r] + (255,), outline=(0, 0, 0, 255))
         label(dr, (sx + 46, y), t, 16)
-    y = oy + 320
+    y = oy + 420
     label(dr, (sx, y), "一人称の手元画像から測った色（暗・中・明）", 20)
     for j, (name, t) in enumerate([("glove_body", "グローブ"), ("wrist_band", "手首の帯"), ("sleeve_base", "袖の地色"), ("sleeve_camo", "袖の迷彩")]):
         yy = y + 40 + j * 44

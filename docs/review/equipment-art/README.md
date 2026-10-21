@@ -9,6 +9,7 @@ GitHub Issue #1「装備画面用素材と一人称表示の連携」に向け�
 - スキン変更の最小実装は、一人称（ライフル腰だめ・ADS・ナイフ待機）で iPhone 16 Pro の実機確認済み（`docs/review/player-parts/skins/README.md`）。
 - 色違い（`test_green`・`test_navy`）は検証用の仮配色で、正式な配色ではない。
 - 装備画面は未実装。全体図・立ち絵を作っても、表示の連携や拡張装備の機能は未完了のまま。
+- **色替えの範囲について**：今のスキン実装で色替えできるのは、プレイヤーの手・腕（グローブ・手首の帯・袖）とライフルの外装だけ。これは**今回の実装範囲**で、将来の全身スキンを制限する仕様ではない。立ち絵は、上着・ズボン・胴体装備・頭部装備・靴・肌を部位ごとに分けて色替えできるよう、全身の部品分離を前提に制作する（`layer_design.md` 3章）。
 
 ## 制作順序
 
@@ -47,7 +48,7 @@ GitHub Issue #1「装備画面用素材と一人称表示の連携」に向け�
 | --- | --- |
 | ライフル全体図・段階1 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png`（1760×800） |
 | ライフル全体図・段階2（承認後） | 同じフォルダに `rifle_side_body.png`・`rifle_side_magazine_standard.png`・`rifle_side_muzzle_standard.png`・`rifle_side_sights_iron.png` |
-| プレイヤー立ち絵・段階1 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Characters/Player/Front/player_front_design.png`（1024×1536） |
+| プレイヤー立ち絵・段階1 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Player/Front/player_front_design.png`（1024×1536） |
 | プレイヤー立ち絵・段階2（承認後） | 同じフォルダに `player_front_<レイヤー名>.png`（`layer_design.md` 3章のレイヤー名） |
 
 保存先のフォルダはまだ作っていない（画像が届いたときに作る）。
@@ -57,6 +58,6 @@ GitHub Issue #1「装備画面用素材と一人称表示の連携」に向け�
 - プレイヤーの顔・頭部装備・胴体装備・ズボン・靴：推奨案は1案のみ（`player_front_request.md`）。どれも未承認。
 - 装備画面のレイアウトと、画面上の表示の大きさ。
 - 照準器を付けたときに、アイアンサイトを倒すか残すか。
-- 上着の胴・ズボンの色替えの扱い（袖と同じにするか、別の領域にするか）。
+- 全身スキンの領域の割り当て（上着の胴を袖と同じ領域にするか別にするか、など）と、その実装。
 - 拡張装備（サプレッサー・照準器・弾倉）の画像。仕様（GAME_SPEC 9章）が決まってから依頼する。
 - 対戦中に他プレイヤーから見える素材（方向数・動作コマ）。立ち絵とは別物。
