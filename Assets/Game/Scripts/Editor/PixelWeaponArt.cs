@@ -291,6 +291,8 @@ namespace Deadlock.Editor
                 var prop = so.FindProperty(o.field);
                 if (prop.propertyType == SerializedPropertyType.Vector2)
                     prop.vector2Value = new Vector2(o.value[0], o.value[1]);
+                else if (prop.propertyType == SerializedPropertyType.Boolean)
+                    prop.boolValue = o.value[0] > 0.5f;
                 else
                     prop.floatValue = o.value[0];
             }

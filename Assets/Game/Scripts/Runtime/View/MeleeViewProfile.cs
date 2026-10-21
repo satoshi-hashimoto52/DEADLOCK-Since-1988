@@ -27,6 +27,15 @@ namespace Deadlock.View
         [Tooltip("Slightly larger at the strike (closer to the camera).")]
         public float strikeScale = 1.2f;
 
+        [Header("Slash arc (optional)")]
+        [Tooltip("On: the active window follows a curve from the windup pose through the mid pose to the strike pose (a slash), instead of a straight line.")]
+        public bool useStrikeArc;
+        [Tooltip("Control pose of the arc (offset from rest / roll); the blade crosses near the screen centre around here.")]
+        public Vector2 strikeMidOffset;
+        public float strikeMidRoll;
+        [Tooltip("Speed curve of the active window: 0 = smooth in/out; > 1 = fast start, slowing follow-through (1 - (1 - t)^power).")]
+        [Min(0f)] public float strikeEaseOutPower;
+
         [Header("Equip / idle")]
         [Tooltip("How far below rest the knife starts when drawn.")]
         public float lowered = 0.35f;

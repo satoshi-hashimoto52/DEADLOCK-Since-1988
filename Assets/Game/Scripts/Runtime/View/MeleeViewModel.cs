@@ -52,9 +52,19 @@ namespace Deadlock.View
                     roll = p.windupRoll * k;
                     break;
                 case MeleePhase.Active:
-                    k = Ease(k);
-                    offset = Vector2.Lerp(p.windupOffset, p.strikeOffset, k);
-                    roll = Mathf.Lerp(p.windupRoll, p.strikeRoll, k);
+                    k = p.strikeEaseOutPower > 0f ? 1f - Mathf.Pow(1f - k, p.strikeEaseOutPower) : Ease(k);
+                    if (p.useStrikeArc)
+                    {
+                        // Quadratic curve windup -> mid -> strike: the blade sweeps across instead of being pushed forward.
+                        float a = (1f - k) * (1f - k), b = 2f * (1f - k) * k, c = k * k;
+                        offset = a * p.windupOffset + b * p.strikeMidOffset + c * p.strikeOffset;
+                        roll = a * p.windupRoll + b * p.strikeMidRoll + c * p.strikeRoll;
+                    }
+                    else
+                    {
+                        offset = Vector2.Lerp(p.windupOffset, p.strikeOffset, k);
+                        roll = Mathf.Lerp(p.windupRoll, p.strikeRoll, k);
+                    }
                     scale = Mathf.Lerp(1f, p.strikeScale, k);
                     break;
                 case MeleePhase.Recovery:
