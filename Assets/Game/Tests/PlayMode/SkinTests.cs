@@ -241,6 +241,31 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
+        public IEnumerator EquipmentScreen_OpenCloseEvents_InputBlockedOnlyWhileOpen_WeaponBack()
+        {
+            yield return Load();
+            int opened = 0, closed = 0;
+            menu.SkinSettingsOpened += () => opened++;
+            menu.SkinSettingsClosed += () => closed++;
+            Assert.IsFalse(EquipmentScreenDiagnostics.Enabled, "device diagnostics never run in the Editor");
+            for (int i = 0; i < 3; i++)
+            {
+                menu.OpenSkinSettings();
+                yield return null;
+                Assert.IsTrue(router.IsBlocked, "input blocked while the equipment screen is open");
+                if (i % 2 == 0)
+                    menu.CloseSkinSettings(); // back to the menu, then close it
+                menu.Close();
+                yield return null;
+                Assert.IsFalse(router.IsBlocked, "input back after closing");
+                Assert.IsFalse(menu.IsSkinSettingsOpen);
+                Assert.IsTrue(hip.enabled, "hip weapon shown again");
+            }
+            Assert.AreEqual(3, opened);
+            Assert.AreEqual(3, closed, "closing straight from the equipment screen also counts");
+        }
+
+        [UnityTest]
         public IEnumerator EquipmentScreen_Layout_InsideScreen_NoOverlap()
         {
             yield return Load();

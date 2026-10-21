@@ -51,6 +51,8 @@ namespace Deadlock.UI
 
         public event Action Opened;
         public event Action Closed;
+        public event Action SkinSettingsOpened;
+        public event Action SkinSettingsClosed;
 
         void Awake() => Build();
 
@@ -90,9 +92,12 @@ namespace Deadlock.UI
             IsOpen = false;
             panel.SetActive(false);
             controlsPanel.SetActive(false);
+            bool skinOpen = IsSkinSettingsOpen;
             if (skinPanel != null)
                 skinPanel.SetActive(false);
             input.Unblock("menu");
+            if (skinOpen)
+                SkinSettingsClosed?.Invoke();
             Closed?.Invoke();
         }
 
@@ -139,15 +144,19 @@ namespace Deadlock.UI
             panel.SetActive(false);
             RefreshSkinSettings();
             skinPanel.SetActive(true);
+            SkinSettingsOpened?.Invoke();
         }
 
         public void CloseSkinSettings()
         {
             if (skinPanel == null)
                 return;
+            bool wasOpen = skinPanel.activeSelf;
             skinPanel.SetActive(false);
             if (IsOpen)
                 panel.SetActive(true);
+            if (wasOpen)
+                SkinSettingsClosed?.Invoke();
         }
 
         void RefreshSkinSettings()
@@ -372,7 +381,11 @@ namespace Deadlock.UI
             panel.SetActive(false);
             BuildControlSettings();
             if (skins != null)
+            {
                 BuildSkinSettings();
+                if (EquipmentScreenDiagnostics.Enabled)
+                    gameObject.AddComponent<EquipmentScreenDiagnostics>().Init(this);
+            }
 
             layoutEditor = gameObject.AddComponent<TouchLayoutEditor>();
             layoutEditor.Init(input, (RectTransform)transform);
