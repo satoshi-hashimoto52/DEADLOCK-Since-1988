@@ -6,7 +6,7 @@ GitHub Issue #1「装備画面用素材と一人称表示の連携」に向け�
 
 ## 状況（2026-10-21更新）
 
-段階1の2枚（ライフル全体図・プレイヤー立ち絵）が届いた。検査・取り込み・色替え領域・装備画面の最小表示は `import-review/README.md`（Editorでの確認）。iPhone 16 Proの実機確認は `device-check/README.md`。2枚とも制作候補で、正式採用は未確認。
+段階1の2枚（ライフル全体図・プレイヤー立ち絵）が届いた。**ライフル全体図は採用済み**（`rifle-review/README.md`）。プレイヤー立ち絵は、グローブ配色だけ採用済みで（`glove-review/adoption/README.md`）、全身のデザインは採用判断中（`player-review/README.md`）。検査・取り込み・色替え領域・装備画面の最小表示は `import-review/README.md`（Editorでの確認）。iPhone 16 Proの実機確認は `device-check/README.md`。2枚とも制作候補で、正式採用は未確認。
 
 ## 前提
 
