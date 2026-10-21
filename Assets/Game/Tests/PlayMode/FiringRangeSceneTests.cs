@@ -36,6 +36,59 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
+        public IEnumerator KnifeView_SwingAndSwitch_SleeveCutEdgeStaysOffScreen_OnPhoneWideAndTablet()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            var cam = Camera.main;
+            var vmCam = cam.transform.Find("ViewModelCamera").GetComponent<Camera>();
+            SpriteRenderer knife = null;
+            foreach (var r in Object.FindObjectsByType<SpriteRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (r.name == "Knife")
+                    knife = r;
+            Assert.AreEqual("knife_candidate_opaque", knife.sprite.texture.name);
+            // The sleeve leaves the image along its bottom edge (x 806-1585) and the bottom of its right edge (y 956-991).
+            var sprite = knife.sprite;
+            float ppu = sprite.pixelsPerUnit, h = sprite.rect.height;
+            var cut = new System.Collections.Generic.List<Vector3>();
+            for (int x = 806; x <= 1585; x += 10)
+                cut.Add(new Vector3((x - sprite.pivot.x) / ppu, (0f - sprite.pivot.y) / ppu, 0f));
+            for (int y = 956; y <= 992; y += 4)
+                cut.Add(new Vector3((sprite.rect.width - sprite.pivot.x) / ppu, ((h - y) - sprite.pivot.y) / ppu, 0f));
+            foreach (var size in new[] { new Vector2Int(2622, 1206), new Vector2Int(1920, 1080), new Vector2Int(2048, 1536) })
+            {
+                var rt = new RenderTexture(size.x, size.y, 16);
+                cam.targetTexture = rt;
+                yield return null;
+                int frames = 0;
+                System.Func<bool> visible = () =>
+                {
+                    if (!knife.enabled) return false;
+                    foreach (var p in cut)
+                    {
+                        var v = vmCam.WorldToViewportPoint(knife.transform.TransformPoint(p));
+                        if (v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f) return true;
+                    }
+                    return false;
+                };
+                weapons.Request(WeaponSlot.Melee);
+                float end = Time.time + weapons.SwitchTime + 0.2f;
+                while (Time.time < end) { Assert.IsFalse(visible(), $"{size} switch to knife"); frames++; yield return null; }
+                Press(mouse.leftButton, queueEventOnly: true);
+                yield return null;
+                Release(mouse.leftButton, queueEventOnly: true);
+                yield return null;
+                Assert.IsTrue(melee.IsSwinging, "swing started");
+                while (melee.IsSwinging) { Assert.IsFalse(visible(), $"{size} swing {melee.Phase} {melee.PhaseProgress:0.00}"); frames++; yield return null; }
+                weapons.Request(WeaponSlot.Gun);
+                end = Time.time + weapons.SwitchTime + 0.2f;
+                while (Time.time < end) { Assert.IsFalse(visible(), $"{size} switch to gun"); frames++; yield return null; }
+                Assert.Greater(frames, 10);
+                cam.targetTexture = null;
+                rt.Release();
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Desktop_MoveSprintJumpLook()
         {
             yield return LoadScene(InputMode.Desktop);

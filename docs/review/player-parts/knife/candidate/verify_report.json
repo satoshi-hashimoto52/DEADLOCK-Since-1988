@@ -1,0 +1,67 @@
+{
+  "base": "Assets/Game/Art/Weapons/Knife/knife_candidate_opaque.png",
+  "size": [
+    1586,
+    992
+  ],
+  "baseOpaquePixels": 247025,
+  "layerOpaquePixels": {
+    "weapon": 57028,
+    "right": 189997
+  },
+  "recomposition": {
+    "alphaMismatches": 0,
+    "visibleRgbMismatches": 0,
+    "transparentRgbDifferences": 199,
+    "overlaps": 0,
+    "missing": 0,
+    "extra": 0,
+    "layerPixelsChanged": 0
+  },
+  "weaponLayerRgbaSameAsBase": true,
+  "masks": {
+    "right": {
+      "glove_body": {
+        "pixels": 38624,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "glove_reinforcement": {
+        "pixels": 0,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "wrist_band": {
+        "pixels": 8793,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_base": {
+        "pixels": 57314,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      },
+      "sleeve_camo": {
+        "pixels": 53271,
+        "outsideHandLayer": 0,
+        "onWeapon": 0,
+        "onOutline": 0,
+        "overlapWithOtherMask": 0,
+        "notWhiteOpaque": 0
+      }
+    }
+  },
+  "ok": true
+}

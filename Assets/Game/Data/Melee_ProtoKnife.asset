@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.MeleeDefinition
   weaponId: proto_knife
   displayName: "\u30CA\u30A4\u30D5"
-  viewProfile: {fileID: 11400000, guid: 8b3e50de6d1f147819025b5a68630d73, type: 2}
+  viewProfile: {fileID: 11400000, guid: 354acfffee0904af0a794b03e3391fb9, type: 2}
   damage: 50
   range: 1.7
   radius: 0.3

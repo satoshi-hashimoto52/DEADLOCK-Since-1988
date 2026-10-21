@@ -163,10 +163,11 @@ namespace Deadlock.Editor
             // approved art. A problem in a definition stops the build with a message naming it (no silent fallback).
             weapon.viewProfile = AssetDatabase.LoadAssetAtPath<WeaponViewProfile>(WeaponSpriteBaker.ProfilePath);
             EditorUtility.SetDirty(weapon);
-            PixelWeaponArt.ImportRegistered();
             MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
             melee.viewProfile = PixelWeaponArt.PrepareKnife(AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
             EditorUtility.SetDirty(melee);
+            // Registered art (guns and melee) last: it replaces the provisional profiles above.
+            PixelWeaponArt.ImportRegistered();
             return (weapon, melee);
         }
 

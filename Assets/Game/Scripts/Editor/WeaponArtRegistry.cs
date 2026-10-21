@@ -8,5 +8,7 @@ namespace Deadlock.Editor
     public sealed class WeaponArtRegistry : ScriptableObject
     {
         public WeaponArtDefinition[] weapons = Array.Empty<WeaponArtDefinition>();
+        [Tooltip("Melee weapons (one image each, no ADS).")]
+        public MeleeArtDefinition[] melee = Array.Empty<MeleeArtDefinition>();
     }
 }

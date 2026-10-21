@@ -42,17 +42,19 @@ namespace Deadlock.Tests
             var bakedMelee = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>("Assets/Game/Data/MeleeView_ProtoKnife.asset");
             var view = weapon.viewProfile;
             Assert.AreEqual("WeaponView_ProtoRifle_Pixel", view.name);
-            Assert.AreEqual("MeleeView_ProtoKnife_Pixel", melee.viewProfile.name);
+            // The knife shows the registered candidate art (WeaponArtRegistry.melee); the provisional pixel knife profile stays.
+            Assert.AreEqual("MeleeView_ProtoKnife_Candidate", melee.viewProfile.name);
+            var provisionalKnife = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>("Assets/Game/Data/MeleeView_ProtoKnife_Pixel.asset");
             Assert.AreEqual(ApprovedHip, AssetDatabase.GetAssetPath(view.hipSprite), "The approved hip image replaces the hip sprite");
             Assert.AreEqual(ApprovedAds, AssetDatabase.GetAssetPath(view.adsSprite), "The approved ADS image replaces the provisional one");
             Assert.AreEqual($"{Folder}/Spr_PixelMuzzleFlash.png", AssetDatabase.GetAssetPath(view.muzzleFlashSprite));
-            Assert.AreEqual($"{Folder}/Spr_PixelKnife.png", AssetDatabase.GetAssetPath(melee.viewProfile.sprite));
+            Assert.AreEqual($"{Folder}/Spr_PixelKnife.png", AssetDatabase.GetAssetPath(provisionalKnife.sprite));
             Assert.IsTrue(AssetDatabase.GetAssetPath(baked.hipSprite).StartsWith("Assets/Game/Art/Generated/"), "The baked profile is left as baked");
 
             // Feel values still come from the baked profile (one source of truth).
             Assert.AreEqual(baked.kickOffset, view.kickOffset);
             Assert.AreEqual(baked.reloadRollDegrees, view.reloadRollDegrees);
-            Assert.AreEqual(bakedMelee.gripPosition, melee.viewProfile.gripPosition);
+            Assert.AreEqual(bakedMelee.gripPosition, provisionalKnife.gripPosition);
         }
 
         // The game imports the alpha-cleaned derivatives; the approved originals stay next to them unchanged.

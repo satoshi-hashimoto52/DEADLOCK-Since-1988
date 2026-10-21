@@ -41,6 +41,84 @@ namespace Deadlock.Tests
         }
 
         [Test]
+        public void Registry_Melee_TheKnifeCandidate_PointPivotOnTheGrip_MotionOverridesApplied()
+        {
+            var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(PixelWeaponArt.RegistryPath);
+            CollectionAssert.AreEqual(new[] { "proto_knife" }, registry.melee.Select(m => m.WeaponId).ToArray());
+            var knife = registry.melee[0];
+            Assert.AreSame(knife.viewProfile, knife.melee.viewProfile);
+            var sprite = knife.viewProfile.sprite;
+            Assert.AreEqual($"{Knife}/knife_candidate_opaque.png", AssetDatabase.GetAssetPath(sprite));
+            var importer = (TextureImporter)AssetImporter.GetAtPath($"{Knife}/knife_candidate_opaque.png");
+            Assert.AreEqual(FilterMode.Point, importer.filterMode);
+            Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
+            Assert.IsFalse(importer.mipmapEnabled);
+            Assert.GreaterOrEqual(importer.maxTextureSize, 2048);
+            Assert.AreEqual(560f, sprite.pivot.x, 0.5f, "pivot = grip (560, 730 from the top-left)");
+            Assert.AreEqual(992f - 730f, sprite.pivot.y, 0.5f);
+            // Presentation overrides for this art; the base profile keeps its values.
+            Assert.AreEqual(0f, knife.viewProfile.strikeRoll);
+            Assert.AreEqual(new Vector2(-0.46f, 0.04f), knife.viewProfile.strikeOffset);
+            Assert.AreEqual(60f, knife.baseProfile.strikeRoll);
+            Assert.AreEqual(knife.baseProfile.windupRoll, knife.viewProfile.windupRoll);
+            // The provisional knife profile is still there (not deleted).
+            Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(PixelWeaponArt.KnifeProfilePath));
+        }
+
+        [Test]
+        public void Melee_MissingImage_OrIdUsedByAGun_AreErrors_NothingImported()
+        {
+            var gun = MakeDefinition("test_shared", (900, 400), (887, 390));
+            var m = MakeMelee("test_shared");
+            var e = Assert.Throws<WeaponArtException>(() => PixelWeaponArt.Import(new[] { gun }, new[] { m }, "test"));
+            StringAssert.Contains("'test_shared' is used twice", e.Message);
+            var m2 = MakeMelee("test_melee_missing");
+            m2.art.image = null;
+            e = Assert.Throws<WeaponArtException>(() => PixelWeaponArt.Import(new WeaponArtDefinition[0], new[] { m2 }, "test"));
+            StringAssert.Contains("[test_melee_missing]", e.Message);
+            StringAssert.Contains("'art.image' is not set", e.Message);
+            Assert.IsNull(m2.viewProfile);
+        }
+
+        [Test]
+        public void Melee_ImportsIndependently_UnknownOverrideIsAnError()
+        {
+            var m = MakeMelee("test_melee_ok");
+            PixelWeaponArt.Import(new WeaponArtDefinition[0], new[] { m }, "test");
+            Assert.AreEqual($"{Temp}/MeleeView_test_melee_ok_Art.asset", AssetDatabase.GetAssetPath(m.viewProfile));
+            Assert.AreSame(m.viewProfile, m.melee.viewProfile);
+            var real = AssetDatabase.LoadAssetAtPath<MeleeDefinition>("Assets/Game/Data/Melee_ProtoKnife.asset");
+            Assert.AreEqual("MeleeView_ProtoKnife_Candidate", real.viewProfile.name, "The real knife is not touched");
+            var bad = MakeMelee("test_melee_bad", "{ \"grip\": [560, 730], \"screenHeightPixels\": 1300, \"motionOverrides\": [{\"field\": \"noSuchField\", \"value\": [1]}] }");
+            var e = Assert.Throws<WeaponArtException>(() => PixelWeaponArt.Import(new WeaponArtDefinition[0], new[] { bad }, "test"));
+            StringAssert.Contains("'noSuchField' is not a field", e.Message);
+        }
+
+        const string Knife = "Assets/Game/Art/Weapons/Knife";
+
+        MeleeArtDefinition MakeMelee(string id, string placement = null)
+        {
+            if (!AssetDatabase.IsValidFolder(Temp))
+                AssetDatabase.CreateFolder("Assets", "TmpWeaponArtTest");
+            var melee = ScriptableObject.CreateInstance<MeleeDefinition>();
+            melee.weaponId = id;
+            AssetDatabase.CreateAsset(melee, $"{Temp}/{id}_melee.asset");
+            var d = ScriptableObject.CreateInstance<MeleeArtDefinition>();
+            d.melee = melee;
+            d.baseProfile = AssetDatabase.LoadAssetAtPath<MeleeViewProfile>("Assets/Game/Data/MeleeView_ProtoKnife.asset");
+            Assert.IsTrue(AssetDatabase.CopyAsset($"{Knife}/knife_candidate.png", $"{Temp}/{id}_msource.png"));
+            Assert.IsTrue(AssetDatabase.CopyAsset($"{Knife}/knife_candidate_opaque.png", $"{Temp}/{id}_mimage.png"));
+            string json = $"{Temp}/{id}_m.placement.json";
+            File.WriteAllText(json, placement ?? "{ \"grip\": [560, 730], \"screenHeightPixels\": 1300 }");
+            AssetDatabase.ImportAsset(json);
+            d.art.source = AssetDatabase.LoadAssetAtPath<Texture2D>($"{Temp}/{id}_msource.png");
+            d.art.image = AssetDatabase.LoadAssetAtPath<Texture2D>($"{Temp}/{id}_mimage.png");
+            d.art.placement = AssetDatabase.LoadAssetAtPath<TextAsset>(json);
+            AssetDatabase.CreateAsset(d, $"{Temp}/{id}_meleeart.asset");
+            return d;
+        }
+
+        [Test]
         public void Import_LeavesSourcesImagesAndPlacementsUntouched()
         {
             string[] files =
@@ -48,6 +126,7 @@ namespace Deadlock.Tests
                 $"{Rifle}/rifle_hip_approved.png", $"{Rifle}/rifle_ads_approved.png",
                 $"{Rifle}/rifle_hip_approved_opaque.png", $"{Rifle}/rifle_ads_approved_opaque.png",
                 $"{Rifle}/rifle_hip_approved.placement.json", $"{Rifle}/rifle_ads_approved.placement.json",
+                $"{Knife}/knife_candidate.png", $"{Knife}/knife_candidate_opaque.png", $"{Knife}/knife_candidate.placement.json",
             };
             var before = files.ToDictionary(f => f, Hash);
             PixelWeaponArt.ImportRegistered();

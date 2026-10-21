@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 451975f12385b42908ab327441239c42, type: 3}
+  m_Name: MeleeArt_ProtoKnife
+  m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.MeleeArtDefinition
+  melee: {fileID: 11400000, guid: ce45bf6b80bce4639ab9a190eb568c3a, type: 2}
+  baseProfile: {fileID: 11400000, guid: faab0fb1e37d7490693335513f28a244, type: 2}
+  viewProfile: {fileID: 11400000, guid: 354acfffee0904af0a794b03e3391fb9, type: 2}
+  art:
+    source: {fileID: 2800000, guid: 7940b970c19044010a9276a6916877f4, type: 3}
+    image: {fileID: 2800000, guid: 45b57c85a951d4c2c82e78268ea42f93, type: 3}
+    placement: {fileID: 4900000, guid: eea30b1f14bbd494d8ebacfa37c73210, type: 3}

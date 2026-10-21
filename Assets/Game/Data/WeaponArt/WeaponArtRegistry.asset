@@ -14,3 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.WeaponArtRegistry
   weapons:
   - {fileID: 11400000, guid: 76d6cca5a96864483b404cc9c2abf28c, type: 2}
+  melee:
+  - {fileID: 11400000, guid: 2f872fde6656841a68feddded6520d80, type: 2}

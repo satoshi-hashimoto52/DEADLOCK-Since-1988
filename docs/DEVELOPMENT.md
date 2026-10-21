@@ -230,9 +230,14 @@ ADS（2026-10-21）：`Assets/Game/Art/Weapons/Rifle/Layers/ADS/`（`rifle_ads_w
 
 制約：手に隠れた銃・銃に隠れた指は描かれていない。形の違うスキン（指ぬきグローブなど）は色替えでは作れず、この構えに合わせて描いた手・腕の素材と、隠れていた部分を描き足した銃のレイヤーが必要。掌の補強は今の画像では判別できない（マスクは空）。
 
-#### ナイフの手元画像（2026-10-21、描き直し待ち）
+#### ナイフの手元画像（2026-10-21、候補画像を仮配置）
 
-現在の `Spr_PixelKnife.png` は暫定で画風基準を満たさないため、描き直す。構図・依頼文は `docs/review/player-parts/knife/README.md`（2400×1500、握りの中心 (640, 600)、1ドット＝4画素）。構図の再計算：`python3 Tools/pixelart/make_knife_guide.py 出力先`（表示設定 `MeleeView_ProtoKnife.asset` の動きの値から、画面に入る範囲と袖の切り口が出ないことを確認）。採用画像を表示するには、ナイフ用の取り込み（ピボット＝握り、画面の高さに当たる画素数）を追加する作業が別途必要。
+- 近接武器の手元画像は **`MeleeArtDefinition`**（Editor専用：`melee`＝`MeleeDefinition`〔武器IDは `weaponId`〕、`baseProfile`、出力する `viewProfile`、`art`＝元画像・表示用画像・配置ファイル）で指定し、`WeaponArtRegistry.melee` に載せたものだけをシーン生成時に取り込む（ADS画像は不要）。銃と同じく、取り込み前に全定義を検査し、武器IDの重複（銃と近接をまたいでも）・画像や配置ファイルの不足・寸法の不一致・存在しない動きの項目は何も取り込まずにエラー。
+- ナイフ候補：定義 `Assets/Game/Data/WeaponArt/MeleeArt_ProtoKnife.asset`、出力 `Assets/Game/Data/MeleeView_ProtoKnife_Candidate.asset`、画像と配置 `Assets/Game/Art/Weapons/Knife/`。暫定の `Spr_PixelKnife.png`・`MeleeView_ProtoKnife_Pixel.asset` は残している（登録から外せば暫定に戻る）。
+- 近接の配置ファイル：`grip`（握りの中心＝ピボット、画像の左上からの画素）と `screenHeightPixels` が必須。`motionOverrides`（`[{"field": "strikeRoll", "value": [0]}, …]`）で、その画像に合わせた見た目の動き（`MeleeViewProfile` の項目）だけを上書きできる。攻撃判定・時間は `MeleeDefinition` のままで変わらない。
+- 新しい近接画像では、袖の切り口が攻撃・持ち替えの全段階で画面に出ないことを確認する（PlayModeテスト `KnifeView_SwingAndSwitch_SleeveCutEdgeStaysOffScreen_OnPhoneWideAndTablet` は、切り口の画素位置を画像に合わせて書く）。
+- 確認資料：`docs/review/player-parts/knife/candidate/README.md`。初回の構図ガイドは `docs/review/player-parts/knife/README.md`（`Tools/pixelart/make_knife_guide.py`）。
+- 分離：`Assets/Game/Art/Weapons/Knife/Layers/`（`knife_layers.definition.json`）。小さな欠片の閾値はドットの大きさに合わせる（このナイフは1ドット約5画素で25）。迷彩の縞の中に塗られた明るい欠片は形で迷彩へ移す（`sleeveCamo.enclosedBaseMaxPixels`）。
 
 #### 次の武器（SMG）を追加する手順
 

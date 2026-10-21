@@ -10,8 +10,8 @@ namespace Deadlock.Editor
     /// <summary>
     /// Imports the first-person weapon art. Two paths, both separate from <see cref="WeaponSpriteBaker"/> (the baker and
     /// the scene builder never write into Assets/Game/Art/Weapons, so re-baking cannot overwrite the art):
-    /// - Per weapon: <see cref="WeaponArtDefinition"/>s listed in <see cref="WeaponArtRegistry"/> (approved hip / ADS
-    ///   images + hand-written placement files). <see cref="ImportRegistered"/> validates every definition first and
+    /// - Per weapon: <see cref="WeaponArtDefinition"/>s (guns: hip / ADS) and <see cref="MeleeArtDefinition"/>s (melee:
+    ///   one image) listed in <see cref="WeaponArtRegistry"/>, with hand-written placement files. <see cref="ImportRegistered"/> validates every definition first and
     ///   throws one <see cref="WeaponArtException"/> naming the weapon id, asset and field of each problem (missing art,
     ///   duplicate ids...), never filling a gap with another weapon's art. Only the image's import settings and the
     ///   weapon's view profile are written; sources and placement files are only read.
@@ -105,20 +105,24 @@ namespace Deadlock.Editor
             var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(RegistryPath);
             if (registry == null)
                 return;
-            Import(registry.weapons, RegistryPath);
+            Import(registry.weapons, registry.melee ?? Array.Empty<MeleeArtDefinition>(), RegistryPath);
         }
+
+        public static void Import(IList<WeaponArtDefinition> definitions, string context) =>
+            Import(definitions, Array.Empty<MeleeArtDefinition>(), context);
 
         /// <summary>
         /// Validates all definitions, then imports each: the images' import settings (pivot, size, Point, uncompressed),
         /// the view profile (base profile values + placement), and the weapon's viewProfile reference.
         /// Throws <see cref="WeaponArtException"/> (nothing is written) when any definition has a problem.
         /// </summary>
-        public static void Import(IList<WeaponArtDefinition> definitions, string context)
+        public static void Import(IList<WeaponArtDefinition> definitions, IList<MeleeArtDefinition> meleeDefinitions, string context)
         {
             var problems = new List<string>();
             var hips = new Dictionary<WeaponArtDefinition, HipPlacement>();
             var adss = new Dictionary<WeaponArtDefinition, AdsPlacement>();
             var ids = new Dictionary<string, WeaponArtDefinition>();
+            var meleeIds = new Dictionary<string, MeleeArtDefinition>();
             for (int i = 0; i < definitions.Count; i++)
             {
                 var d = definitions[i];
@@ -167,6 +171,46 @@ namespace Deadlock.Editor
                     }
                 }
             }
+            var meleePlaces = new Dictionary<MeleeArtDefinition, MeleePlacement>();
+            for (int i = 0; i < meleeDefinitions.Count; i++)
+            {
+                var d = meleeDefinitions[i];
+                if (d == null)
+                {
+                    problems.Add($"{context}: melee entry {i} is empty");
+                    continue;
+                }
+                string where = AssetDatabase.GetAssetPath(d);
+                string id = d.WeaponId;
+                if (d.melee == null)
+                    problems.Add($"{where}: 'melee' is not set (the weapon id comes from it)");
+                else if (string.IsNullOrWhiteSpace(id))
+                    problems.Add($"{where}: melee weapon {AssetDatabase.GetAssetPath(d.melee)} has no weaponId");
+                else if (ids.TryGetValue(id, out var otherGun))
+                    problems.Add($"weapon id '{id}' is used twice: {AssetDatabase.GetAssetPath(otherGun)} and {where}");
+                else if (meleeIds.TryGetValue(id, out var otherMelee))
+                    problems.Add($"weapon id '{id}' is used twice: {AssetDatabase.GetAssetPath(otherMelee)} and {where}");
+                else
+                    meleeIds[id] = d;
+                string label = $"[{id ?? "?"}] {where}";
+                if (d.baseProfile == null)
+                    problems.Add($"{label}: 'baseProfile' is not set");
+                if (CheckView(d.art, "art", label, problems) != null)
+                {
+                    var place = Parse<MeleePlacement>(d.art.placement, "art", label, problems);
+                    if (place != null)
+                    {
+                        Require(place.grip, 2, "art.placement", "grip", label, problems);
+                        if (place.screenHeightPixels <= 0f)
+                            problems.Add($"{label}: art.placement ({AssetDatabase.GetAssetPath(d.art.placement)}) needs 'screenHeightPixels' > 0");
+                        if (d.baseProfile != null)
+                            foreach (var o in place.motionOverrides ?? Array.Empty<MotionOverride>())
+                                if (new SerializedObject(d.baseProfile).FindProperty(o.field) == null)
+                                    problems.Add($"{label}: art.placement motion override '{o.field}' is not a field of MeleeViewProfile");
+                        meleePlaces[d] = place;
+                    }
+                }
+            }
             if (problems.Count > 0)
                 throw new WeaponArtException(problems);
 
@@ -193,7 +237,64 @@ namespace Deadlock.Editor
                 d.weapon.viewProfile = view;
                 EditorUtility.SetDirty(d.weapon);
             }
+            foreach (var d in meleeDefinitions)
+            {
+                var view = d.viewProfile;
+                if (view == null)
+                {
+                    string path = $"{Path.GetDirectoryName(AssetDatabase.GetAssetPath(d)).Replace('\\', '/')}/MeleeView_{d.WeaponId}_Art.asset";
+                    view = Derive(d.baseProfile, path);
+                    d.viewProfile = view;
+                    EditorUtility.SetDirty(d);
+                }
+                else
+                {
+                    EditorUtility.CopySerialized(d.baseProfile, view);
+                    view.name = Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(view));
+                }
+                ApplyMelee(view, d.art.image, meleePlaces[d]);
+                EditorUtility.SetDirty(view);
+                d.melee.viewProfile = view;
+                EditorUtility.SetDirty(d.melee);
+            }
             AssetDatabase.SaveAssets();
+        }
+
+        [Serializable]
+        class MotionOverride
+        {
+            public string field;    // MeleeViewProfile field name (presentation only)
+            public float[] value;   // 1 number (float) or 2 numbers (Vector2)
+        }
+
+        [Serializable]
+        class MeleePlacement
+        {
+            public float[] grip;                    // grip centre = pivot, pixels from the top-left
+            public float screenHeightPixels;        // image pixels per full screen height (sets the size)
+            public MotionOverride[] motionOverrides; // optional: presentation values tuned for this art
+        }
+
+        /// <summary>Melee: pivot = grip; size from screenHeightPixels; optional motion overrides for this art (presentation only).</summary>
+        static void ApplyMelee(MeleeViewProfile view, Texture2D image, MeleePlacement place)
+        {
+            string path = AssetDatabase.GetAssetPath(image);
+            Size(image, out int width, out int height);
+            float ppu = place.screenHeightPixels / (2f * HalfHeight);
+            Configure(path, new Vector2(place.grip[0] / width, 1f - place.grip[1] / height), ppu, MaxSize(width, height));
+            view.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (place.motionOverrides == null || place.motionOverrides.Length == 0)
+                return;
+            var so = new SerializedObject(view);
+            foreach (var o in place.motionOverrides)
+            {
+                var prop = so.FindProperty(o.field);
+                if (prop.propertyType == SerializedPropertyType.Vector2)
+                    prop.vector2Value = new Vector2(o.value[0], o.value[1]);
+                else
+                    prop.floatValue = o.value[0];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         static Texture2D CheckView(WeaponArtDefinition.ViewArt art, string slot, string label, List<string> problems)

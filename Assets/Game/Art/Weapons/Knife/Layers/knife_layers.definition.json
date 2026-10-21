@@ -1,0 +1,41 @@
+{
+  "note": "Hand-written split definition for the knife candidate (read by Tools/pixelart/split_layers.py). Pixel coordinates from the image's top-left. Values measured on this image (not copied from the rifle): glove hue 20-24 deg / saturation 0.48-0.55, sleeve hue 41-48 deg / saturation 0.20-0.28, line black max channel 0-10, dark fills 30-45, outlines 9-10 px (about 5 px per art dot, rifle hip 4). The base is the displayed derivative knife_candidate_opaque.png; it is only read. See docs/review/player-parts/knife/candidate/README.md.",
+  "base": "Assets/Game/Art/Weapons/Knife/knife_candidate_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/Knife/Layers",
+  "layerFiles": {
+    "weapon": "knife_weapon.png",
+    "right": "knife_right_hand_arm.png"
+  },
+  "compositeOrder": ["weapon", "right"],
+  "maskDir": "Masks",
+  "maskFile": "knife_{hand}_{mask}.png",
+  "maskNames": ["glove_body", "glove_reinforcement", "wrist_band", "sleeve_base", "sleeve_camo"],
+  "darkMax": 45,
+  "maskLineMax": 20,
+  "outlineWidth": 10,
+  "orphanMaxPixels": 60,
+  "colours": {
+    "gray": {"satMax": 0.12},
+    "sleeve": {"hue": [36, 54], "satMin": 0.15, "satMax": 0.34, "lightMax": 0.46},
+    "glove": {"hue": [16, 28], "satMin": 0.40, "lightMax": 0.46}
+  },
+  "handColours": {"glove": ["glove"], "sleeve": ["sleeve"]},
+  "hands": {
+    "right": {"region": {"rect": [430, 580, 1586, 992]}, "why": "fist on the handle, wrist band and sleeve to the bottom / right edges; the blade, guard and the handle / pommel seen between the fingers are grey and stay with the knife"}
+  },
+  "cellOverrides": [
+    {"seed": [771, 719], "part": "right", "tags": ["wrist_band"], "why": "grey wrist band between the glove cuff and the sleeve (grey like the knife steel; separated from it by outlines)"}
+  ],
+  "pixelOverrides": [],
+  "sleeveCamo": {"window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05, "speckleMaxPixels": 25, "enclosedBaseMaxPixels": 2500},
+  "review": {
+    "crop": [200, 160, 1586, 992],
+    "areas": [
+      {"name": "A 鍔と人差し指", "box": [420, 560, 600, 700]},
+      {"name": "B 指の間に見える柄", "box": [500, 680, 660, 840]},
+      {"name": "C 柄頭と小指", "box": [520, 780, 680, 900]},
+      {"name": "D 手首の帯・グローブの袖口・袖", "box": [640, 660, 860, 860]},
+      {"name": "E 刃（ナイフのみの確認）", "box": [230, 200, 520, 600]}
+    ]
+  }
+}

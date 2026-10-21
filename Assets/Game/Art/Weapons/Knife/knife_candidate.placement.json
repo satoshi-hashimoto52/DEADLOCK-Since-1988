@@ -1,0 +1,13 @@
+{
+  "note": "Placement of the knife candidate (read by PixelWeaponArt through Assets/Game/Data/WeaponArt/MeleeArt_ProtoKnife.asset). Image 1586x992, pixel coordinates from the image's top-left (x right, y down). Read from the image: grip = centre of the fist on the handle (pivot); bladeTip (242, 206); guard centre (470, 590); wristBand centre (750, 790); the sleeve leaves the canvas along the bottom edge x 806-1585 and the right edge y 956-991. screenHeightPixels 1300: the outlines are about 9-10 px (rifle hip 6-8 px at 1045), so 1300 px per screen height gives about the same on-screen dot size as the rifle. motionOverrides: strikeRoll 0 / strikeOffset (-0.46, 0.04) instead of 60 / (-0.46, 0.12): with the original roll the sleeve's cut edge (canvas bottom / right edge) comes on screen from the middle of the hit window to the start of the recovery on every screen (the forearm in this image is short and nearly horizontal). Presentation only; hit timing / range unchanged. Written by hand.",
+  "grip": [560, 730],
+  "bladeTip": [242, 206],
+  "guard": [470, 590],
+  "wristBand": [750, 790],
+  "sleeveExit": {"bottomX": [806, 1585], "rightY": [956, 991]},
+  "screenHeightPixels": 1300,
+  "motionOverrides": [
+    {"field": "strikeRoll", "value": [0]},
+    {"field": "strikeOffset", "value": [-0.46, 0.04]}
+  ]
+}

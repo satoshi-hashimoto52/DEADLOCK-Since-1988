@@ -1,0 +1,45 @@
+{
+  "base": "Assets/Game/Art/Weapons/Knife/knife_candidate_opaque.png",
+  "size": [
+    1586,
+    992
+  ],
+  "cells": 54,
+  "layerPixels": {
+    "weapon": 57028,
+    "right": 189997
+  },
+  "maskPixels": {
+    "right.glove_body": 38624,
+    "right.glove_reinforcement": 0,
+    "right.wrist_band": 8793,
+    "right.sleeve_base": 57314,
+    "right.sleeve_camo": 53271
+  },
+  "emptyMasks": [
+    "right.glove_reinforcement"
+  ],
+  "cellOverrides": [
+    {
+      "seed": [
+        771,
+        719
+      ],
+      "cellPixels": 4543,
+      "part": "right",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "grey wrist band between the glove cuff and the sleeve (grey like the knife steel; separated from it by outlines)"
+    }
+  ],
+  "pixelOverrides": [],
+  "unreachedOutline": 0,
+  "orphanPiecesMoved": [],
+  "darkFillPixelsAddedToMasks": 5512,
+  "sleeveSpecklePixelsMoved": {
+    "sleeve_base->sleeve_camo": 74,
+    "sleeve_camo->sleeve_base": 407
+  },
+  "enclosedBasePixelsMovedToCamo": 2056
+}
