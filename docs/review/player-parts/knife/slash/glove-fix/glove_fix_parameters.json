@@ -1,0 +1,27 @@
+{
+  "ref": {
+    "hue": 21.9,
+    "sat": 0.52,
+    "light85": 0.404
+  },
+  "pose1": {
+    "hueShift": -0.6,
+    "satScale": 0.95,
+    "lightScale": 0.844,
+    "before": {
+      "hue": 22.5,
+      "sat": 0.547,
+      "light85": 0.478
+    }
+  },
+  "pose3": {
+    "hueShift": -0.3,
+    "satScale": 0.843,
+    "lightScale": 1.005,
+    "before": {
+      "hue": 22.2,
+      "sat": 0.617,
+      "light85": 0.402
+    }
+  }
+}

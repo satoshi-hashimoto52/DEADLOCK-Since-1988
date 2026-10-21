@@ -1,0 +1,108 @@
+{
+ "note": "Preview-only layout example for narrow screens (not a game spec, not applied to the game). x' = cx + (x - cx) * lerp(1, k, narrow), narrow = InverseLerp(referenceAspect 16:9, 4:3, aspect), applied after the right-edge follow. Units: view units at depth 1 (half height = tan25).",
+ "cx": 0.3,
+ "k": 0.67,
+ "screens": {
+  "iPhone16Pro_2622x1206": {
+   "aspect": 2.1741,
+   "narrow": 0,
+   "before": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": 0.151,
+    "pose3MainBladeVisibleMin": 1.0,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": 0.0,
+    "pose3MainTipInside": true
+   },
+   "after": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": 0.151,
+    "pose3MainBladeVisibleMin": 1.0,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": 0.0,
+    "pose3MainTipInside": true
+   }
+  },
+  "16x9_1920x1080": {
+   "aspect": 1.7778,
+   "narrow": 0,
+   "before": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": 0.059,
+    "pose3MainBladeVisibleMin": 1.0,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": 0.0,
+    "pose3MainTipInside": true
+   },
+   "after": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": 0.059,
+    "pose3MainBladeVisibleMin": 1.0,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": 0.0,
+    "pose3MainTipInside": true
+   }
+  },
+  "iPad_4x3_2048x1536": {
+   "aspect": 1.3333,
+   "narrow": 1,
+   "before": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": -0.045,
+    "pose3MainBladeVisibleMin": 0.257,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": 0.0,
+    "pose3MainTipInside": false
+   },
+   "after": {
+    "cutOn": 0,
+    "cutMargin": 0.044,
+    "pose1RightMargin": 0.02,
+    "pose3MainBladeVisibleMin": 1.0,
+    "pose3MainFistInside": true,
+    "pose2TipCrossesCentre": true,
+    "idleShift": -0.007,
+    "pose3MainTipInside": true
+   }
+  }
+ },
+ "fields": {
+  "cutOn": "sleeve-cut edge pixels inside the screen, summed over all timeline samples (0 = cut never visible)",
+  "cutMargin": "closest approach of a sleeve cut to the screen (view units, positive = outside)",
+  "pose1RightMargin": "min distance from pose 1 blade/fist to the right edge (negative = overflow)",
+  "pose3MainBladeVisibleMin": "min share of pose-3 blade pixels on screen during the main pose-3 window (active 0.6-1)",
+  "pose3MainFistInside": "pose-3 fist fully on screen during the main window",
+  "pose3MainTipInside": "pose-3 blade tip on screen during the whole main window",
+  "pose2TipCrossesCentre": "pose-2 blade tip crosses the screen centre",
+  "idleShift": "horizontal shift of the idle knife (view units)"
+ },
+ "gripX_4x3": {
+  "idle": {
+   "before": 0.321,
+   "after": 0.314
+  },
+  "pose1": {
+   "before": 0.476,
+   "after": 0.418
+  },
+  "pose2": {
+   "before": 0.096,
+   "after": 0.164
+  },
+  "pose3": {
+   "before": -0.484,
+   "after": -0.225
+  }
+ },
+ "timelineSamples": 37
+}

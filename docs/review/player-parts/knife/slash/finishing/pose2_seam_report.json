@@ -1,0 +1,96 @@
+{
+ "seamDefinition": "x=1339 (y<1174) and y=1174 (x<1339) of knife_pose2_center_pass_extended.png, only where both sides are opaque",
+ "seamPixelsInImage": 566,
+ "videos": {
+  "video_realtime_1024x768": {
+   "pose2Frames": 4,
+   "seamVisibleFrames": 1,
+   "seamVisibleSeconds": 0.0167,
+   "seamFirstT": 0.1833,
+   "seamLastT": 0.1833,
+   "seamMaxPx": 58,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    947
+   ],
+   "peakFrame": 24
+  },
+  "video_realtime_1280x720": {
+   "pose2Frames": 4,
+   "seamVisibleFrames": 3,
+   "seamVisibleSeconds": 0.05,
+   "seamFirstT": 0.15,
+   "seamLastT": 0.1833,
+   "seamMaxPx": 117,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    1006
+   ],
+   "peakFrame": 22
+  },
+  "video_realtime_1310x602": {
+   "pose2Frames": 4,
+   "seamVisibleFrames": 4,
+   "seamVisibleSeconds": 0.0667,
+   "seamFirstT": 0.1333,
+   "seamLastT": 0.1833,
+   "seamMaxPx": 177,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    1066
+   ],
+   "peakFrame": 21
+  },
+  "video_slow8x_1024x768": {
+   "pose2Frames": 35,
+   "seamVisibleFrames": 9,
+   "seamVisibleSeconds": 0.0187,
+   "seamFirstT": 0.175,
+   "seamLastT": 0.1917,
+   "seamMaxPx": 63,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    955
+   ],
+   "peakFrame": 126
+  },
+  "video_slow8x_1280x720": {
+   "pose2Frames": 35,
+   "seamVisibleFrames": 25,
+   "seamVisibleSeconds": 0.0521,
+   "seamFirstT": 0.1417,
+   "seamLastT": 0.1917,
+   "seamMaxPx": 144,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    1033
+   ],
+   "peakFrame": 109
+  },
+  "video_slow8x_1310x602": {
+   "pose2Frames": 35,
+   "seamVisibleFrames": 30,
+   "seamVisibleSeconds": 0.0625,
+   "seamFirstT": 0.1313,
+   "seamLastT": 0.1917,
+   "seamMaxPx": 177,
+   "seamImgRange": [
+    1339,
+    890,
+    1339,
+    1066
+   ],
+   "peakFrame": 105
+  }
+ }
+}

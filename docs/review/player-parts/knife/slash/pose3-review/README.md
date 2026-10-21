@@ -70,3 +70,8 @@
 - `compare_original_vs_opaque.png`：元画像と2値化した派生の比較
 
 ポーズ2の袖の継ぎ目（既知、`../pose2-review/extended/README.md`）は、今回の確認とは別の課題。
+
+## 補足（2026-10-22）
+
+- 上の「半透明」の数値の内訳と、2値化で穴が開かないことの確認は、`../finishing/README.md` の4章にある。
+- グローブの色の修正と、4:3の配置の調整も、`../finishing/README.md` にある。

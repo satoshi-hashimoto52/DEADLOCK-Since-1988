@@ -1,0 +1,42 @@
+{
+  "note": "Glove mask of the knife pose3 candidate for the colour fix only (read by Tools/pixelart/make_image_regions.py). Cells are separated by the outlines; only glove-coloured cells inside the hand area. Not a game skin definition.",
+  "base": "Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png",
+  "outDir": "docs/review/player-parts/knife/slash/glove-fix",
+  "maskDir": "masks",
+  "maskFile": "knife_pose3_follow_through_{mask}.png",
+  "skinRegionsFile": "masks/knife_pose3_follow_through_glove_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "glove": {
+      "hue": [
+        12,
+        35
+      ],
+      "satMin": 0.35,
+      "why": "brown leather glove"
+    }
+  },
+  "areas": {
+    "hand": {
+      "rect": [
+        470,
+        330,
+        810,
+        610
+      ],
+      "why": "fist and glove cuff (the blade, guard, wrist band and sleeve are outside the glove colour)"
+    }
+  },
+  "regions": {
+    "glove_body": {
+      "areas": [
+        "hand"
+      ],
+      "colours": [
+        "glove"
+      ],
+      "minShare": 0.5
+    }
+  }
+}
