@@ -25,6 +25,8 @@ namespace Deadlock.View
         [SerializeField] SpriteRenderer hipSprite;
         [SerializeField] SpriteRenderer adsSprite;
         [SerializeField] SpriteRenderer hipMuzzleFlash;
+        [Tooltip("Optional: the camera's sprint step motion; the hands move in step with it.")]
+        [SerializeField] CameraBob cameraBob;
         [SerializeField] SpriteRenderer adsMuzzleFlash;
 
         WeaponViewProfile profile;
@@ -101,6 +103,14 @@ namespace Deadlock.View
             float bobWeight = motor.IsGrounded ? Mathf.Clamp01(planarSpeed / Mathf.Max(0.01f, motor.WalkSpeed)) : 0f;
             bobPhase += dt * p.bobFrequency * Mathf.PI * 2f * Mathf.Max(0.2f, bobWeight) * (motor.IsSprinting ? 1.35f : 1f);
             Vector2 bob = new Vector2(Mathf.Cos(bobPhase), -Mathf.Abs(Mathf.Sin(bobPhase))) * (p.bobAmount * bobWeight * Mathf.Lerp(1f, 0.1f, t));
+            if (cameraBob != null && cameraBob.Blend > 0f)
+            {
+                // Sprint: the hands dip a little after the camera (heavier), and the walk bob gives way to it.
+                float k = cameraBob.Blend * (1f - t);
+                float down = 0.5f - 0.5f * Mathf.Cos((cameraBob.StepPhase - 0.08f) * 2f * Mathf.PI);
+                float side = Mathf.Sin(cameraBob.StepPhase * Mathf.PI) * cameraBob.Side;
+                bob = bob * (1f - 0.6f * cameraBob.Blend) + new Vector2(side * p.sprintBob.y, -down * p.sprintBob.x) * k;
+            }
 
             // Fire: pushed down/back toward the player, then springs back.
             kick = Mathf.MoveTowards(kick, 0f, p.kickRecoverSpeed * dt);

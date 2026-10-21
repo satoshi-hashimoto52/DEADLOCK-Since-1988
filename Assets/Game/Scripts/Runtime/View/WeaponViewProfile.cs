@@ -44,6 +44,8 @@ namespace Deadlock.View
 
         [Header("Feel")]
         public float bobAmount = 0.006f;
+        [Tooltip("Extra hand bob in step with the camera while sprinting (CameraBob): lowest point and side sway, view units. 0 = none.")]
+        public Vector2 sprintBob = Vector2.zero;
         public float bobFrequency = 1.8f;
         [Tooltip("Fire kick: the weapon is pushed down/back toward the player.")]
         public Vector2 kickOffset = new Vector2(0.008f, -0.022f);

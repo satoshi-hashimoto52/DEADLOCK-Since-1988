@@ -27,6 +27,7 @@ MonoBehaviour:
   crossfadeStart: 0.45
   crossfadeEnd: 0.62
   bobAmount: 0.006
+  sprintBob: {x: 0.03, y: 0.014}
   bobFrequency: 1.8
   kickOffset: {x: 0.008, y: -0.022}
   kickRollDegrees: -2.5

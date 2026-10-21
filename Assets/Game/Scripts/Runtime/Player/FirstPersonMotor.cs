@@ -44,6 +44,7 @@ namespace Deadlock.Player
         /// <summary>Measured horizontal speed of the last frame (what actually moved, after collisions).</summary>
         public float PlanarSpeed { get; private set; }
         public float WalkSpeed => walkSpeed;
+        public float SprintSpeed => sprintSpeed;
         public float Yaw => yaw;
         public float Pitch => pitch;
 

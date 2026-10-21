@@ -476,6 +476,12 @@ namespace Deadlock.Editor
             vmData.renderShadows = false;
             camData.cameraStack.Add(vmCam);
 
+            // Sprint step motion of the camera (visual only, local camera).
+            var cameraBob = camGo.AddComponent<CameraBob>();
+            Set(cameraBob, "motor", motor);
+            Set(cameraBob, "posture", posture);
+            Set(cameraBob, "gun", gun);
+
             var view = BuildWeaponView(vmGo.transform, viewModelLayer);
             var viewModel = view.AddComponent<WeaponViewModel>();
             Set(viewModel, "gun", gun);
@@ -484,6 +490,7 @@ namespace Deadlock.Editor
             Set(viewModel, "hipSprite", view.transform.Find("Hip").GetComponent<SpriteRenderer>());
             Set(viewModel, "adsSprite", view.transform.Find("Ads").GetComponent<SpriteRenderer>());
             Set(viewModel, "hipMuzzleFlash", view.transform.Find("Hip/MuzzleFlash").GetComponent<SpriteRenderer>());
+            Set(viewModel, "cameraBob", cameraBob);
             Set(viewModel, "adsMuzzleFlash", view.transform.Find("Ads/MuzzleFlash").GetComponent<SpriteRenderer>());
 
             Set(motor, "input", router);
@@ -519,6 +526,7 @@ namespace Deadlock.Editor
             Set(meleeView, "motor", motor);
             Set(meleeView, "worldCamera", cam);
             Set(meleeView, "sprite", knifeSprite.GetComponent<SpriteRenderer>());
+            Set(meleeView, "cameraBob", camGo.GetComponent<CameraBob>());
 
             var rig = root.AddComponent<PlayerRig>();
             Set(rig, "input", router);

@@ -239,6 +239,11 @@ ADS（2026-10-21）：`Assets/Game/Art/Weapons/Rifle/Layers/ADS/`（`rifle_ads_w
 - 確認資料：`docs/review/player-parts/knife/candidate/README.md`。初回の構図ガイドは `docs/review/player-parts/knife/README.md`（`Tools/pixelart/make_knife_guide.py`）。
 - 分離：`Assets/Game/Art/Weapons/Knife/Layers/`（`knife_layers.definition.json`）。小さな欠片の閾値はドットの大きさに合わせる（このナイフは1ドット約5画素で25）。迷彩の縞の中に塗られた明るい欠片は形で迷彩へ移す（`sleeveCamo.enclosedBaseMaxPixels`）。
 
+#### 近接攻撃の弧の動き・ダッシュの揺れ（2026-10-21）
+
+- 近接の表示プロファイル（`MeleeViewProfile`）は、命中時間帯の動きを弧（`useStrikeArc`：振りかぶり → `strikeMidOffset`/`strikeMidRoll` → 振り抜き）と速度曲線（`strikeEaseOutPower`）にできる。画像ごとに配置ファイルの `motionOverrides` で指定する（真偽値は `[1]`／`[0]`）。動きを変えたら、袖の切り口が全段階で画面に出ないことを確認する（`docs/review/player-parts/knife/slash/README.md` の計算方法）。
+- ダッシュの揺れは `CameraBob`（ワールドのカメラ、シーン生成で追加）と、表示プロファイルの `sprintBob`（手元）で調整する。値は `CameraBob` の `stepDrop`・`sideSway`・`stepsPerSecond`・フェードの速さ。
+
 #### 次の武器（SMG）を追加する手順
 
 今回は文書のみ（SMGの画像・性能・装備選択UIは未作成。未完成の定義は登録リストに入れない）。

@@ -18,6 +18,8 @@ namespace Deadlock.View
         [SerializeField] FirstPersonMotor motor;
         [SerializeField] Camera worldCamera;
         [SerializeField] SpriteRenderer sprite;
+        [Tooltip("Optional: the camera's sprint step motion; the hand moves in step with it.")]
+        [SerializeField] CameraBob cameraBob;
 
         MeleeViewProfile profile;
         float bobPhase;
@@ -79,6 +81,12 @@ namespace Deadlock.View
             float bobWeight = motor.IsGrounded ? Mathf.Clamp01(new Vector2(v.x, v.z).magnitude / Mathf.Max(0.01f, motor.WalkSpeed)) : 0f;
             bobPhase += Time.deltaTime * Mathf.PI * 2f * 1.8f * Mathf.Max(0.2f, bobWeight);
             Vector2 bob = new Vector2(Mathf.Cos(bobPhase), -Mathf.Abs(Mathf.Sin(bobPhase))) * (p.bobAmount * bobWeight);
+            if (cameraBob != null && cameraBob.Blend > 0f)
+            {
+                float down = 0.5f - 0.5f * Mathf.Cos((cameraBob.StepPhase - 0.08f) * 2f * Mathf.PI);
+                float side = Mathf.Sin(cameraBob.StepPhase * Mathf.PI) * cameraBob.Side;
+                bob = bob * (1f - 0.6f * cameraBob.Blend) + new Vector2(side * p.sprintBob.y, -down * p.sprintBob.x) * cameraBob.Blend;
+            }
 
             Vector2 position = rest + offset + bob + new Vector2(0f, -p.lowered * (1f - Ease(presence)));
             sprite.transform.localPosition = new Vector3(position.x, position.y, 1f);

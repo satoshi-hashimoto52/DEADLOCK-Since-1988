@@ -40,5 +40,7 @@ namespace Deadlock.View
         [Tooltip("How far below rest the knife starts when drawn.")]
         public float lowered = 0.35f;
         public float bobAmount = 0.008f;
+        [Tooltip("Extra hand bob in step with the camera while sprinting (CameraBob): lowest point and side sway, view units. 0 = none.")]
+        public Vector2 sprintBob = Vector2.zero;
     }
 }

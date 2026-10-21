@@ -21,5 +21,10 @@ MonoBehaviour:
   strikeOffset: {x: -0.46, y: 0.12}
   strikeRoll: 60
   strikeScale: 1.2
+  useStrikeArc: 0
+  strikeMidOffset: {x: 0, y: 0}
+  strikeMidRoll: 0
+  strikeEaseOutPower: 0
   lowered: 0.35
   bobAmount: 0.008
+  sprintBob: {x: 0.035, y: 0.016}
