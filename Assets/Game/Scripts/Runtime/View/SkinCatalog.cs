@@ -36,13 +36,17 @@ namespace Deadlock.View
         public SkinColour[] colours = Array.Empty<SkinColour>();
     }
 
-    /// <summary>The skins one weapon (by <c>weaponId</c>) offers besides its standard look.</summary>
+    /// <summary>The skins one weapon (by <c>weaponId</c>) offers besides its standard look, and its equipment-screen image.</summary>
     [Serializable]
     public sealed class WeaponSkinSet
     {
         public string weaponId;
         public string label;
         public WeaponSkin[] skins = Array.Empty<WeaponSkin>();
+        [Tooltip("Equipment screen: side view of the whole weapon (written by the scene builder; empty = none yet).")]
+        public Sprite sideView;
+        [Tooltip("Region map of the side view (same canvas). Empty = shown in its drawn colours.")]
+        public Texture2D sideViewRegions;
     }
 
     /// <summary>A player (hands / arms) skin: colours of the glove, wrist band and sleeve regions only; the same on every weapon.</summary>
@@ -70,6 +74,12 @@ namespace Deadlock.View
 
         [Tooltip("Sprite material with the skin shader (Deadlock/Skinned Sprite).")]
         public Material material;
+        [Tooltip("uGUI material with the skin shader (Deadlock/Skinned UI); each equipment-screen image uses its own instance.")]
+        public Material uiMaterial;
+        [Tooltip("Equipment screen: the standard player, full body, front (written by the scene builder; empty = none yet).")]
+        public Sprite playerFront;
+        [Tooltip("Region map of the player front view (same canvas): only the hand / arm regions the player skin uses.")]
+        public Texture2D playerFrontRegions;
         public WeaponSkinSet[] weapons = Array.Empty<WeaponSkinSet>();
         public PlayerSkin[] playerSkins = Array.Empty<PlayerSkin>();
 
@@ -113,7 +123,11 @@ namespace Deadlock.View
         /// z = 1 when the region is recoloured. A weapon skin only reaches weapon regions and the player skin only hand
         /// regions, so neither colour can leak onto the other.
         /// </summary>
-        public void FillColours(string weaponId, Vector4[] table)
+        public void FillColours(string weaponId, Vector4[] table) => FillColours(weaponId, true, table);
+
+        /// <param name="weaponId">The weapon whose skin applies, or null for none (the player front view).</param>
+        /// <param name="player">False: leave the player skin out (the weapon's equipment-screen image has no hands).</param>
+        public void FillColours(string weaponId, bool player, Vector4[] table)
         {
             Array.Clear(table, 0, table.Length);
             var weaponSkin = FindWeaponSkin(weaponId, SkinSelection.GetWeaponSkinId(weaponId));
@@ -121,7 +135,7 @@ namespace Deadlock.View
                 foreach (var c in weaponSkin.colours)
                     if (c != null && IsWeaponRegion(c.region))
                         table[(int)c.region] = new Vector4(c.hue / 360f, c.saturation, 1f, 0f);
-            var playerSkin = FindPlayerSkin(SkinSelection.PlayerSkinId);
+            var playerSkin = player ? FindPlayerSkin(SkinSelection.PlayerSkinId) : null;
             if (playerSkin != null)
                 foreach (var c in playerSkin.colours)
                     if (c != null && IsPlayerRegion(c.region))

@@ -1,0 +1,27 @@
+{
+  "note": "Hand-written skin region definition for the standard player front view (read by Tools/pixelart/make_image_regions.py). The image is shown whole (no part layers). Only the regions the current player skin uses are made: glove_body, wrist_band, sleeve_base / sleeve_camo, and only inside the two arm areas. The jacket torso, trousers, vest, helmet, boots and skin are not skin regions in this implementation (kept for a later full-body skin; not limited by this file). Cells are separated by the art's outlines, so the same olive on the sleeve, the jacket and the trousers is told apart by the arm areas and the outlines, never by colour alone. Measured on this image: glove hue 20-25 deg / saturation 0.5-0.6, wrist band grey (saturation below 0.1), sleeve hue 40-45 deg / saturation 0.3-0.4; the sleeve cells (left x 202-393, right x 629-821, y 313-695) are closed by outlines. See docs/review/equipment-art/import-review/README.md.",
+  "base": "Assets/Game/Art/Player/Front/player_front_design_opaque.png",
+  "outDir": "Assets/Game/Art/Player/Front",
+  "maskDir": "Masks",
+  "maskFile": "player_front_{mask}.png",
+  "skinRegionsFile": "player_front_skin_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "glove": {"hue": [12, 35], "satMin": 0.35, "why": "brown leather glove"},
+    "band": {"satMax": 0.15, "lightMax": 0.5, "why": "dark grey wrist band"},
+    "olive": {"hue": [30, 60], "satMin": 0.15, "why": "olive camo sleeve (base and camo tones)"}
+  },
+  "areas": {
+    "left_arm": {"polygon": [[170, 280], [400, 280], [400, 470], [360, 470], [360, 560], [330, 560], [330, 700], [320, 700], [320, 900], [170, 900]], "why": "viewer's left arm: shoulder below the vest strap down to the glove; the inner edge stays outside the vest, its side panel and the belt pouch"},
+    "left_wrist": {"rect": [180, 660, 330, 750], "why": "wrist band height only: grey parts elsewhere on the arm area (vest buckles next to the shoulder) are not the band"},
+    "right_wrist": {"rect": [694, 660, 850, 750], "why": "wrist band height only (right)"},
+    "right_arm": {"polygon": [[624, 280], [854, 280], [854, 900], [704, 900], [704, 700], [694, 700], [694, 560], [664, 560], [664, 470], [624, 470]], "why": "viewer's right arm (mirror of the left around x 512)"}
+  },
+  "regions": {
+    "glove_body": {"areas": ["left_arm", "right_arm"], "colours": ["glove"], "minShare": 0.5},
+    "wrist_band": {"areas": ["left_wrist", "right_wrist"], "colours": ["band"], "minShare": 0.5},
+    "sleeve": {"areas": ["left_arm", "right_arm"], "colours": ["olive"], "minShare": 0.5,
+               "split": {"base": "sleeve_base", "camo": "sleeve_camo", "window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05, "speckleMaxPixels": 25}}
+  }
+}

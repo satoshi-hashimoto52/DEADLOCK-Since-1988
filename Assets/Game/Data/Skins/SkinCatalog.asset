@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: SkinCatalog
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.SkinCatalog
   material: {fileID: 2100000, guid: e3498a8805b6b4d8181150468e7a085c, type: 2}
+  uiMaterial: {fileID: 2100000, guid: 684c1e6afff304b3bbfb5188c646bac7, type: 2}
+  playerFront: {fileID: 21300000, guid: fdd7722bcbbce4bc798afdb0d9fc6d6b, type: 3}
+  playerFrontRegions: {fileID: 2800000, guid: 718f5870d147d4f988743b4d46497cc3, type: 3}
   weapons:
   - weaponId: proto_rifle
     label: "\u30E9\u30A4\u30D5\u30EB"
@@ -23,9 +26,13 @@ MonoBehaviour:
       - region: 1
         hue: 95
         saturation: 0.22
+    sideView: {fileID: 21300000, guid: 3de77b9c531784e668d8cc675258f27f, type: 3}
+    sideViewRegions: {fileID: 2800000, guid: c45ba4c1589a348ceb7b2f59cece529c, type: 3}
   - weaponId: proto_knife
     label: "\u30CA\u30A4\u30D5"
     skins: []
+    sideView: {fileID: 0}
+    sideViewRegions: {fileID: 0}
   playerSkins:
   - skinId: test_navy
     label: "\u8272\u9055\u3044\uFF08\u8A66\u4F5C\uFF09"

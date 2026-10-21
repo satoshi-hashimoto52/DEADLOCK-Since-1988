@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using Deadlock.Combat;
 using Deadlock.Input;
 using Deadlock.UI;
@@ -135,6 +136,133 @@ namespace Deadlock.Tests
             AssertStandard("reset");
             Assert.AreEqual(SkinCatalog.StandardId, SkinSelection.PlayerSkinId);
             Assert.AreEqual(SkinCatalog.StandardId, SkinSelection.GetWeaponSkinId("proto_rifle"));
+        }
+
+        static SkinnedImage Preview(string box)
+        {
+            var go = GameObject.Find(box + "/Image");
+            Assert.IsNotNull(go, $"{box}: preview image");
+            return go.GetComponent<SkinnedImage>();
+        }
+
+        static void AssertTable(SkinnedImage image, int region, float? hue, string why)
+        {
+            var c = image.Colours[region];
+            if (hue == null)
+                Assert.AreEqual(0f, c.z, $"{image.transform.parent.name} {(SkinRegion)region}: drawn colour ({why})");
+            else
+            {
+                Assert.AreEqual(1f, c.z, $"{image.transform.parent.name} {(SkinRegion)region}: recoloured ({why})");
+                Assert.AreEqual(hue.Value / 360f, c.x, 1e-4f, why);
+            }
+            var shown = image.Instance.GetVectorArray(SpriteSkin.ColoursId);
+            Assert.AreEqual(c, shown[region], $"{image.transform.parent.name}: the material draws this table");
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentScreen_PlayerAndRifle_SameChoiceAsFirstPerson_KeptAndReset_NoMaterialGrowth()
+        {
+            yield return Load();
+            menu.OpenSkinSettings();
+            yield return null;
+            var player = Preview("PlayerPreview");
+            var rifle = Preview("WeaponPreview");
+            foreach (var p in new[] { player, rifle })
+            {
+                var image = p.GetComponent<Image>();
+                Assert.IsNotNull(image.sprite, $"{p.transform.parent.name}: image");
+                Assert.IsTrue(image.preserveAspect, "aspect kept");
+                Assert.AreSame(p.Instance, image.material, "own material instance");
+                Assert.AreEqual("Deadlock/Skinned UI", p.Instance.shader.name);
+                foreach (var c in p.Colours)
+                    Assert.AreEqual(0f, c.z, "standard look");
+            }
+
+            // Rifle only: side view and first person change, the player does not.
+            yield return Choose("WeaponSkin_proto_rifle_test_green");
+            AssertTable(rifle, Weapon, 95f, "weapon skin");
+            AssertRegion(hip, Weapon, 95f, "same choice in the first-person view");
+            foreach (int r in new[] { Glove, Sleeve, Band, Weapon })
+                AssertTable(player, r, null, "rifle only");
+
+            // Hands / arms only: player front and first person change; the side view has no hands (player skin off).
+            yield return Choose("WeaponSkin_proto_rifle_standard");
+            yield return Choose("PlayerSkin_test_navy");
+            AssertTable(player, Glove, 215f, "player skin");
+            AssertTable(player, Sleeve, 210f, "player skin");
+            AssertTable(player, Weapon, null, "no weapon on the player image");
+            AssertTable(rifle, Weapon, null, "rifle standard");
+            AssertTable(rifle, Glove, null, "no hands on the side view");
+            AssertRegion(knife, Glove, 215f, "same choice in the first-person view");
+            AssertRegion(hip, Glove, 215f, "same choice in the first-person view");
+
+            // Open / close and recolour repeatedly: no new materials or textures.
+            int materials = Resources.FindObjectsOfTypeAll<Material>().Length;
+            int textures = Resources.FindObjectsOfTypeAll<Texture>().Length;
+            for (int i = 0; i < 16; i++)
+            {
+                menu.CloseSkinSettings();
+                menu.Close();
+                yield return null;
+                menu.OpenSkinSettings();
+                yield return null;
+                yield return Choose(i % 2 == 0 ? "WeaponSkin_proto_rifle_test_green" : "WeaponSkin_proto_rifle_standard");
+            }
+            Assert.AreEqual(materials, Resources.FindObjectsOfTypeAll<Material>().Length, "no material growth");
+            Assert.AreEqual(textures, Resources.FindObjectsOfTypeAll<Texture>().Length, "no texture growth");
+            AssertTable(rifle, Weapon, null, "last choice was standard");
+            yield return Choose("WeaponSkin_proto_rifle_test_green");
+
+            // Scene load (same saved choices as a restart): restored on the screen and in first person.
+            menu.CloseSkinSettings();
+            menu.Close();
+            yield return Load();
+            menu.OpenSkinSettings();
+            yield return null;
+            player = Preview("PlayerPreview");
+            rifle = Preview("WeaponPreview");
+            AssertTable(rifle, Weapon, 95f, "restored");
+            AssertTable(player, Glove, 215f, "restored");
+            AssertRegion(hip, Weapon, 95f, "restored");
+
+            yield return Choose("SkinResetButton");
+            foreach (var p in new[] { player, rifle })
+                foreach (var c in p.Colours)
+                    Assert.AreEqual(0f, c.z, "reset: standard on the equipment screen");
+            AssertStandard("reset: standard in first person");
+            Assert.AreEqual(SkinCatalog.StandardId, PlayerPrefs.GetString(SkinSelection.PlayerKey));
+            Assert.AreEqual(SkinCatalog.StandardId, PlayerPrefs.GetString(SkinSelection.WeaponKey("proto_rifle")));
+
+            // A change made elsewhere (not with the buttons) also updates the labels and the previews.
+            SkinSelection.PlayerSkinId = "test_navy";
+            yield return null;
+            StringAssert.Contains("色違い", GameObject.Find("PlayerSkinLabel").GetComponent<Text>().text, "label follows the saved choice");
+            AssertTable(player, Glove, 215f, "preview follows the saved choice");
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentScreen_Layout_InsideScreen_NoOverlap()
+        {
+            yield return Load();
+            menu.OpenSkinSettings();
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            Rect Screen(string path)
+            {
+                var rect = (RectTransform)GameObject.Find(path).transform;
+                var corners = new Vector3[4];
+                rect.GetWorldCorners(corners); // overlay canvas: world == screen pixels
+                return Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+            }
+            var screen = new Rect(0, 0, UnityEngine.Screen.width, UnityEngine.Screen.height);
+            var window = Screen("SkinSettingsPanel/SafeArea/Window");
+            Assert.IsTrue(screen.Contains(window.min) && screen.Contains(window.max), $"window {window} inside the screen {screen}");
+            var parts = new[] { "PlayerPreview", "WeaponPreview", "Choices" }.Select(n => (n, r: Screen(n))).ToArray();
+            foreach (var (n, r) in parts)
+                Assert.IsTrue(window.Contains(r.min) && window.Contains(r.max), $"{n} inside the window");
+            for (int i = 0; i < parts.Length; i++)
+                for (int j = i + 1; j < parts.Length; j++)
+                    Assert.IsFalse(parts[i].r.Overlaps(parts[j].r), $"{parts[i].n} and {parts[j].n} do not overlap");
         }
 
         [UnityTest]

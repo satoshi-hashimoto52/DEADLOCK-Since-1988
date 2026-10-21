@@ -1,0 +1,19 @@
+{
+  "note": "Hand-written skin region definition for the rifle side view (read by Tools/pixelart/make_image_regions.py). The image is shown whole (no part layers). Only the tan furniture is a skin region (weapon_body, same rule as the first-person hip / ADS weapon masks); the dark steel, sights, black magazine / grip, the red mark and line black keep their colour. See docs/review/equipment-art/import-review/README.md.",
+  "base": "Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/Rifle/Side",
+  "maskDir": "Masks",
+  "maskFile": "rifle_side_{mask}.png",
+  "skinRegionsFile": "rifle_side_skin_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "furniture": {"hue": [22, 45], "satMin": 0.25, "lightMin": 0.25, "why": "tan furniture (measured hue 30-35, saturation 0.3-0.8); the warm grey steel (saturation about 0.1) is not furniture"}
+  },
+  "areas": {
+    "all": {"rect": [0, 0, 1859, 845]}
+  },
+  "regions": {
+    "weapon_body": {"areas": ["all"], "colours": ["furniture"], "minShare": 0.5, "insideShare": 1.0, "pixelSeeds": []}
+  }
+}

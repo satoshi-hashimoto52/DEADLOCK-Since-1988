@@ -16,7 +16,7 @@ namespace Deadlock.UI
 
     /// <summary>
     /// In-game menu: a menu button that is always on screen (top centre, never covered by movable touch widgets),
-    /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout / Skins (test).
+    /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout / Equipment & skins (test).
     /// Opening it blocks the local player's input. Pausing the game is a separate, offline-only concern
     /// (<see cref="OfflineSessionPause"/>). Built at runtime; Tab opens / closes it on desktop.
     /// </summary>
@@ -53,6 +53,11 @@ namespace Deadlock.UI
         public event Action Closed;
 
         void Awake() => Build();
+
+        // The skin choice can change from elsewhere too (reset, another screen): the labels follow the saved choice.
+        void OnEnable() => SkinSelection.Changed += RefreshSkinSettings;
+
+        void OnDisable() => SkinSelection.Changed -= RefreshSkinSettings;
 
         // Other runtime UI (training HUD) is built in Awake too: keep the menu above all of it.
         void Start() => layer.SetAsLastSibling();
@@ -120,8 +125,10 @@ namespace Deadlock.UI
         }
 
         /// <summary>
-        /// Menu → Settings → Skins (test): the weapon skin of each weapon and the hand / arm skin are chosen separately,
-        /// applied at once and saved on this device. A test screen for the skin system, not the final equipment screen.
+        /// Menu → Settings → Equipment & skins (test): the player (front, full body) and the rifle (side view) shown with
+        /// the chosen skins, next to the choices. The weapon skin of each weapon and the hand / arm skin are chosen
+        /// separately, applied at once (here and in the first-person view) and saved on this device. The same screen as
+        /// the earlier skin test screen (one screen, one save), not the final equipment screen.
         /// </summary>
         public void OpenSkinSettings()
         {
@@ -153,31 +160,63 @@ namespace Deadlock.UI
         {
             skinPanel = UiBuild.Stretch(UiBuild.Rect("SkinSettingsPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)skinPanel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", skinPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1000f));
-            UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(840f, 60f)),
-                "設定 → スキン（テスト用）", 40, TextAnchor.MiddleCenter);
-            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(880f, 64f)),
+            // Inside the safe area (notch / home indicator); the window fits 4:3 (1440 x 1080) and iPhone safe areas.
+            var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", skinPanel.transform));
+            safe.gameObject.AddComponent<SafeAreaFitter>();
+            var window = UiBuild.Place(UiBuild.Rect("Window", safe), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1392f, 1000f));
+            UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 1f), true); // opaque: the touch controls behind do not show through the previews
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(1300f, 52f)),
+                "設定 → 装備・スキン（テスト用）", 38, TextAnchor.MiddleCenter);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(1300f, 34f)),
                 "見た目だけが変わります（性能・判定・操作は変わりません）。武器と手・腕は別々に選べ、この端末に保存されます", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
 
-            float y = -170f;
+            // Previews: separate images (the player does not hold the rifle), aspect kept, whole image visible.
+            RectTransform Preview(string name, string caption, Vector2 position, Vector2 size, Sprite sprite, Texture2D regions, string weaponId, bool player)
+            {
+                var box = UiBuild.Place(UiBuild.Rect(name, window), new Vector2(0f, 1f), position, size);
+                UiBuild.Image(box, new Color(0.16f, 0.17f, 0.21f, 1f), false);
+                UiBuild.Text(UiBuild.Place(UiBuild.Rect("Caption", box), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(size.x - 20f, 32f)),
+                    sprite != null ? caption : caption + "（画像なし）", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+                if (sprite == null)
+                    return box;
+                var art = UiBuild.Rect("Image", box);
+                art.anchorMin = Vector2.zero;
+                art.anchorMax = Vector2.one;
+                art.offsetMin = new Vector2(12f, 12f);
+                art.offsetMax = new Vector2(-12f, -44f);
+                art.gameObject.AddComponent<Image>();
+                art.gameObject.AddComponent<SkinnedImage>().Init(skins, sprite, regions, weaponId, player);
+                return box;
+            }
+
+            var weaponIds = new System.Collections.Generic.List<string>();
+            WeaponSkinSet shown = null;
+            foreach (var set in skins.weapons)
+                if (set != null && !string.IsNullOrEmpty(set.weaponId) && set.sideView != null && shown == null)
+                    shown = set;
+            Preview("PlayerPreview", "プレイヤー（正面）", new Vector2(24f, -116f), new Vector2(520f, 860f), skins.playerFront, skins.playerFrontRegions, null, true);
+            Preview("WeaponPreview", shown != null ? $"{shown.label}（横）" : "武器（横）", new Vector2(568f, -116f), new Vector2(800f, 400f),
+                shown?.sideView, shown?.sideViewRegions, shown?.weaponId, false);
+
+            // Choices (right column, below the weapon).
+            var choices = UiBuild.Place(UiBuild.Rect("Choices", window), new Vector2(0f, 1f), new Vector2(568f, -532f), new Vector2(800f, 444f));
+            float y = 0f;
             void Choices(string prefix, Func<string> current, (string id, string label)[] options, Action<string> choose)
             {
-                var label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "Label", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(900f, 40f)),
+                var label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "Label", choices), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(780f, 40f)),
                     "", 26, TextAnchor.MiddleCenter);
                 float width = 280f, gap = 20f;
                 float left = -(options.Length * width + (options.Length - 1) * gap) * 0.5f + width * 0.5f;
                 for (int i = 0; i < options.Length; i++)
                 {
                     string id = options[i].id;
-                    UiBuild.Button(window, $"{prefix}_{id}", options[i].label, new Vector2(0.5f, 1f), new Vector2(left + i * (width + gap), y - 50f), new Vector2(width, 70f),
+                    UiBuild.Button(choices, $"{prefix}_{id}", options[i].label, new Vector2(0.5f, 1f), new Vector2(left + i * (width + gap), y - 48f), new Vector2(width, 66f),
                         () => { choose(id); RefreshSkinSettings(); }, 26);
                 }
                 skinRefresh.Add(() => label.text = current());
-                y -= 150f;
+                y -= 136f;
             }
 
-            var weaponIds = new System.Collections.Generic.List<string>();
             var notes = new System.Collections.Generic.List<string>();
             foreach (var set in skins.weapons)
             {
@@ -202,12 +241,12 @@ namespace Deadlock.UI
             Choices("PlayerSkin", () => $"手・腕（全武器共通）　現在：{skins.PlayerSkinLabel(SkinSelection.PlayerSkinId)}", playerOptions.ToArray(),
                 id => SkinSelection.PlayerSkinId = id);
             if (notes.Count > 0)
-                UiBuild.Text(UiBuild.Place(UiBuild.Rect("SkinNotes", window), new Vector2(0.5f, 1f), new Vector2(0f, y + 40f), new Vector2(880f, 40f)),
+                UiBuild.Text(UiBuild.Place(UiBuild.Rect("SkinNotes", choices), new Vector2(0.5f, 1f), new Vector2(0f, y + 10f), new Vector2(780f, 34f)),
                     string.Join("　", notes), 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
             string[] ids = weaponIds.ToArray();
-            UiBuild.Button(window, "SkinResetButton", "すべて標準に戻す", new Vector2(0.5f, 0f), new Vector2(-170f, 24f), new Vector2(300f, 70f),
+            UiBuild.Button(choices, "SkinResetButton", "すべて標準に戻す", new Vector2(0.5f, 0f), new Vector2(-160f, 0f), new Vector2(300f, 70f),
                 () => { SkinSelection.ResetToStandard(ids); RefreshSkinSettings(); }, 28);
-            UiBuild.Button(window, "SkinBackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(170f, 24f), new Vector2(300f, 70f), CloseSkinSettings, 28);
+            UiBuild.Button(choices, "SkinBackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(160f, 0f), new Vector2(300f, 70f), CloseSkinSettings, 28);
             skinPanel.SetActive(false);
         }
 
@@ -329,7 +368,7 @@ namespace Deadlock.UI
                 UiBuild.Icon((RectTransform)window.Find("ControlSettingsButton"), icons.settings, new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(44f, 44f));
             Add("LayoutButton", "操作レイアウト", OpenLayoutEditor);
             if (skins != null)
-                Add("SkinButton", "スキン（テスト用）", OpenSkinSettings);
+                Add("SkinButton", "装備・スキン（テスト用）", OpenSkinSettings);
             panel.SetActive(false);
             BuildControlSettings();
             if (skins != null)

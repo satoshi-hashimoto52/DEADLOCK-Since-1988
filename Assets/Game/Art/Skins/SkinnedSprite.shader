@@ -3,6 +3,7 @@
 // _SkinColours (x = hue 0..1, y = saturation, z = 1 when recoloured). A recoloured pixel keeps its HLS lightness (the
 // drawn shading) and gets the entry's hue / saturation, computed on the sRGB value like Tools/pixelart/skin_preview.py.
 // Region 0 (line black, steel, unmasked) and entries with z = 0 keep the drawn colour exactly.
+// The colour maths is shared with Deadlock/Skinned UI (SkinColour.hlsl).
 Shader "Deadlock/Skinned Sprite"
 {
     Properties
@@ -30,7 +31,7 @@ Shader "Deadlock/Skinned Sprite"
         {
             HLSLPROGRAM
             #include "Packages/com.unity.render-pipelines.universal/Shaders/2D/Include/Core2D.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
+            #include "SkinColour.hlsl"
 
             #pragma vertex SkinVertex
             #pragma fragment SkinFragment
@@ -62,24 +63,6 @@ Shader "Deadlock/Skinned Sprite"
             SAMPLER(sampler_point_clamp);
             float4 _SkinColours[8];
 
-            float HueChannel(float m1, float m2, float h)
-            {
-                h = frac(h);
-                if (h < 1.0 / 6.0) return m1 + (m2 - m1) * h * 6.0;
-                if (h < 0.5) return m2;
-                if (h < 2.0 / 3.0) return m1 + (m2 - m1) * (2.0 / 3.0 - h) * 6.0;
-                return m1;
-            }
-
-            // Python colorsys.hls_to_rgb.
-            float3 HlsToRgb(float h, float l, float s)
-            {
-                if (s <= 0.0) return float3(l, l, l);
-                float m2 = l <= 0.5 ? l * (1.0 + s) : l + s - l * s;
-                float m1 = 2.0 * l - m2;
-                return float3(HueChannel(m1, m2, h + 1.0 / 3.0), HueChannel(m1, m2, h), HueChannel(m1, m2, h - 1.0 / 3.0));
-            }
-
             Varyings SkinVertex(Attributes input)
             {
                 UNITY_SKINNED_VERTEX_COMPUTE(input);
@@ -95,23 +78,7 @@ Shader "Deadlock/Skinned Sprite"
             {
                 float4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 float region = SAMPLE_TEXTURE2D(_SkinRegions, sampler_point_clamp, input.uv).r;
-                int index = clamp((int)floor(region * 255.0 / 32.0 + 0.5), 0, 7);
-                float4 skin = _SkinColours[index];
-                if (skin.z > 0.5)
-                {
-                #if UNITY_COLORSPACE_GAMMA
-                    float3 srgb = tex.rgb;
-                #else
-                    float3 srgb = LinearToSRGB(tex.rgb);
-                #endif
-                    float l = 0.5 * (max(srgb.r, max(srgb.g, srgb.b)) + min(srgb.r, min(srgb.g, srgb.b)));
-                    float3 rgb = HlsToRgb(skin.x, l, skin.y);
-                #if UNITY_COLORSPACE_GAMMA
-                    tex.rgb = rgb;
-                #else
-                    tex.rgb = SRGBToLinear(rgb);
-                #endif
-                }
+                tex.rgb = SkinRecolour(tex.rgb, _SkinColours[SkinRegionIndex(region)]);
                 return tex * input.color;
             }
             ENDHLSL

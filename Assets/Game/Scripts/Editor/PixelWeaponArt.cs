@@ -351,7 +351,7 @@ namespace Deadlock.Editor
                 problems.Add($"{label}: {file} needs '{field}' ({length} numbers)");
         }
 
-        static void Size(Texture2D texture, out int width, out int height)
+        internal static void Size(Texture2D texture, out int width, out int height)
         {
             var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(texture));
             importer.GetSourceTextureWidthAndHeight(out width, out height);
@@ -403,7 +403,7 @@ namespace Deadlock.Editor
         }
 
         /// <summary>Smallest import size limit that keeps the image at its own size (no downscaling).</summary>
-        static int MaxSize(int width, int height)
+        internal static int MaxSize(int width, int height)
         {
             int size = 32;
             while (size < Mathf.Max(width, height))
@@ -426,7 +426,7 @@ namespace Deadlock.Editor
         }
 
         /// <summary>Region map import: data (not colour), R8, point, no mip maps, clamped, never resized.</summary>
-        static Texture2D ConfigureSkinRegions(Texture2D regions)
+        internal static Texture2D ConfigureSkinRegions(Texture2D regions)
         {
             if (regions == null)
                 return null;
@@ -450,7 +450,7 @@ namespace Deadlock.Editor
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        static void Configure(string path, Vector2 pivot, float pixelsPerUnit, int maxSize = 1024)
+        internal static void Configure(string path, Vector2 pivot, float pixelsPerUnit, int maxSize = 1024)
         {
             AssetDatabase.ImportAsset(path);
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);

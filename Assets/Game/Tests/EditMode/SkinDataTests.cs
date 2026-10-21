@@ -86,6 +86,114 @@ namespace Deadlock.Tests
             }
         }
 
+        static SkinCatalog Catalog => AssetDatabase.LoadAssetAtPath<SkinCatalog>(SkinSetup.CatalogPath);
+
+        [Test]
+        public void EquipmentImages_Imported_AsCrispSprites_FullSize_WithRegionMaps()
+        {
+            var catalog = Catalog;
+            var rifle = catalog.weapons.Single(w => w.weaponId == "proto_rifle");
+            Assert.AreEqual("Deadlock/Skinned UI", catalog.uiMaterial.shader.name);
+            foreach (var (name, sprite, regions, path, w, h) in new[]
+                     {
+                         ("rifle side", rifle.sideView, rifle.sideViewRegions, SkinSetup.RifleSidePath, 1860, 846),
+                         ("player front", catalog.playerFront, catalog.playerFrontRegions, SkinSetup.PlayerFrontPath, 1024, 1536),
+                     })
+            {
+                Assert.IsNotNull(sprite, name);
+                Assert.AreEqual(path, AssetDatabase.GetAssetPath(sprite), $"{name}: the displayed derivative");
+                var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+                Assert.AreEqual(TextureImporterType.Sprite, importer.textureType, name);
+                Assert.AreEqual(FilterMode.Point, importer.filterMode, $"{name}: crisp pixels");
+                Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression, name);
+                Assert.IsFalse(importer.mipmapEnabled, name);
+                Assert.IsTrue(importer.alphaIsTransparency, name);
+                Assert.AreEqual((w, h), (sprite.texture.width, sprite.texture.height), $"{name}: not downscaled");
+                Assert.IsNotNull(regions, $"{name}: region map");
+                Assert.AreEqual(TextureFormat.R8, regions.format, name);
+                Assert.AreEqual((w, h), (regions.width, regions.height), $"{name}: region map on the same canvas");
+            }
+        }
+
+        [Test]
+        public void EquipmentDerivatives_ChangeOnlyAlpha_OriginalsKept()
+        {
+            foreach (var (original, derived) in new[]
+                     {
+                         ("Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png", SkinSetup.RifleSidePath),
+                         ("Assets/Game/Art/Player/Front/player_front_design.png", SkinSetup.PlayerFrontPath),
+                     })
+            {
+                var o = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>(original), out int ow, out int oh);
+                var d = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>(derived), out int dw, out int dh);
+                Assert.AreEqual((ow, oh), (dw, dh), derived);
+                int notBinary = 0, colourChanged = 0, wrongThreshold = 0;
+                for (int i = 0; i < d.Length; i++)
+                {
+                    if (d[i].a != 0 && d[i].a != 255)
+                        notBinary++;
+                    if (d[i].a == 255 && (o[i].r != d[i].r || o[i].g != d[i].g || o[i].b != d[i].b))
+                        colourChanged++;
+                    if ((o[i].a >= 128) != (d[i].a == 255))
+                        wrongThreshold++;
+                }
+                Assert.AreEqual(0, notBinary, $"{derived}: binary alpha");
+                Assert.AreEqual(0, colourChanged, $"{derived}: colours of the shown pixels kept");
+                Assert.AreEqual(0, wrongThreshold, $"{derived}: alpha threshold 128");
+            }
+        }
+
+        [Test]
+        public void EquipmentRegionMaps_RifleBodyOnly_PlayerHandsArmsOnly()
+        {
+            var catalog = Catalog;
+            var rifle = catalog.weapons.Single(w => w.weaponId == "proto_rifle");
+            var map = Pixels(rifle.sideViewRegions, out int rw, out _);
+            var art = Pixels(rifle.sideView.texture, out _, out _);
+            int body = 0, other = 0, onLine = 0;
+            for (int i = 0; i < map.Length; i++)
+            {
+                if (map[i].r == 0)
+                    continue;
+                if (map[i].r != 32)
+                    other++;
+                if (Mathf.Max(art[i].r, art[i].g, art[i].b) < 18)
+                    onLine++;
+                body++;
+            }
+            Assert.AreEqual(0, other, "rifle side view: only weapon_body");
+            Assert.AreEqual(0, onLine, "rifle side view: not on line black");
+            Assert.Greater(body, 0, "rifle furniture region present");
+
+            map = Pixels(catalog.playerFrontRegions, out int pw, out int ph);
+            art = Pixels(catalog.playerFront.texture, out _, out _);
+            var allowed = new[] { 2, 4, 5, 6 };
+            var counts = new Dictionary<int, int>();
+            int notAllowed = 0, torso = 0, headOrLegs = 0, transparentOrLine = 0;
+            for (int i = 0; i < map.Length; i++)
+            {
+                if (map[i].r == 0)
+                    continue;
+                int region = map[i].r / 32;
+                if (System.Array.IndexOf(allowed, region) < 0 || map[i].r % 32 != 0)
+                    notAllowed++;
+                int x = i % pw, yTop = ph - 1 - i / pw; // GetPixels32 rows start at the bottom
+                if (x >= 400 && x <= 624)
+                    torso++;
+                if (yTop < 280 || yTop > 900)
+                    headOrLegs++;
+                if (art[i].a < 128 || Mathf.Max(art[i].r, art[i].g, art[i].b) < 18)
+                    transparentOrLine++;
+                counts[region] = counts.GetValueOrDefault(region) + 1;
+            }
+            Assert.AreEqual(0, notAllowed, "player front: only the hand / arm regions of the player skin");
+            Assert.AreEqual(0, torso, "no skin region on the jacket torso / vest / trousers column");
+            Assert.AreEqual(0, headOrLegs, "no skin region on the head or the legs / boots");
+            Assert.AreEqual(0, transparentOrLine, "no skin region on transparent or line-black pixels");
+            foreach (int r in allowed)
+                Assert.Greater(counts.GetValueOrDefault(r), 0, $"player front region {(SkinRegion)r} present");
+        }
+
         [Test]
         public void Catalog_WeaponAndPlayerSkins_StayInTheirOwnRegions_UniqueIds_Material()
         {
