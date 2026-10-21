@@ -48,6 +48,8 @@ namespace Deadlock.View
                 return;
             skins.FillColours(melee.Definition.weaponId, skinColours);
             SpriteSkin.Apply(sprite, profile.skinRegions, skins, skinColours);
+            string id = melee.Definition.weaponId;
+            Debug.Log($"[DEADLOCK][skin] applied {id}: weapon={SkinSelection.GetWeaponSkinId(id)} player={SkinSelection.PlayerSkinId}");
         }
 
         void LateUpdate()

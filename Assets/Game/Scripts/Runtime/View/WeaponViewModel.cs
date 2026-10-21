@@ -77,6 +77,8 @@ namespace Deadlock.View
             skins.FillColours(gun.Definition.weaponId, skinColours);
             SpriteSkin.Apply(hipSprite, profile.hipSkinRegions, skins, skinColours);
             SpriteSkin.Apply(adsSprite, profile.adsSkinRegions, skins, skinColours);
+            string id = gun.Definition.weaponId;
+            Debug.Log($"[DEADLOCK][skin] applied {id}: weapon={SkinSelection.GetWeaponSkinId(id)} player={SkinSelection.PlayerSkinId}");
         }
 
         void OnFired()

@@ -72,6 +72,7 @@ namespace Deadlock.View
             {
                 PlayerPrefs.SetString(key, value);
                 PlayerPrefs.Save();
+                Debug.Log($"[DEADLOCK][skin] saved {key} = {value}");
             }
             catch (Exception e)
             {
