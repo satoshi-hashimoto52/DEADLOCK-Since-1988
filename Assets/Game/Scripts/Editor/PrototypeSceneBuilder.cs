@@ -43,6 +43,8 @@ namespace Deadlock.Editor
         static readonly Color SkyColor = new Color(0.16f, 0.17f, 0.21f);
         /// <summary>Control icons / logo for this build run (see <see cref="UiArtSetup"/>).</summary>
         static ControlIconSet uiIcons;
+        /// <summary>Skin catalog for this build run (see <see cref="SkinSetup"/>).</summary>
+        static SkinCatalog skinCatalog;
 
         [MenuItem("DEADLOCK/Prototype/Rebuild Firing Range")]
         public static void BuildFromMenu()
@@ -132,6 +134,7 @@ namespace Deadlock.Editor
             var menu = canvas.AddComponent<GameMenu>();
             Set(menu, "input", player.Input);
             Set(menu, "icons", uiIcons);
+            Set(menu, "skins", skinCatalog);
             if (session != null)
             {
                 Set(menu, "session", session);
@@ -168,6 +171,7 @@ namespace Deadlock.Editor
             EditorUtility.SetDirty(melee);
             // Registered art (guns and melee) last: it replaces the provisional profiles above.
             PixelWeaponArt.ImportRegistered();
+            skinCatalog = SkinSetup.Prepare();
             return (weapon, melee);
         }
 
@@ -492,6 +496,7 @@ namespace Deadlock.Editor
             Set(viewModel, "hipMuzzleFlash", view.transform.Find("Hip/MuzzleFlash").GetComponent<SpriteRenderer>());
             Set(viewModel, "cameraBob", cameraBob);
             Set(viewModel, "adsMuzzleFlash", view.transform.Find("Ads/MuzzleFlash").GetComponent<SpriteRenderer>());
+            Set(viewModel, "skins", skinCatalog);
 
             Set(motor, "input", router);
             Set(motor, "cameraPivot", pivot.transform);
@@ -527,6 +532,7 @@ namespace Deadlock.Editor
             Set(meleeView, "worldCamera", cam);
             Set(meleeView, "sprite", knifeSprite.GetComponent<SpriteRenderer>());
             Set(meleeView, "cameraBob", camGo.GetComponent<CameraBob>());
+            Set(meleeView, "skins", skinCatalog);
 
             var rig = root.AddComponent<PlayerRig>();
             Set(rig, "input", router);

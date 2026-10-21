@@ -21,6 +21,7 @@
     "glove": {"hue": [18, 27], "satMin": 0.40, "lightMax": 0.45},
     "tan": {"hue": [30, 40], "lightMin": 0.3}
   },
+  "weaponColours": {"furniture": {"hue": [22, 45], "satMin": 0.25, "lightMin": 0.25, "why": "tan furniture only: the warm grey steel of the sights (saturation about 0.1) is not furniture"}},
   "handColours": {"glove": ["glove"], "sleeve": ["sleeve"]},
   "hands": {
     "left": {"region": {"rect": [0, 470, 790, 887]}, "why": "left glove on the left side of the handguard, wrist band, sleeve to the bottom-left edge"},
@@ -32,6 +33,8 @@
   "pixelOverrides": [
     {"polygon": [[695, 700], [710, 688], [722, 688], [728, 698], [742, 722], [743, 746], [735, 746], [722, 725], [705, 716], [695, 712]], "part": "left", "why": "shadowed face of the wrist band (dark fill, max channel 30-45) below the glove: farther than outlineWidth from the band cell, so the distance rule gave it to the gun; it is the band's own face continuing down-right to its tip"}
   ],
+  "skinRegionsFile": "rifle_ads_skin_regions.png",
+  "weaponMasks": {"body": {"colours": ["furniture"], "minShare": 0.5, "pixelSeeds": [{"seed": [1000, 600], "why": "tan strip on the right side of the receiver, painted against the grey steel and the red selector mark with no outline between them (one cell, less than half tan): only its tan pixels"}], "why": "skin mask of the weapon body: the tan furniture (handguard, receiver, magazine well, stock); the black / grey steel, sights and the red selector marks stay as drawn"}},
   "sleeveCamo": {"window": 30, "sampleStep": 8, "lightPercentile": 0.85, "darkerBy": 0.05, "speckleMaxPixels": 16},
   "review": {
     "crop": [260, 360, 1320, 887],

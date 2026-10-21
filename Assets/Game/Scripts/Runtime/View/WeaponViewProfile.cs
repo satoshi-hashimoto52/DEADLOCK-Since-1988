@@ -21,6 +21,12 @@ namespace Deadlock.View
         [Tooltip("Muzzle flash sprite (optional; empty = the flash renderers keep the sprite the scene was built with).")]
         public Sprite muzzleFlashSprite;
 
+        [Header("Skins (imported)")]
+        [Tooltip("Region map of the hip image (same canvas, Tools/pixelart/make_skin_regions.py). Empty = the hip image keeps its drawn colours.")]
+        public Texture2D hipSkinRegions;
+        [Tooltip("Region map of the ADS image. Empty = the ADS image keeps its drawn colours.")]
+        public Texture2D adsSkinRegions;
+
         [Header("Hip pose (baked for 16:9)")]
         [Tooltip("Where the hip sprite pivot (muzzle) sits for a 16:9 screen.")]
         public Vector2 hipMuzzlePosition = new Vector2(0.06f, -0.12f);

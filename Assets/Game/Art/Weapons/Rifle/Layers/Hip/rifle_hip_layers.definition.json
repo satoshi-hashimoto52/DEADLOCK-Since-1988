@@ -21,6 +21,7 @@
     "brown": {"hue": [0, 30], "lightMax": 0.5},
     "tan": {"hue": [25, 55], "lightMin": 0.45}
   },
+  "weaponColours": {"furniture": {"hue": [22, 45], "satMin": 0.25, "lightMin": 0.25, "why": "tan furniture only: the warm grey steel of the sights (saturation about 0.1) is not furniture"}},
   "handColours": {"glove": ["brown"], "sleeve": ["olive"]},
   "hands": {
     "left": {"region": {"rect": [0, 490, 1120, 941]}, "why": "left glove on the handguard, wrist band, sleeve to the bottom-left edge"},
@@ -35,5 +36,7 @@
     {"seed": [950, 638], "part": "left", "tags": ["glove"], "why": "single edge pixel of the left glove next to the band"}
   ],
   "pixelOverrides": [],
+  "skinRegionsFile": "rifle_hip_skin_regions.png",
+  "weaponMasks": {"body": {"colours": ["furniture"], "minShare": 0.5, "why": "skin mask of the weapon body: the tan furniture (handguard, receiver, magazine well, stock); the black / grey steel, sights and the red selector marks stay as drawn"}},
   "sleeveCamo": {"window": 24, "sampleStep": 8, "lightPercentile": 0.8, "darkerBy": 0.07, "speckleMaxPixels": 16}
 }

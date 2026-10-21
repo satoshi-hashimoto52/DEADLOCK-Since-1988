@@ -20,7 +20,9 @@ MonoBehaviour:
     source: {fileID: 2800000, guid: ed5a7514fe0534fb0b16d12500e820ea, type: 3}
     image: {fileID: 2800000, guid: 3db74ef7c88534750a3c10e87253d17d, type: 3}
     placement: {fileID: 4900000, guid: b39e98cb27c1b45d7ab84221349f1a42, type: 3}
+    skinRegions: {fileID: 2800000, guid: 8bcbe3720a904f4dbae1073b5b791f37, type: 3}
   ads:
     source: {fileID: 2800000, guid: 0a56f8aa8bba446bb99de4754a50ad58, type: 3}
     image: {fileID: 2800000, guid: 304231e8302ff45e5ab9f355b0883675, type: 3}
     placement: {fileID: 4900000, guid: 8dc741535ddaf41358ef8b3ddd9c539f, type: 3}
+    skinRegions: {fileID: 2800000, guid: 59fecddfcdc84457b96faa50c806ff46, type: 3}

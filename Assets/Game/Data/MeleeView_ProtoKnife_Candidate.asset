@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: MeleeView_ProtoKnife_Candidate
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.MeleeViewProfile
   sprite: {fileID: 21300000, guid: 45b57c85a951d4c2c82e78268ea42f93, type: 3}
+  skinRegions: {fileID: 2800000, guid: 465244e947e84fd6b9e2016774608b7e, type: 3}
   gripPosition: {x: 0.42499995, y: -0.37499997}
   referenceAspect: 1.7777778
   rightEdgeFollow: 0.5

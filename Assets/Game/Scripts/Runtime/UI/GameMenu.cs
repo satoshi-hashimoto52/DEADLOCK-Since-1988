@@ -1,6 +1,7 @@
 using System;
 using Deadlock.Game;
 using Deadlock.Input;
+using Deadlock.View;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,7 +16,7 @@ namespace Deadlock.UI
 
     /// <summary>
     /// In-game menu: a menu button that is always on screen (top centre, never covered by movable touch widgets),
-    /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout.
+    /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout / Skins (test).
     /// Opening it blocks the local player's input. Pausing the game is a separate, offline-only concern
     /// (<see cref="OfflineSessionPause"/>). Built at runtime; Tab opens / closes it on desktop.
     /// </summary>
@@ -26,10 +27,14 @@ namespace Deadlock.UI
         [SerializeField] TrainingSession session;
         [Tooltip("Menu / settings icons and the title logo (falls back to text when unset).")]
         [SerializeField] ControlIconSet icons;
+        [Tooltip("Optional: skins offered on the test skin screen (no entry when unset).")]
+        [SerializeField] SkinCatalog skins;
 
         RectTransform layer;
         GameObject panel;
         GameObject controlsPanel;
+        GameObject skinPanel;
+        readonly System.Collections.Generic.List<Action> skinRefresh = new System.Collections.Generic.List<Action>();
         Text touchAdsText;
         Text desktopAdsText;
         Text dragAimText;
@@ -40,6 +45,7 @@ namespace Deadlock.UI
 
         public bool IsOpen { get; private set; }
         public bool IsControlSettingsOpen => controlsPanel != null && controlsPanel.activeSelf;
+        public bool IsSkinSettingsOpen => skinPanel != null && skinPanel.activeSelf;
         public bool IsEditingLayout => layoutEditor != null && layoutEditor.IsOpen;
         public Button MenuButton { get; private set; }
 
@@ -79,6 +85,8 @@ namespace Deadlock.UI
             IsOpen = false;
             panel.SetActive(false);
             controlsPanel.SetActive(false);
+            if (skinPanel != null)
+                skinPanel.SetActive(false);
             input.Unblock("menu");
             Closed?.Invoke();
         }
@@ -109,6 +117,98 @@ namespace Deadlock.UI
             controlsPanel.SetActive(false);
             if (IsOpen)
                 panel.SetActive(true);
+        }
+
+        /// <summary>
+        /// Menu → Settings → Skins (test): the weapon skin of each weapon and the hand / arm skin are chosen separately,
+        /// applied at once and saved on this device. A test screen for the skin system, not the final equipment screen.
+        /// </summary>
+        public void OpenSkinSettings()
+        {
+            if (skinPanel == null)
+                return;
+            if (!IsOpen)
+                Open();
+            panel.SetActive(false);
+            RefreshSkinSettings();
+            skinPanel.SetActive(true);
+        }
+
+        public void CloseSkinSettings()
+        {
+            if (skinPanel == null)
+                return;
+            skinPanel.SetActive(false);
+            if (IsOpen)
+                panel.SetActive(true);
+        }
+
+        void RefreshSkinSettings()
+        {
+            foreach (var refresh in skinRefresh)
+                refresh();
+        }
+
+        void BuildSkinSettings()
+        {
+            skinPanel = UiBuild.Stretch(UiBuild.Rect("SkinSettingsPanel", layer)).gameObject;
+            UiBuild.Image((RectTransform)skinPanel.transform, new Color(0f, 0f, 0f, 0.6f), true);
+            var window = UiBuild.Place(UiBuild.Rect("Window", skinPanel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960f, 1000f));
+            UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(840f, 60f)),
+                "設定 → スキン（テスト用）", 40, TextAnchor.MiddleCenter);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(880f, 64f)),
+                "見た目だけが変わります（性能・判定・操作は変わりません）。武器と手・腕は別々に選べ、この端末に保存されます", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+
+            float y = -170f;
+            void Choices(string prefix, Func<string> current, (string id, string label)[] options, Action<string> choose)
+            {
+                var label = UiBuild.Text(UiBuild.Place(UiBuild.Rect(prefix + "Label", window), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(900f, 40f)),
+                    "", 26, TextAnchor.MiddleCenter);
+                float width = 280f, gap = 20f;
+                float left = -(options.Length * width + (options.Length - 1) * gap) * 0.5f + width * 0.5f;
+                for (int i = 0; i < options.Length; i++)
+                {
+                    string id = options[i].id;
+                    UiBuild.Button(window, $"{prefix}_{id}", options[i].label, new Vector2(0.5f, 1f), new Vector2(left + i * (width + gap), y - 50f), new Vector2(width, 70f),
+                        () => { choose(id); RefreshSkinSettings(); }, 26);
+                }
+                skinRefresh.Add(() => label.text = current());
+                y -= 150f;
+            }
+
+            var weaponIds = new System.Collections.Generic.List<string>();
+            var notes = new System.Collections.Generic.List<string>();
+            foreach (var set in skins.weapons)
+            {
+                if (set == null || string.IsNullOrEmpty(set.weaponId))
+                    continue;
+                weaponIds.Add(set.weaponId);
+                if (set.skins.Length == 0)
+                {
+                    notes.Add($"{set.label}：標準のみ（本体の色替えは未対応）");
+                    continue;
+                }
+                var options = new System.Collections.Generic.List<(string, string)> { (SkinCatalog.StandardId, SkinCatalog.StandardLabel) };
+                foreach (var skin in set.skins)
+                    options.Add((skin.skinId, skin.label));
+                string weaponId = set.weaponId, weaponLabel = set.label;
+                Choices("WeaponSkin_" + weaponId, () => $"武器：{weaponLabel}　現在：{skins.WeaponSkinLabel(weaponId, SkinSelection.GetWeaponSkinId(weaponId))}",
+                    options.ToArray(), id => SkinSelection.SetWeaponSkinId(weaponId, id));
+            }
+            var playerOptions = new System.Collections.Generic.List<(string, string)> { (SkinCatalog.StandardId, SkinCatalog.StandardLabel) };
+            foreach (var skin in skins.playerSkins)
+                playerOptions.Add((skin.skinId, skin.label));
+            Choices("PlayerSkin", () => $"手・腕（全武器共通）　現在：{skins.PlayerSkinLabel(SkinSelection.PlayerSkinId)}", playerOptions.ToArray(),
+                id => SkinSelection.PlayerSkinId = id);
+            if (notes.Count > 0)
+                UiBuild.Text(UiBuild.Place(UiBuild.Rect("SkinNotes", window), new Vector2(0.5f, 1f), new Vector2(0f, y + 40f), new Vector2(880f, 40f)),
+                    string.Join("　", notes), 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
+            string[] ids = weaponIds.ToArray();
+            UiBuild.Button(window, "SkinResetButton", "すべて標準に戻す", new Vector2(0.5f, 0f), new Vector2(-170f, 24f), new Vector2(300f, 70f),
+                () => { SkinSelection.ResetToStandard(ids); RefreshSkinSettings(); }, 28);
+            UiBuild.Button(window, "SkinBackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(170f, 24f), new Vector2(300f, 70f), CloseSkinSettings, 28);
+            skinPanel.SetActive(false);
         }
 
         void SetAdsMode(InputMode mode, AdsMode value)
@@ -228,8 +328,12 @@ namespace Deadlock.UI
             if (icons != null && icons.settings != null)
                 UiBuild.Icon((RectTransform)window.Find("ControlSettingsButton"), icons.settings, new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(44f, 44f));
             Add("LayoutButton", "操作レイアウト", OpenLayoutEditor);
+            if (skins != null)
+                Add("SkinButton", "スキン（テスト用）", OpenSkinSettings);
             panel.SetActive(false);
             BuildControlSettings();
+            if (skins != null)
+                BuildSkinSettings();
 
             layoutEditor = gameObject.AddComponent<TouchLayoutEditor>();
             layoutEditor.Init(input, (RectTransform)transform);

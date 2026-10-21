@@ -16,6 +16,8 @@ MonoBehaviour:
   adsSprite: {fileID: 21300000, guid: 234856d5625b949bba986d26fc4c92c7, type: 3}
   adsMuzzleOffset: {x: 0, y: -0.08955224}
   muzzleFlashSprite: {fileID: 0}
+  hipSkinRegions: {fileID: 0}
+  adsSkinRegions: {fileID: 0}
   hipMuzzlePosition: {x: 0.09912212, y: -0.081582755}
   referenceAspect: 1.7777778
   hipRightEdgeFollow: 0.3

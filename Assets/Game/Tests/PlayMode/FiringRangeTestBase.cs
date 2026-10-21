@@ -2,6 +2,7 @@ using System.Collections;
 using Deadlock.Combat;
 using Deadlock.Input;
 using Deadlock.Player;
+using Deadlock.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -34,6 +35,15 @@ namespace Deadlock.Tests
             ControlSettings.TouchAdsKey, ControlSettings.DesktopAdsKey, ControlSettings.TouchAdsDragAimKey, ControlSettings.TouchFireModeKey,
             ControlSettings.TouchTransparencyKey,
         };
+        protected static readonly string[] SkinWeaponIds = { "proto_rifle", "proto_knife" };
+        readonly System.Collections.Generic.Dictionary<string, string> savedSkins = new System.Collections.Generic.Dictionary<string, string>();
+
+        static System.Collections.Generic.IEnumerable<string> SkinKeys()
+        {
+            yield return SkinSelection.PlayerKey;
+            foreach (var id in SkinWeaponIds)
+                yield return SkinSelection.WeaponKey(id);
+        }
 
         // Tests run against the default touch layout; a layout the user saved in the Editor is put back afterwards.
         public override void Setup()
@@ -49,6 +59,12 @@ namespace Deadlock.Tests
                 if (PlayerPrefs.HasKey(key))
                     savedControls[key] = PlayerPrefs.GetInt(key);
             ControlSettings.ClearSaved();
+            // Skins likewise start from the standard look.
+            savedSkins.Clear();
+            foreach (var key in SkinKeys())
+                if (PlayerPrefs.HasKey(key))
+                    savedSkins[key] = PlayerPrefs.GetString(key);
+            SkinSelection.ClearSaved(SkinWeaponIds);
             Time.timeScale = 1f;
         }
 
@@ -62,6 +78,9 @@ namespace Deadlock.Tests
             ControlSettings.ClearSaved();
             foreach (var pair in savedControls)
                 PlayerPrefs.SetInt(pair.Key, pair.Value);
+            SkinSelection.ClearSaved(SkinWeaponIds);
+            foreach (var pair in savedSkins)
+                PlayerPrefs.SetString(pair.Key, pair.Value);
             base.TearDown();
         }
 

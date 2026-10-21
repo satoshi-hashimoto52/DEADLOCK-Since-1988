@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2af57db850b040039bc1fada788a0f9, type: 3}
+  m_Name: SkinCatalog
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.SkinCatalog
+  material: {fileID: 2100000, guid: e3498a8805b6b4d8181150468e7a085c, type: 2}
+  weapons:
+  - weaponId: proto_rifle
+    label: "\u30E9\u30A4\u30D5\u30EB"
+    skins:
+    - skinId: test_green
+      label: "\u8272\u9055\u3044\uFF08\u8A66\u4F5C\uFF09"
+      colours:
+      - region: 1
+        hue: 95
+        saturation: 0.22
+  - weaponId: proto_knife
+    label: "\u30CA\u30A4\u30D5"
+    skins: []
+  playerSkins:
+  - skinId: test_navy
+    label: "\u8272\u9055\u3044\uFF08\u8A66\u4F5C\uFF09"
+    colours:
+    - region: 2
+      hue: 215
+      saturation: 0.18
+    - region: 5
+      hue: 210
+      saturation: 0.12
+    - region: 6
+      hue: 215
+      saturation: 0.22

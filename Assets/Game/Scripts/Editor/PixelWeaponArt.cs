@@ -18,6 +18,8 @@ namespace Deadlock.Editor
     /// - The provisional pixel set (pixel_weapons.json, Tools/pixelart/draw_weapons.py): the knife (and the shared
     ///   muzzle flash sprite); <see cref="PrepareKnife"/>.
     /// Sprites: Point filter (crisp pixels), uncompressed, no mip maps, clamped, never downscaled.
+    /// Optional skin region maps (one per image, same canvas) are imported as linear 8-bit (R8) data textures, point
+    /// sampled and never resized, and written into the view profile next to their image.
     /// </summary>
     public static class PixelWeaponArt
     {
@@ -233,6 +235,8 @@ namespace Deadlock.Editor
                     view.muzzleFlashSprite = d.muzzleFlash;
                 ApplyHip(view, d.hip.image, hips[d]);
                 ApplyAds(view, d.ads.image, adss[d]);
+                view.hipSkinRegions = ConfigureSkinRegions(d.hip.skinRegions);
+                view.adsSkinRegions = ConfigureSkinRegions(d.ads.skinRegions);
                 EditorUtility.SetDirty(view);
                 d.weapon.viewProfile = view;
                 EditorUtility.SetDirty(d.weapon);
@@ -253,6 +257,7 @@ namespace Deadlock.Editor
                     view.name = Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(view));
                 }
                 ApplyMelee(view, d.art.image, meleePlaces[d]);
+                view.skinRegions = ConfigureSkinRegions(d.art.skinRegions);
                 EditorUtility.SetDirty(view);
                 d.melee.viewProfile = view;
                 EditorUtility.SetDirty(d.melee);
@@ -316,6 +321,13 @@ namespace Deadlock.Editor
                 Size(art.image, out int iw, out int ih);
                 if (sw != iw || sh != ih)
                     problems.Add($"{label}: '{slot}.image' {AssetDatabase.GetAssetPath(art.image)} is {iw}x{ih} but its source {AssetDatabase.GetAssetPath(art.source)} is {sw}x{sh}");
+            }
+            if (art.skinRegions != null)
+            {
+                Size(art.skinRegions, out int rw, out int rh);
+                Size(art.image, out int iw, out int ih);
+                if (rw != iw || rh != ih)
+                    problems.Add($"{label}: '{slot}.skinRegions' {AssetDatabase.GetAssetPath(art.skinRegions)} is {rw}x{rh} but the image is {iw}x{ih}");
             }
             return art.placement != null && art.source != null ? art.image : null;
         }
@@ -411,6 +423,31 @@ namespace Deadlock.Editor
                 EditorUtility.CopySerialized(source, asset);
             asset.name = Path.GetFileNameWithoutExtension(path);
             return asset;
+        }
+
+        /// <summary>Region map import: data (not colour), R8, point, no mip maps, clamped, never resized.</summary>
+        static Texture2D ConfigureSkinRegions(Texture2D regions)
+        {
+            if (regions == null)
+                return null;
+            string path = AssetDatabase.GetAssetPath(regions);
+            Size(regions, out int width, out int height);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = TextureImporterType.SingleChannel; // R8
+            var channel = new TextureImporterSettings();
+            importer.ReadTextureSettings(channel);
+            channel.singleChannelComponent = TextureImporterSingleChannelComponent.Red;
+            importer.SetTextureSettings(channel);
+            importer.sRGBTexture = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Point;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.isReadable = false;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.maxTextureSize = Mathf.Max(importer.maxTextureSize, MaxSize(width, height));
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         static void Configure(string path, Vector2 pivot, float pixelsPerUnit, int maxSize = 1024)

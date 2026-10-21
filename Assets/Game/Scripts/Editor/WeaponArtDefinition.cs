@@ -24,6 +24,8 @@ namespace Deadlock.Editor
             public Texture2D image;
             [Tooltip("Hand-written placement file (pixel coordinates from the image's top-left): hip = muzzle, hold, size, screen anchoring; ADS = aim, muzzle, hold, size.")]
             public TextAsset placement;
+            [Tooltip("Optional skin region map of the image (same pixel size; Tools/pixelart/make_skin_regions.py). Empty = this view keeps its drawn colours.")]
+            public Texture2D skinRegions;
         }
 
         [Tooltip("The weapon this art belongs to. Its weaponId is the art's id (must be unique in the registry).")]

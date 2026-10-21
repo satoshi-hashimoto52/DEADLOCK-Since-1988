@@ -19,3 +19,4 @@ MonoBehaviour:
     source: {fileID: 2800000, guid: 7940b970c19044010a9276a6916877f4, type: 3}
     image: {fileID: 2800000, guid: 45b57c85a951d4c2c82e78268ea42f93, type: 3}
     placement: {fileID: 4900000, guid: eea30b1f14bbd494d8ebacfa37c73210, type: 3}
+    skinRegions: {fileID: 2800000, guid: 465244e947e84fd6b9e2016774608b7e, type: 3}

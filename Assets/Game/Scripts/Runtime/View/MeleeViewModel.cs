@@ -20,14 +20,34 @@ namespace Deadlock.View
         [SerializeField] SpriteRenderer sprite;
         [Tooltip("Optional: the camera's sprint step motion; the hand moves in step with it.")]
         [SerializeField] CameraBob cameraBob;
+        [Tooltip("Optional: skins (the chosen hand-arm colours, and the knife's own skin once it has a weapon mask).")]
+        [SerializeField] SkinCatalog skins;
 
         MeleeViewProfile profile;
         float bobPhase;
+        readonly Vector4[] skinColours = new Vector4[SkinCatalog.TableSize];
 
         void Awake()
         {
             profile = melee.Definition.viewProfile;
             sprite.sprite = profile.sprite;
+            ApplySkin();
+        }
+
+        void OnEnable() => SkinSelection.Changed += ApplySkin;
+
+        void OnDisable() => SkinSelection.Changed -= ApplySkin;
+
+        /// <summary>
+        /// Re-colours the knife sprite with the current choice. Attack poses drawn later get their own region maps and
+        /// are skinned the same way (<see cref="SpriteSkin.Apply"/> with the pose's map) when they are shown.
+        /// </summary>
+        void ApplySkin()
+        {
+            if (skins == null || profile == null)
+                return;
+            skins.FillColours(melee.Definition.weaponId, skinColours);
+            SpriteSkin.Apply(sprite, profile.skinRegions, skins, skinColours);
         }
 
         void LateUpdate()

@@ -28,8 +28,11 @@ namespace Deadlock.View
         [Tooltip("Optional: the camera's sprint step motion; the hands move in step with it.")]
         [SerializeField] CameraBob cameraBob;
         [SerializeField] SpriteRenderer adsMuzzleFlash;
+        [Tooltip("Optional: skins (the chosen weapon / hand-arm colours reach the hip and ADS images).")]
+        [SerializeField] SkinCatalog skins;
 
         WeaponViewProfile profile;
+        readonly Vector4[] skinColours = new Vector4[SkinCatalog.TableSize];
         WeaponSwitcher switcher;
         float kick;
         float bobPhase;
@@ -51,16 +54,29 @@ namespace Deadlock.View
             // In ADS the muzzle sits just under the front sight: draw the flash in front so it is not hidden by the sight.
             adsMuzzleFlash.sortingOrder = adsSprite.sortingOrder + 1;
             hipMuzzleFlash.sortingOrder = hipSprite.sortingOrder + 1;
+            ApplySkin();
         }
 
         void OnEnable()
         {
             gun.Fired += OnFired;
+            SkinSelection.Changed += ApplySkin;
         }
 
         void OnDisable()
         {
             gun.Fired -= OnFired;
+            SkinSelection.Changed -= ApplySkin;
+        }
+
+        /// <summary>Re-colours the hip and ADS images with the current choice (looks only; the flash keeps its colour).</summary>
+        void ApplySkin()
+        {
+            if (skins == null || profile == null)
+                return;
+            skins.FillColours(gun.Definition.weaponId, skinColours);
+            SpriteSkin.Apply(hipSprite, profile.hipSkinRegions, skins, skinColours);
+            SpriteSkin.Apply(adsSprite, profile.adsSkinRegions, skins, skinColours);
         }
 
         void OnFired()

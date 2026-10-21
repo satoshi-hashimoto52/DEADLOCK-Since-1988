@@ -12,6 +12,8 @@ namespace Deadlock.View
         [Header("Sprite (baked)")]
         [Tooltip("Pivot is the grip (the hand).")]
         public Sprite sprite;
+        [Tooltip("Region map of the sprite's image for skins (same canvas, Tools/pixelart/make_skin_regions.py). Empty = drawn colours only.")]
+        public Texture2D skinRegions;
         [Tooltip("Where the grip sits for a 16:9 screen.")]
         public Vector2 gripPosition = new Vector2(0.38f, -0.3f);
         public float referenceAspect = 16f / 9f;
