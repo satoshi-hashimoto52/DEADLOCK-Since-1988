@@ -32,7 +32,8 @@ HALF = G.HALF
 SPREAD = range(-15, 16, 5)          # forearm direction variations, degrees
 LENGTH_MARGIN = 0.08                # units added to the worst required length
 CANVAS_MARGIN = 0.05                # units around everything
-HAND_R = 0.14                       # fist radius (units), as the multipose guide
+HAND_R = 0.14
+HEAD_PX = 170                       # header height of the guide image (px)                       # fist radius (units), as the multipose guide
 
 
 def rotate(v, deg):
@@ -122,7 +123,7 @@ def main():
 
         def dpx(q):  # drawing position (canvas drawn below a header)
             x, y = px(q)
-            return x, y + 110
+            return x, y + HEAD_PX
 
         info = {
             "id": p["id"], "name": p["name"], "label": p["label"], "view": p["view"],
@@ -136,7 +137,7 @@ def main():
         }
         report["poses"].append(info)
 
-        HEAD = 110
+        HEAD = HEAD_PX
         img = Image.new("RGBA", (max(W, 1500), H + HEAD), (255, 255, 255, 255))
         dr = ImageDraw.Draw(img, "RGBA")
         dr.rectangle([0, HEAD, W - 1, HEAD + H - 1], fill=(248, 248, 248, 255), outline=(0, 120, 255, 255), width=3)
@@ -150,15 +151,33 @@ def main():
         g, t, w = dpx(p["grip"]), dpx(p["tip"]), dpx(p["wrist"])
         gl, tl, wl = px(p["grip"]), px(p["tip"]), px(p["wrist"])
         dr.line([g, t], fill=(90, 100, 120, 255), width=10)
+        # edge / spine: the edge is the blade direction (grip -> tip) turned 90 deg counter-clockwise on screen (same rule
+        # for the three poses: pose 1 edge left, pose 2 edge down, pose 3 edge down and a little to the right)
+        bd = (p["tip"][0] - p["grip"][0], p["tip"][1] - p["grip"][1])
+        bl = math.hypot(*bd)
+        en = (-bd[1] / bl, bd[0] / bl)
+        mid = dpx(((p["grip"][0] + p["tip"][0]) / 2, (p["grip"][1] + p["tip"][1]) / 2))
+        for sign, lab, col in ((1, "刃側", (200, 0, 120)), (-1, "峰側", (90, 90, 90))):
+            ex, ey = mid[0] + sign * en[0] * 110, mid[1] - sign * en[1] * 110
+            dr.line([mid, (ex, ey)], fill=col + (255,), width=5)
+            dr.polygon([(ex, ey), (ex - sign * en[0] * 22 + en[1] * 12, ey + sign * en[1] * 22 + en[0] * 12),
+                        (ex - sign * en[0] * 22 - en[1] * 12, ey + sign * en[1] * 22 - en[0] * 12)], fill=col + (255,))
+            dr.text((ex + 8, ey - 12), lab, fill=col + (255,), font=f20, stroke_width=3, stroke_fill=(255, 255, 255))
         rr = HAND_R * ppu * 0.8
         dr.ellipse([g[0] - rr, g[1] - rr, g[0] + rr, g[1] + rr], outline=(150, 90, 50, 255), width=5)
         for (x, y), col, lab in ((g, (220, 0, 0), f"握りの中心（ピボット）{tuple(round(v) for v in gl)}"), (t, (40, 80, 200), f"刃先 {tuple(round(v) for v in tl)}"), (w, (20, 120, 40), f"手首の帯 {tuple(round(v) for v in wl)}")):
             dr.line([x - 26, y, x + 26, y], fill=col + (255,), width=4)
             dr.line([x, y - 26, x, y + 26], fill=col + (255,), width=4)
             dr.text((x + 30, y - 14), lab, fill=col + (255,), font=f20, stroke_width=3, stroke_fill=(255, 255, 255))
-        dr.text((16, 10), f"ポーズ{p['id']}：{p['label']}　キャンバス {W}×{H}（青枠、このポーズ専用、座標は青枠の左上が原点）　構図ガイド：図形は位置の目安で、絵ではない", fill=(0, 0, 0, 255), font=font)
-        dr.text((16, 44), f"濃い緑＝推奨の袖の向き（{info['nominalForearmDirectionDeg']}°）、薄い緑＝±15°の許容範囲。どの向きでも手首から{info['minimumSleeveLengthFromWristPx']}px以上、キャンバスの端まで途切れずに描く", fill=(0, 0, 0, 255), font=f20)
-        dr.text((16, 72), f"見え方：{p['view']}", fill=(0, 0, 0, 255), font=f20)
+        dr.text((16, 10), f"ポーズ{p['id']}：{p['label']}　キャンバス {W}×{H}（青枠、このポーズ専用、座標は青枠の左上が原点）", fill=(0, 0, 0, 255), font=font)
+        dr.text((16, 44), "構図ガイド：図形は位置の目安で、絵ではない。桃色の矢印＝刃側、灰色の矢印＝峰側", fill=(0, 0, 0, 255), font=f20)
+        dr.text((16, 72), f"濃い緑＝推奨の袖の向き（{info['nominalForearmDirectionDeg']}°）、薄い緑＝±15°の許容範囲。どの向きでも手首から{info['minimumSleeveLengthFromWristPx']}px以上、キャンバスの端まで途切れずに描く", fill=(0, 0, 0, 255), font=f20)
+        view, lines = p["view"], []
+        while view:
+            lines.append(view[:60])
+            view = view[60:]
+        for i, line in enumerate(lines):
+            dr.text((16, 100 + i * 28), ("見え方：" if i == 0 else "　　　　") + line, fill=(0, 0, 0, 255), font=f20)
         img.convert("RGB").save(os.path.join(out, f"pose{p['id']}_{p['name']}_brief_guide.png"))
 
     with open(os.path.join(out, "pose13_requirements.json"), "w", encoding="utf-8") as f:
