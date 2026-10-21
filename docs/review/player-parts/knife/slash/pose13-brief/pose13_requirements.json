@@ -1,0 +1,137 @@
+{
+  "pixelsPerUnit": 1393.929,
+  "directionSpreadDeg": [
+    -15,
+    15
+  ],
+  "poses": [
+    {
+      "id": 1,
+      "name": "windup",
+      "label": "振りかぶり",
+      "view": "手の甲と小指側が見える。手首を外側へ返し、刃は上を向いて右肩の前へ引く。刃は寝かせず立てる（刃先が画面の上へ）",
+      "canvas": [
+        880,
+        1376
+      ],
+      "gripPixel": [
+        265,
+        572
+      ],
+      "tipPixel": [
+        432,
+        70
+      ],
+      "wristPixel": [
+        377,
+        739
+      ],
+      "nominalForearmDirectionDeg": 70.7,
+      "requiredForearmLengthUnitsByDirection": {
+        "-15": 0.21,
+        "-10": 0.22,
+        "-5": 0.24,
+        "0": 0.25,
+        "5": 0.27,
+        "10": 0.29,
+        "15": 0.31
+      },
+      "minimumSleeveLengthFromWristPx": 544,
+      "sleeveEndPixelsByDirection": {
+        "-15": [
+          417,
+          1281
+        ],
+        "-10": [
+          464,
+          1276
+        ],
+        "-5": [
+          511,
+          1266
+        ],
+        "0": [
+          556,
+          1252
+        ],
+        "5": [
+          600,
+          1235
+        ],
+        "10": [
+          642,
+          1213
+        ],
+        "15": [
+          683,
+          1188
+        ]
+      },
+      "samplesChecked": 18
+    },
+    {
+      "id": 3,
+      "name": "follow_through",
+      "label": "振り抜き",
+      "view": "手首を内側へ返し、手のひら側と指先が少し見える。刃は左下へ流れ、刃の腹が見える。前腕は画面の下中央へ向かって斜めに横切る",
+      "canvas": [
+        1384,
+        1096
+      ],
+      "gripPixel": [
+        544,
+        265
+      ],
+      "tipPixel": [
+        70,
+        404
+      ],
+      "wristPixel": [
+        711,
+        349
+      ],
+      "nominalForearmDirectionDeg": 57.1,
+      "requiredForearmLengthUnitsByDirection": {
+        "-15": 0.21,
+        "-10": 0.23,
+        "-5": 0.25,
+        "0": 0.28,
+        "5": 0.31,
+        "10": 0.35,
+        "15": 0.39
+      },
+      "minimumSleeveLengthFromWristPx": 655,
+      "sleeveEndPixelsByDirection": {
+        "-15": [
+          913,
+          972
+        ],
+        "-10": [
+          966,
+          952
+        ],
+        "-5": [
+          1018,
+          928
+        ],
+        "0": [
+          1067,
+          899
+        ],
+        "5": [
+          1114,
+          866
+        ],
+        "10": [
+          1157,
+          829
+        ],
+        "15": [
+          1197,
+          788
+        ]
+      },
+      "samplesChecked": 33
+    }
+  ]
+}
