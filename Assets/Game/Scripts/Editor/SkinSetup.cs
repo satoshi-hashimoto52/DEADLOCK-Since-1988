@@ -25,8 +25,10 @@ namespace Deadlock.Editor
         public const string UiMaterialPath = "Assets/Game/Art/Skins/Mat_SkinnedUI.mat";
         public const string RifleSidePath = "Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design_opaque.png";
         public const string RifleSideRegionsPath = "Assets/Game/Art/Weapons/Rifle/Side/rifle_side_skin_regions.png";
-        public const string PlayerFrontPath = "Assets/Game/Art/Player/Front/player_front_design_opaque.png";
-        public const string PlayerFrontRegionsPath = "Assets/Game/Art/Player/Front/player_front_skin_regions.png";
+        // Player front view: the adopted glove colour (2026-10-21; a recolour of player_front_design.png inside the glove
+        // mask, docs/review/equipment-art/glove-review). The delivered original and its first derivative are kept.
+        public const string PlayerFrontPath = "Assets/Game/Art/Player/Front/player_front_gloves_adopted_opaque.png";
+        public const string PlayerFrontRegionsPath = "Assets/Game/Art/Player/Front/player_front_gloves_adopted_skin_regions.png";
         const string RifleId = "proto_rifle";
 
         public static SkinCatalog Prepare()

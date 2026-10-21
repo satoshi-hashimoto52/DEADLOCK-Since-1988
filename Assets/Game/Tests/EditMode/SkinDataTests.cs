@@ -121,7 +121,7 @@ namespace Deadlock.Tests
             foreach (var (original, derived) in new[]
                      {
                          ("Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png", SkinSetup.RifleSidePath),
-                         ("Assets/Game/Art/Player/Front/player_front_design.png", SkinSetup.PlayerFrontPath),
+                         ("Assets/Game/Art/Player/Front/player_front_gloves_adopted.png", SkinSetup.PlayerFrontPath),
                      })
             {
                 var o = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>(original), out int ow, out int oh);
@@ -141,6 +141,29 @@ namespace Deadlock.Tests
                 Assert.AreEqual(0, colourChanged, $"{derived}: colours of the shown pixels kept");
                 Assert.AreEqual(0, wrongThreshold, $"{derived}: alpha threshold 128");
             }
+        }
+
+        [Test]
+        public void AdoptedGloveColour_ChangesOnlyTheGloves_OfTheDeliveredOriginal()
+        {
+            var original = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Art/Player/Front/player_front_design.png"), out int w, out int h);
+            var adopted = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Art/Player/Front/player_front_gloves_adopted.png"), out int aw, out int ah);
+            var glove = Pixels(AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Game/Art/Player/Front/Masks/player_front_glove_body.png"), out _, out _);
+            Assert.AreEqual((w, h), (aw, ah), "same canvas");
+            int alpha = 0, outside = 0, inside = 0;
+            for (int i = 0; i < original.Length; i++)
+            {
+                if (original[i].a != adopted[i].a)
+                    alpha++;
+                bool changed = original[i].r != adopted[i].r || original[i].g != adopted[i].g || original[i].b != adopted[i].b;
+                if (changed && glove[i].a == 0)
+                    outside++;
+                if (changed && glove[i].a != 0)
+                    inside++;
+            }
+            Assert.AreEqual(0, alpha, "alpha kept");
+            Assert.AreEqual(0, outside, "nothing outside the glove mask changed");
+            Assert.Greater(inside, 0, "the gloves are recoloured");
         }
 
         [Test]
