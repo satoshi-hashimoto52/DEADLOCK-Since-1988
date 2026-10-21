@@ -1,0 +1,99 @@
+# ナイフの横薙ぎ：複数ポーズ案（2026-10-21）
+
+## 経緯と以前の案との違い
+
+- ユーザーの実機確認（`10f561f`、ゲーム内は振り抜き0°の動き）：「腕がスライドするだけで、斬る・刺す感覚がない」。
+- 以前の案（`README.md`：前腕を延長した1枚）は、1枚の画像の移動・回転だけで横薙ぎを表すもの。手首の向き・握りの見える面・刃の遠近が変わらないため、延長しても「腕のスライド」に見える問題は残ると判断し、**この複数ポーズ案に切り替える**（以前の案の資料は残す）。
+- 今回の案：既存の待機画像（`knife_candidate.png`）＋**新しい3ポーズ**（振りかぶり／斬撃・中央通過／振り抜き）。各ポーズで手首の向き・見える面・刃の遠近を描き分け、表示する画像をタイミングで切り替える。画像間の小さな移動・回転は補助に使うだけで、3ポーズを1枚の回転で代用しない。
+
+## 現在の攻撃時間（変更しない）
+
+`Melee_ProtoKnife.asset`：振りかぶり0.12秒 → 命中時間帯0.12秒（0.12〜0.24秒）→ 戻り0.28秒、合計0.52秒。攻撃力50・射程1.7 m・半径0.3 m・1回の攻撃で当たる対象・入力・通信上の判定は変更しない。
+
+## 表示の時間割（`multipose_timeline.png`）
+
+| 時間 | 段階 | 表示する画像 | 画像内の動き（補助） |
+| --- | --- | --- | --- |
+| 0.00〜0.036秒 | 振りかぶり前半 | 待機（既存） | 少し右上へ、−4° |
+| 0.036〜0.12秒 | 振りかぶり後半 | **1 振りかぶり** | ほぼ静止（溜め） |
+| 0.12〜0.192秒 | 命中時間帯の前60% | **2 斬撃・中央通過** | 右から左へ0.40単位を速い振り始めで移動。刃は0.13〜0.18秒に画面中央を横切る |
+| 0.192〜0.24秒 | 命中時間帯の後40% | **3 振り抜き** | 左へ流れて止まる |
+| 0.24〜0.338秒 | 戻り前半 | 3 振り抜き（そのまま） | 下へ0.30単位沈む（画面外へ下ろす） |
+| 0.338〜0.52秒 | 戻り後半 | 待機（既存） | 下から元の位置へ上がる（持ち替えと同じ上げ方） |
+
+戻りでは攻撃画像を逆に再生しない（振り抜きの画像のまま下げ、待機の画像を下から上げる）ので、もう一度斬ったようには見えない。
+
+## 共通キャンバスと各ポーズの基準点（`multipose_layout_report.json`）
+
+- **3ポーズ共通のキャンバス：1524×1336 px**、透明背景。座標は左上が原点、x右・y下、単位は画像の画素。
+- **握りの中心（ピボット）：3ポーズとも (613, 558)**（同じ画素に置く）。
+- ドットの大きさ：待機画像と同じ（画面の高さ＝1300 px、1ドット約5 px、輪郭線約9〜10 px）。拡大・縮小せずに表示する。
+
+| ポーズ | 刃先 | 手首の帯 | 袖をここまで途切れずに描く（前腕の先） | 見え方 |
+| --- | --- | --- | --- | --- |
+| 1 振りかぶり | (780, 56) | (725, 725) | (867, 1133) 付近まで、下へ | 手の甲と小指側。手首を外側へ返し、刃は立てて上へ、右肩の前へ引く |
+| 2 斬撃・中央通過 | (55, 363) | (780, 656) | (1360, 1158) 付近まで、右下へ | 拳の親指側と指の背。手首はまっすぐ、刃は左へ水平に近く倒れ、刃先は奥へ（遠近で短く細く） |
+| 3 振り抜き | (139, 697) | (780, 642) | (1038, 1040) 付近まで、下へ | 手首を内側へ返し、手のひら側と指先が少し見える。刃は左下へ流れ、刃の腹が見える |
+
+各ポーズのガイド（`multipose_pose1_windup_canvas_guide.png` ほか）：緑の帯＝袖を描く範囲（手首から前腕の先まで）。ここまで描けば、実際に使う位置・回転で切り口が画面に出ない。茶の円＝拳の大きさの目安、灰の線＝刃の向き。**図形は位置の目安で、完成した絵ではない**。
+
+## 表示範囲の確認（`multipose_screen_layout_*.png`）
+
+- iPhone 16 Pro（2622×1206）・16:9（1920×1080）・iPad（2048×1536）で、時間割の1/60秒ごとの全18サンプル（新しい3ポーズを表示する間）の位置・回転を計算し、**袖の切り口が画面内に入るサンプルは0**。これは上の表の長さまで袖を描いた場合で、「どの角度でも切れない」という意味ではない。位置・回転を変えたら計算し直す（`python3 Tools/pixelart/make_knife_pose_guide.py 出力先`）。
+- 配置予定図は1/30秒ごと。白十字＝画面中央、黄線＝共通キャンバスの外周。中央通過のポーズで刃が画面中央を横切り、振り抜きで左下へ流れる。
+
+## 画像制作AIへの依頼文
+
+```text
+一人称視点のゲームで、右手でコンバットナイフを持って右から左へ横に斬る動作の、3枚のポーズ画像を描いてください。
+添付の待機画像（knife_candidate.png）と同じ画風・同じナイフ・同じ革グローブ・同じ暗い手首の帯・同じオリーブ迷彩の袖、
+同じドットの粗さ（輪郭線の太さ約9〜10ピクセル）と配色を守ってください。
+
+【共通】
+- 3枚とも 1524×1336 ピクセル、背景は透明（PNG）。半透明のピクセルは使わない。
+- 3枚とも、拳の中心（柄を握っている所）を (613, 558) に置く（座標は左上が原点、右がx、下がy）。
+- 拡大・縮小しない（待機画像と同じ大きさで描く）。
+- 袖は手首から、指定の位置までキャンバスの中で途切れずに描く（そこより先はキャンバスの外へ続いてよい）。
+- 1枚の画像を回転しただけにせず、手首の向き・見える面・刃の遠近をポーズごとに描き分ける。
+- 動きの残像・エフェクト・背景・文字・ガイドの線は描かない。
+
+【1 振りかぶり】knife_pose1_windup.png
+- 手首を外側へ返し、手の甲と小指側が見える。刃は立てて上へ向け、右肩の前へ引いた構え。
+- 刃先 (780, 56) 付近、手首の帯 (725, 725) 付近、袖は手首から下へ (867, 1133) 付近まで。
+
+【2 斬撃・中央通過】knife_pose2_center_pass.png
+- 右から左へ振っている途中。拳の親指側と指の背が見え、手首はまっすぐ。
+- 刃は左へほぼ水平に倒れ、刃先は少し奥（遠近で刃先側が短く細い）。
+- 刃先 (55, 363) 付近、手首の帯 (780, 656) 付近、袖は手首から右下へ (1360, 1158) 付近まで。
+
+【3 振り抜き】knife_pose3_follow_through.png
+- 振り抜いた後。手首を内側へ返し、手のひら側と指先が少し見える。刃は左下へ流れ、刃の腹が見える。
+- 刃先 (139, 697) 付近、手首の帯 (780, 642) 付近、袖は手首から下へ (1038, 1040) 付近まで。
+```
+
+## 保存名と格納先
+
+| 画像 | 保存先（元画像。変更しない） |
+| --- | --- |
+| 1 振りかぶり | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup.png` |
+| 2 斬撃・中央通過 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass.png` |
+| 3 振り抜き | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png` |
+
+## 画像制作AIへ添付するファイル
+
+- 依頼文：このファイル `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/README_multipose.md` の「画像制作AIへの依頼文」
+- 待機画像（画風・装備・ドットの基準）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png`
+- 構図ガイド：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose1_windup_canvas_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose2_center_pass_canvas_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose3_follow_through_canvas_guide.png`
+- 画面での配置予定図（参考）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_screen_layout_iPhone16Pro_2622x1206.png`
+- 時間割（参考）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_timeline.png`
+- 手・袖の配色の参考：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`
+
+## 届いた後の作業（ローカル）
+
+1. 元画像を上の場所に保存（変更しない）。寸法1524×1336・握り (613, 558)・透明背景を確認。
+2. 不透明化（`make_opaque.py`）、刃先・手首・袖の端を実画像から読み取って配置を記録。
+3. 近接の取り込みと表示を、時間割に沿って画像を切り替える方式に拡張する（今の `MeleeArtDefinition` は1枚だけに対応）。
+4. 実画像の切り口で、3画面比・時間割の全サンプルを確認し、等速動画で見比べる。
+5. 部位分離・色変更用マスク（手・袖）を各ポーズに作る。
+
+それまでゲーム内のナイフは今のまま（`knife_candidate.png`、振り抜き0°）。

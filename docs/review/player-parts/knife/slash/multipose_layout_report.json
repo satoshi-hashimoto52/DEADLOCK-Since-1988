@@ -1,0 +1,592 @@
+{
+  "pixelsPerUnit": 1393.929,
+  "timing": {
+    "windup": 0.12,
+    "activeTime": 0.12,
+    "recovery": 0.28
+  },
+  "rightEdgeFollow": 0.5,
+  "referenceAspect": 1.7777778,
+  "poses": [
+    {
+      "id": 1,
+      "name": "windup",
+      "label": "振りかぶり",
+      "view": "手の甲と小指側が見える。手首を外側へ返し、刃は上を向いて右肩の前へ引く。刃は寝かせず立てる（刃先が画面の上へ）",
+      "screenGrip16x9": [
+        0.58,
+        -0.16
+      ],
+      "screenTip16x9": [
+        0.7,
+        0.2
+      ],
+      "gripPixel": [
+        613,
+        558
+      ],
+      "tipPixel": [
+        780,
+        56
+      ],
+      "wristPixel": [
+        725,
+        725
+      ],
+      "forearmEndPixel": [
+        867,
+        1133
+      ],
+      "forearmLengthUnits": 0.31,
+      "forearmBandPixels": [
+        [
+          830,
+          688
+        ],
+        [
+          1009,
+          1083
+        ],
+        [
+          725,
+          1183
+        ],
+        [
+          619,
+          762
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "name": "center_pass",
+      "label": "斬撃・中央通過",
+      "view": "拳の親指側と指の背が見える。手首はまっすぐ、刃は左へ水平に近く倒れ、刃先は少し奥（遠近で短く細く）。刃が画面中央を横切る",
+      "screenGrip16x9": [
+        0.2,
+        -0.2
+      ],
+      "screenTip16x9": [
+        -0.2,
+        -0.06
+      ],
+      "gripPixel": [
+        613,
+        558
+      ],
+      "tipPixel": [
+        55,
+        363
+      ],
+      "wristPixel": [
+        780,
+        656
+      ],
+      "forearmEndPixel": [
+        1360,
+        1158
+      ],
+      "forearmLengthUnits": 0.55,
+      "forearmBandPixels": [
+        [
+          858,
+          566
+        ],
+        [
+          1464,
+          1037
+        ],
+        [
+          1255,
+          1279
+        ],
+        [
+          703,
+          745
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "name": "follow_through",
+      "label": "振り抜き",
+      "view": "手首を内側へ返し、手のひら側と指先が少し見える。刃は左下へ流れ、刃の腹が見える。前腕は画面の下中央へ向かって斜めに横切る",
+      "screenGrip16x9": [
+        -0.38,
+        -0.3
+      ],
+      "screenTip16x9": [
+        -0.72,
+        -0.4
+      ],
+      "gripPixel": [
+        613,
+        558
+      ],
+      "tipPixel": [
+        139,
+        697
+      ],
+      "wristPixel": [
+        780,
+        642
+      ],
+      "forearmEndPixel": [
+        1038,
+        1040
+      ],
+      "forearmLengthUnits": 0.34,
+      "forearmBandPixels": [
+        [
+          886,
+          573
+        ],
+        [
+          1180,
+          948
+        ],
+        [
+          896,
+          1132
+        ],
+        [
+          675,
+          710
+        ]
+      ]
+    }
+  ],
+  "timeline": [
+    {
+      "t": 0.0,
+      "phase": "windup",
+      "k": 0.0,
+      "image": "idle",
+      "offset": [
+        0.0,
+        0.0
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.0167,
+      "phase": "windup",
+      "k": 0.139,
+      "image": "idle",
+      "offset": [
+        0.0178,
+        0.0133
+      ],
+      "roll": -1.78
+    },
+    {
+      "t": 0.0333,
+      "phase": "windup",
+      "k": 0.278,
+      "image": "idle",
+      "offset": [
+        0.0394,
+        0.0295
+      ],
+      "roll": -3.94
+    },
+    {
+      "t": 0.05,
+      "phase": "windup",
+      "k": 0.417,
+      "image": "windup",
+      "offset": [
+        -0.017,
+        -0.017
+      ],
+      "roll": 3.56
+    },
+    {
+      "t": 0.0667,
+      "phase": "windup",
+      "k": 0.556,
+      "image": "windup",
+      "offset": [
+        -0.0079,
+        -0.0079
+      ],
+      "roll": 2.18
+    },
+    {
+      "t": 0.0833,
+      "phase": "windup",
+      "k": 0.694,
+      "image": "windup",
+      "offset": [
+        0.0038,
+        0.0038
+      ],
+      "roll": 0.43
+    },
+    {
+      "t": 0.1,
+      "phase": "windup",
+      "k": 0.833,
+      "image": "windup",
+      "offset": [
+        0.0143,
+        0.0143
+      ],
+      "roll": -1.14
+    },
+    {
+      "t": 0.1167,
+      "phase": "windup",
+      "k": 0.972,
+      "image": "windup",
+      "offset": [
+        0.0198,
+        0.0198
+      ],
+      "roll": -1.97
+    },
+    {
+      "t": 0.1333,
+      "phase": "active",
+      "k": 0.111,
+      "image": "center_pass",
+      "offset": [
+        0.1656,
+        0.0166
+      ],
+      "roll": 2.64
+    },
+    {
+      "t": 0.15,
+      "phase": "active",
+      "k": 0.25,
+      "image": "center_pass",
+      "offset": [
+        0.0361,
+        0.0036
+      ],
+      "roll": -0.6
+    },
+    {
+      "t": 0.1667,
+      "phase": "active",
+      "k": 0.389,
+      "image": "center_pass",
+      "offset": [
+        -0.0505,
+        -0.005
+      ],
+      "roll": -2.76
+    },
+    {
+      "t": 0.1833,
+      "phase": "active",
+      "k": 0.528,
+      "image": "center_pass",
+      "offset": [
+        -0.0942,
+        -0.0094
+      ],
+      "roll": -3.86
+    },
+    {
+      "t": 0.2,
+      "phase": "active",
+      "k": 0.667,
+      "image": "follow_through",
+      "offset": [
+        0.0325,
+        0.0178
+      ],
+      "roll": 2.17
+    },
+    {
+      "t": 0.2167,
+      "phase": "active",
+      "k": 0.806,
+      "image": "follow_through",
+      "offset": [
+        -0.0087,
+        -0.0005
+      ],
+      "roll": -0.58
+    },
+    {
+      "t": 0.2333,
+      "phase": "active",
+      "k": 0.944,
+      "image": "follow_through",
+      "offset": [
+        -0.0283,
+        -0.0092
+      ],
+      "roll": -1.88
+    },
+    {
+      "t": 0.25,
+      "phase": "recovery",
+      "k": 0.036,
+      "image": "follow_through",
+      "offset": [
+        -0.0291,
+        -0.0184
+      ],
+      "roll": -2.17
+    },
+    {
+      "t": 0.2667,
+      "phase": "recovery",
+      "k": 0.095,
+      "image": "follow_through",
+      "offset": [
+        -0.0245,
+        -0.0627
+      ],
+      "roll": -3.09
+    },
+    {
+      "t": 0.2833,
+      "phase": "recovery",
+      "k": 0.155,
+      "image": "follow_through",
+      "offset": [
+        -0.0176,
+        -0.13
+      ],
+      "roll": -4.48
+    },
+    {
+      "t": 0.3,
+      "phase": "recovery",
+      "k": 0.214,
+      "image": "follow_through",
+      "offset": [
+        -0.01,
+        -0.203
+      ],
+      "roll": -5.99
+    },
+    {
+      "t": 0.3167,
+      "phase": "recovery",
+      "k": 0.274,
+      "image": "follow_through",
+      "offset": [
+        -0.0036,
+        -0.2648
+      ],
+      "roll": -7.27
+    },
+    {
+      "t": 0.3333,
+      "phase": "recovery",
+      "k": 0.333,
+      "image": "follow_through",
+      "offset": [
+        -0.0002,
+        -0.2981
+      ],
+      "roll": -7.96
+    },
+    {
+      "t": 0.35,
+      "phase": "recovery",
+      "k": 0.393,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.2963
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.3667,
+      "phase": "recovery",
+      "k": 0.452,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.28
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.3833,
+      "phase": "recovery",
+      "k": 0.512,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.2534
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.4,
+      "phase": "recovery",
+      "k": 0.571,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.2193
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.4167,
+      "phase": "recovery",
+      "k": 0.631,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.1803
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.4333,
+      "phase": "recovery",
+      "k": 0.69,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.1393
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.45,
+      "phase": "recovery",
+      "k": 0.75,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.099
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.4667,
+      "phase": "recovery",
+      "k": 0.81,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.0622
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.4833,
+      "phase": "recovery",
+      "k": 0.869,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.0316
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.5,
+      "phase": "recovery",
+      "k": 0.929,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.0101
+      ],
+      "roll": 0.0
+    },
+    {
+      "t": 0.5167,
+      "phase": "recovery",
+      "k": 0.988,
+      "image": "idle",
+      "offset": [
+        0.0,
+        -0.0003
+      ],
+      "roll": 0.0
+    }
+  ],
+  "canvas": {
+    "size": [
+      1524,
+      1336
+    ],
+    "gripPixel": [
+      613,
+      558
+    ],
+    "note": "same canvas and same grip pixel for all three poses; origin top-left, x right, y down"
+  },
+  "hitWindowBlade": [
+    {
+      "t": 0.1333,
+      "image": "center_pass",
+      "gripX": 0.366,
+      "tipX": -0.04,
+      "tipY": -0.062
+    },
+    {
+      "t": 0.15,
+      "image": "center_pass",
+      "gripX": 0.236,
+      "tipX": -0.162,
+      "tipY": -0.052
+    },
+    {
+      "t": 0.1667,
+      "image": "center_pass",
+      "gripX": 0.15,
+      "tipX": -0.243,
+      "tipY": -0.046
+    },
+    {
+      "t": 0.1833,
+      "image": "center_pass",
+      "gripX": 0.106,
+      "tipX": -0.284,
+      "tipY": -0.043
+    },
+    {
+      "t": 0.2,
+      "image": "follow_through",
+      "gripX": -0.348,
+      "tipX": -0.683,
+      "tipY": -0.395
+    },
+    {
+      "t": 0.2167,
+      "image": "follow_through",
+      "gripX": -0.389,
+      "tipX": -0.73,
+      "tipY": -0.397
+    },
+    {
+      "t": 0.2333,
+      "image": "follow_through",
+      "gripX": -0.408,
+      "tipX": -0.751,
+      "tipY": -0.398
+    }
+  ],
+  "cutEdgeCheck": [
+    {
+      "screen": "iPhone16Pro",
+      "samplesWithCutOnScreen": 0,
+      "samples": 18
+    },
+    {
+      "screen": "16x9",
+      "samplesWithCutOnScreen": 0,
+      "samples": 18
+    },
+    {
+      "screen": "iPad",
+      "samplesWithCutOnScreen": 0,
+      "samples": 18
+    }
+  ]
+}
