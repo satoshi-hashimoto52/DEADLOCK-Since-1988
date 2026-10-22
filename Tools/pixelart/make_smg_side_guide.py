@@ -55,11 +55,15 @@ SPEC = {
         ["hinge_plate", [1200, 356, 1250, 462], "visible", "steel", "ヒンジ板（固定色）"],
         ["wire_stock", [1200, 440, 1340, 600], "estimated", "steel", "折りたたんだワイヤー銃床（真横からの見え方は推定。固定色）"],
     ],
-    # attachment / swap areas (not drawn in the standard image)
+    # attachment / swap areas: name, overlay box (where a later part will be placed; it may cover standard parts,
+    # which are still drawn in full), kind, clear box (must stay transparent in the standard image), label
     "attachments": [
-        ["muzzle_device", [140, 330, 516, 390], "swap", "銃口部品（サプレッサー等）の範囲。標準では描かない"],
-        ["optic", [680, 170, 1060, 308], "add", "照準器の取付範囲（上面）。標準では描かない"],
-        ["extended_magazine", [748, 452, 846, 770], "swap", "拡張マガジン（標準弾倉と交換）。標準では描かない"],
+        ["muzzle_device", [140, 330, 516, 390], "swap", [140, 330, 412, 390],
+         "銃口部品の範囲。ナット・ネジ部は描く。斜線（x 140〜412）は透明"],
+        ["optic", [680, 170, 1060, 308], "add", [680, 170, 1060, 300],
+         "照準器の範囲。斜線は透明（照星・照門とは重ならない）"],
+        ["extended_magazine", [748, 452, 846, 770], "swap", [748, 698, 846, 770],
+         "拡張マガジンの範囲。弾倉は描く。斜線（y 698〜770）は透明"],
     ],
     # equipment screen: the range shown by default (standard parts only) and the range with every attachment
     "viewStandard": [400, 232, 1360, 712],
@@ -111,7 +115,7 @@ def palette():
 
 def canvas_guide(out, pal):
     W, H = SPEC["canvas"]
-    HEAD, FOOT, EXTRA = 120, 260, 420
+    HEAD, FOOT, EXTRA = 120, 260, 660
     img = Image.new("RGBA", (W + EXTRA, H + HEAD + FOOT), (255, 255, 255, 255))
     dr = ImageDraw.Draw(img, "RGBA")
     oy = HEAD
@@ -130,7 +134,20 @@ def canvas_guide(out, pal):
         dr.rectangle(b(box), fill=c + (160 if kind == "visible" else 70,), outline=(0, 0, 0, 255) if kind == "visible" else None, width=2)
         if kind == "estimated":
             dashed_rect(dr, b(box), (200, 0, 160, 255), 3, 8)
-    for name, box, kind, text in SPEC["attachments"]:
+    for name, box, kind, clear, text in SPEC["attachments"]:
+        c = b(clear)
+        dr.rectangle(c, fill=(214, 240, 222, 255))
+        hgt = c[3] - c[1]
+        for k in range(c[0], c[2] + hgt, 24):
+            x0, y0 = k, c[1]
+            x1, y1 = k - hgt, c[3]
+            if x0 > c[2]:
+                y0 += x0 - c[2]
+                x0 = c[2]
+            if x1 < c[0]:
+                y1 -= c[0] - x1
+                x1 = c[0]
+            dr.line([(x0, y0), (x1, y1)], fill=(0, 150, 70, 255), width=2)
         dashed_rect(dr, b(box), (0, 150, 70, 255), 3)
     ay = SPEC["boreAxisY"] + oy
     for x in range(0, W, 24):
@@ -141,7 +158,7 @@ def canvas_guide(out, pal):
     sx = SPEC["stockRearX"]
     dr.line([(sx, oy + 300), (sx, oy + 640)], fill=(220, 0, 0, 255), width=3)
 
-    items = [(p[0], p[1], p[2], p[4]) for p in SPEC["parts"]] + [(a[0], a[1], "attach", a[3]) for a in SPEC["attachments"]]
+    items = [(p[0], p[1], p[2], p[4]) for p in SPEC["parts"]] + [(a[0], a[1], "attach", a[4]) for a in SPEC["attachments"]]
     for i, (name, box, kind, text) in enumerate(items, 1):
         cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2 + oy
         if name == "optic":
@@ -161,7 +178,7 @@ def canvas_guide(out, pal):
 
     label(dr, (16, 10), f"SMG（候補）横向き全体図：構図ガイド　キャンバス {W}×{H}（青枠、透明背景、座標は青枠の左上が原点）　図形は位置・範囲の目安で、絵ではない", 26)
     label(dr, (16, 48), f"真横・銃口が左（銃の左側面＝腰だめv2で見えている面）。1ドット={SPEC['dotPx']}px、黒い輪郭線 {SPEC['outlinePx'][0]}〜{SPEC['outlinePx'][1]}px（腰だめv2と同じ太さ）。手・腕・背景・文字・床の影は描かない", 19)
-    label(dr, (16, 80), "実線＝腰だめv2・ADS候補で見えている部品　紫の破線＝隠れている部品（形は推定）　緑の破線＝取付・交換部品の範囲（標準では描かない）　橙の破線＝標準の表示範囲", 19)
+    label(dr, (16, 80), "実線＝見えている部品　紫の破線＝隠れている部品（推定）　緑の破線＝将来の部品が重なる範囲（標準の部品は描く）　緑の斜線＝標準では透明に保つ範囲　橙の破線＝標準の表示範囲", 19)
     fy = oy + H + 12
     col_w = (W + EXTRA) // 3
     for i, (name, box, kind, text) in enumerate(items, 1):
@@ -220,7 +237,7 @@ def display_proposal(out):
             dr.rectangle([max(p0[0], bx), max(p0[1], by), min(p1[0], bx + aw), min(p1[1], by + ah)],
                          fill=COLOURS[colour], outline=(0, 0, 0))
         if i == 2:
-            for name, box, kind, text in SPEC["attachments"]:
+            for name, box, kind, clear, text in SPEC["attachments"]:
                 p0, p1 = m(box[0], box[1]), m(box[2], box[3])
                 dashed_rect(dr, [p0[0], p0[1], p1[0], p1[1]], (0, 200, 90), 2, 8)
         length = (gx1 - gx0) * s
