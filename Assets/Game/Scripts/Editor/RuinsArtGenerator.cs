@@ -16,6 +16,7 @@ namespace Deadlock.Editor
         public static string Wall => $"{Folder}/Tex_RuinWall.png";
         public static string Floor => $"{Folder}/Tex_RuinFloor.png";
         public static string Pillar => $"{Folder}/Tex_RuinPillar.png";
+        public static string Frame => $"{Folder}/Tex_RuinFrame.png";
 
         public static void GenerateAll()
         {
@@ -23,6 +24,7 @@ namespace Deadlock.Editor
             Save(Wall, WallTexture());
             Save(Floor, FloorTexture());
             Save(Pillar, PillarTexture());
+            Save(Frame, FrameTexture());
         }
 
         static void Save(string path, Texture2D texture)
@@ -55,7 +57,7 @@ namespace Deadlock.Editor
             const int size = 32;
             var rng = new System.Random(71);
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var stone = new Color32(58, 58, 66, 255);
+            var stone = new Color32(68, 68, 77, 255); // was 58, 58, 66
             var joint = new Color32(20, 20, 26, 255);
             int[] courses = { 0, 7, 15, 24, 32 };
             for (int c = 0; c < courses.Length - 1; c++)
@@ -103,7 +105,7 @@ namespace Deadlock.Editor
             const int size = 32;
             var rng = new System.Random(72);
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var stone = new Color32(52, 51, 58, 255);
+            var stone = new Color32(64, 63, 71, 255); // was 52, 51, 58
             var joint = new Color32(18, 18, 22, 255);
             for (int by = 0; by < 2; by++)
                 for (int bx = 0; bx < 2; bx++)
@@ -139,7 +141,7 @@ namespace Deadlock.Editor
             const int size = 32;
             var rng = new System.Random(73);
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var stone = new Color32(72, 71, 80, 255);
+            var stone = new Color32(80, 79, 89, 255); // was 72, 71, 80
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
@@ -156,6 +158,29 @@ namespace Deadlock.Editor
                 tex.SetPixel(cx, cy, Shade(stone, 0.5f));
                 tex.SetPixel(cx + 1 < size ? cx + 1 : cx, cy, Shade(stone, 0.65f));
             }
+            tex.Apply();
+            return tex;
+        }
+
+        /// <summary>
+        /// Lighter dressed stone for door frames, stair openings, step nosings and the parapet coping: smooth blocks with
+        /// thin joints, clearly lighter than the walls so openings and edges read in the dark without glowing.
+        /// </summary>
+        static Texture2D FrameTexture()
+        {
+            const int size = 32;
+            var rng = new System.Random(74);
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var stone = new Color32(112, 108, 114, 255);
+            var joint = new Color32(54, 52, 58, 255);
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    bool edge = y % 16 == 0 || (x + (y / 16) * 8) % 16 == 0;
+                    tex.SetPixel(x, y, edge ? joint : Vary(rng, stone, 5));
+                }
+            for (int i = 0; i < 4; i++)
+                tex.SetPixel(rng.Next(1, size - 1), rng.Next(1, size - 1), Shade(stone, 0.7f));
             tex.Apply();
             return tex;
         }

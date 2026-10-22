@@ -108,6 +108,16 @@ namespace Deadlock.Combat
                 if (target != null)
                     Targets = new SinglePlayer(new PlayerZombieTarget(target));
             }
+            if (!agent.enabled)
+            {
+                // Scene zombies are saved with the agent off and switched on here: Start runs after every OnEnable of
+                // the loaded scene, so the scene's NavMesh (NavMeshSurface) is registered by now. An agent enabled during
+                // the scene load itself can be created before that NavMesh and fail ("no valid NavMesh"), as the host's
+                // online zombies already avoid (NetworkZombie).
+                if (NavMesh.SamplePosition(transform.position, out NavMeshHit start, 2f, NavMesh.AllAreas))
+                    transform.position = start.position;
+                agent.enabled = true;
+            }
             if (agent.isOnNavMesh == false && NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 2f, NavMesh.AllAreas))
                 agent.Warp(hit.position);
             Enter(ZombieState.Chase);

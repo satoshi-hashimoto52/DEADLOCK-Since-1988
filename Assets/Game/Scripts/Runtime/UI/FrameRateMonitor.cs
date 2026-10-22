@@ -32,6 +32,9 @@ namespace Deadlock.UI
         float loadWorst;
         int loadLong;
         Transform player;
+        float inactiveSince = -1f;   // realtime when the app lost focus / paused (-1 = active)
+        float lastInactiveMs;        // length of the last inactive period, reported with the next frame
+        bool afterInactive;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Create()
@@ -112,7 +115,8 @@ namespace Deadlock.UI
                 return;
             }
             if (dt > 0.1f)
-                Debug.Log($"[DEADLOCK][perf][hitch] {dt * 1000f:0.0} ms at {Place()}");
+                Debug.Log($"[DEADLOCK][perf][hitch] {dt * 1000f:0.0} ms at {Place()}" + (afterInactive ? $" (first frame after {lastInactiveMs:0} ms inactive)" : ""));
+            afterInactive = false;
             logTimes.Add(dt);
             windowFrames++;
             logFrames++;
@@ -149,9 +153,32 @@ namespace Deadlock.UI
             }
         }
 
+        // Inactive periods (focus lost: system sheets / notification centre; paused: background) are timed, so a long
+        // frame right after one can be told apart from a slow frame by the numbers.
+        void OnApplicationFocus(bool focused) => TrackActive(focused);
+
+        void TrackActive(bool active)
+        {
+            float now = Time.realtimeSinceStartup;
+            if (!active)
+            {
+                if (inactiveSince < 0f)
+                    inactiveSince = now;
+                return;
+            }
+            if (inactiveSince >= 0f)
+            {
+                lastInactiveMs = (now - inactiveSince) * 1000f;
+                afterInactive = true;
+                Debug.Log($"[DEADLOCK][perf][inactive] {lastInactiveMs:0} ms at {Place()}");
+                inactiveSince = -1f;
+            }
+        }
+
         // The first frame after returning from the background is not a real frame time.
         void OnApplicationPause(bool paused)
         {
+            TrackActive(!paused);
             if (paused)
                 return;
             windowStart = logStart = Time.unscaledTime;

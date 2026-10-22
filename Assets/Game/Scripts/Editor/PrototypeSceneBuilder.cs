@@ -642,6 +642,9 @@ namespace Deadlock.Editor
             agent.height = 1.8f;
             agent.angularSpeed = 360f;
             agent.acceleration = 12f;
+            // Off in the saved scene: Zombie.Start switches it on once the scene's NavMesh is registered (the online
+            // prefab is also saved off and switched on by NetworkZombie on the host).
+            agent.enabled = false;
             var zombie = go.AddComponent<Zombie>();
             SetMask(zombie, "sightMask", sightMask);
 

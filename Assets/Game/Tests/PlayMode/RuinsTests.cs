@@ -25,6 +25,8 @@ namespace Deadlock.Tests
         const string Ruins = "Proto_Ruins";
         const float Upper = 5f;
         static readonly int Solid = 1; // Default layer: the building (player, zombies, pickups are on other layers)
+        // Plan (RuinsSceneBuilder): outer wall faces, stair tunnels (interior x 17.6..21.1, ramps from z -7 / +7).
+        const float HalfX = 21.1f, HalfZ = 17.3f, TunnelInner = 17.6f, RampStart = 7f, CorridorZ = 15.05f;
 
         Zombie[] zombies;
 
@@ -62,8 +64,8 @@ namespace Deadlock.Tests
             float h = player.GetComponent<CharacterController>().height;
             bool overlap = Physics.CheckCapsule(p + Vector3.up * 0.32f, p + Vector3.up * Mathf.Max(0.33f, h - 0.32f), 0.28f, Solid, QueryTriggerInteraction.Ignore);
             Assert.IsFalse(overlap, $"{why}: player capsule inside geometry at {p}");
-            Assert.That(p.x, Is.InRange(-20f, 20f), why);
-            Assert.That(p.z, Is.InRange(-16f, 16f), why);
+            Assert.That(p.x, Is.InRange(-HalfX, HalfX), why);
+            Assert.That(p.z, Is.InRange(-HalfZ, HalfZ), why);
             Assert.That(p.y, Is.InRange(-0.1f, Upper + 0.6f), why);
         }
 
@@ -113,26 +115,26 @@ namespace Deadlock.Tests
         public IEnumerator Layout_Closed_TwoFloors_WalkableAboutTwiceTheFiringRange()
         {
             yield return LoadRuins(false);
-            float ground = WalkableArea(-20f, 20f, -16f, 16f, 0f, out int skyGround);
-            float upper = WalkableArea(-20f, 20f, -16f, 16f, Upper, out int skyUpper);
-            float stairs = RampArea(17f, 20f, -7f, 1f) + RampArea(-20f, -17f, 7f, -1f);
+            float ground = WalkableArea(-HalfX, HalfX, -HalfZ, HalfZ, 0f, out int skyGround);
+            float upper = WalkableArea(-HalfX, HalfX, -HalfZ, HalfZ, Upper, out int skyUpper);
+            float stairs = RampArea(TunnelInner, HalfX, -RampStart, 1f) + RampArea(-HalfX, -TunnelInner, RampStart, -1f);
             Assert.AreEqual(0, skyGround + skyUpper, "every floor cell is under the roof (no sky, the atrium included)");
             Assert.Greater(upper, 700f, "an upper floor with a gallery around the atrium");
-            Assert.Greater(stairs, 35f, "two walkable stairs (about 2 m of usable width each, 10 m long)");
+            Assert.Greater(stairs, 45f, "two walkable stairs (about 2.5 m of usable width each, 10 m long)");
 
             yield return LoadScene(InputMode.Desktop, SceneName);
             float range = WalkableArea(-8f, 8f, -6f, 54f, 0f, out _);
             float total = ground + upper + stairs;
             float ratio = total / range;
             Debug.Log($"[DEADLOCK][ruins] walkable (standing player, 0.5 m grid): ground {ground:0} m2, upper {upper:0} m2, stairs {stairs:0} m2, total {total:0} m2; firing range {range:0} m2; ratio {ratio:0.00}");
-            Assert.That(ratio, Is.InRange(1.8f, 2.4f), "about twice the firing range");
+            Assert.That(ratio, Is.InRange(2.0f, 2.8f), "about twice the firing range or a little more (passages widened after the device check)");
         }
 
         [UnityTest]
         public IEnumerator Stairs_BothTunnels_UpAndDown_StandingCrouchingProne_JumpUnderTheCeiling()
         {
             yield return LoadRuins(false);
-            foreach (var (name, bottom, yaw) in new[] { ("east", new Vector3(18.5f, 0.05f, -8.6f), 0f), ("west", new Vector3(-18.5f, 0.05f, 8.6f), 180f) })
+            foreach (var (name, bottom, yaw, rampZ) in new[] { ("east", new Vector3(19.35f, 0.05f, -8.6f), 0f, -RampStart), ("west", new Vector3(-19.35f, 0.05f, 8.6f), 180f, RampStart) })
             {
                 // Standing: up to the upper floor and on through the exit, then back down.
                 Teleport(bottom, yaw);
@@ -208,7 +210,7 @@ namespace Deadlock.Tests
                 while (Time.time < end)
                 {
                     Vector3 p = player.transform.position;
-                    float along = Mathf.Abs(p.z - bottom.z);
+                    float along = Mathf.Max(0f, Mathf.Abs(p.z - rampZ)); // from the foot of the ramp
                     ceilingAt = Mathf.Min(ceilingAt, along * Mathf.Tan(30f * Mathf.Deg2Rad) + 3.6f);
                     maxHead = Mathf.Max(maxHead, p.y + 1.8f - along * Mathf.Tan(30f * Mathf.Deg2Rad));
                     AssertNotInsideSolid($"{name} stair, jumping");
@@ -241,11 +243,11 @@ namespace Deadlock.Tests
             Assert.AreEqual(Upper, player.transform.position.y, 0.08f);
 
             // Slide into the parapet.
-            Teleport(new Vector3(-2f, Upper + 0.05f, 14f), 180f);
+            Teleport(new Vector3(-2f, Upper + 0.05f, 11.9f), 180f);
             yield return Wait(0.2f);
             Press(keyboard.wKey, queueEventOnly: true);
             Press(keyboard.leftShiftKey, queueEventOnly: true);
-            yield return Wait(0.6f);
+            yield return Wait(0.45f);
             yield return Tap(keyboard.cKey);
             yield return Wait(1.2f);
             Release(keyboard.wKey, queueEventOnly: true);
@@ -287,8 +289,8 @@ namespace Deadlock.Tests
             var c = zombies[2];
             // Hall, far half: from the parapet the 1.3 m wall hides the near half (it is cover both ways).
             Park(a, new Vector3(2f, 0f, -7f), true);
-            Park(b, new Vector3(-10f, Upper, -14f), true);       // upper south corridor, right above the ground corridor
-            Park(c, new Vector3(0.5f, 0f, 14.5f), true);         // north corridor, behind the ring wall
+            Park(b, new Vector3(-10f, Upper, -CorridorZ), true); // upper south corridor, right above the ground corridor
+            Park(c, new Vector3(0.5f, 0f, CorridorZ), true);     // north corridor, behind the ring wall (off the door line)
             yield return Wait(0.3f);
 
             Teleport(new Vector3(2f, Upper + 0.05f, 8.7f), 180f);
@@ -300,12 +302,12 @@ namespace Deadlock.Tests
             yield return Wait(0.3f);
             Assert.Less(a.Health, a.MaxHealth, "a shot down from the gallery into the hall hits");
 
-            Teleport(new Vector3(-10f, 0.05f, -13.2f), 0f);
+            Teleport(new Vector3(-10f, 0.05f, -CorridorZ + 0.75f), 0f);
             yield return Wait(0.3f);
             yield return FireAt(b.transform.position + Vector3.up * 1f, 0.5f);
             Assert.AreEqual(b.MaxHealth, b.Health, "the upper floor slab stops shots from below");
 
-            Teleport(new Vector3(-4f, 0.05f, 10f), 0f);
+            Teleport(new Vector3(-6f, 0.05f, 10f), 0f);
             yield return Wait(0.3f);
             yield return FireAt(c.transform.position + Vector3.up * 1f, 0.5f);
             Assert.AreEqual(c.MaxHealth, c.Health, "the ring wall stops shots");
@@ -330,7 +332,7 @@ namespace Deadlock.Tests
             while (Time.time < end && health.Health >= health.MaxHealth)
             {
                 var p = z.transform.position;
-                if (p.y > 0.6f && p.y < Upper - 0.6f && p.x > 16.9f)
+                if (p.y > 0.6f && p.y < Upper - 0.6f && p.x > TunnelInner)
                     onStairs = true;
                 yield return null;
             }
@@ -351,7 +353,7 @@ namespace Deadlock.Tests
             while (Time.time < end && health.Health >= before)
             {
                 var p = z.transform.position;
-                if (p.y > 0.6f && p.y < Upper - 0.6f && p.x < -16.9f)
+                if (p.y > 0.6f && p.y < Upper - 0.6f && p.x < -TunnelInner)
                     onStairs = true;
                 yield return null;
             }
@@ -363,8 +365,8 @@ namespace Deadlock.Tests
 
             // Not through the floor: zombie upstairs right above the player (horizontally in reach), held in place.
             float hp = health.Health;
-            Park(z, new Vector3(-10f, Upper, -14f), true);
-            Teleport(new Vector3(-10f, 0.05f, -13.3f), 0f);
+            Park(z, new Vector3(-10f, Upper, -CorridorZ), true);
+            Teleport(new Vector3(-10f, 0.05f, -CorridorZ + 0.75f), 0f);
             z.Active = true;
             yield return null;
             z.GetComponent<NavMeshAgent>().isStopped = true;
@@ -402,6 +404,8 @@ namespace Deadlock.Tests
             var health = player.GetComponent<PlayerHealth>();
             var session = Object.FindAnyObjectByType<TrainingSession>();
             Assert.AreEqual(5, session.Total);
+            // Agents are saved off and switched on in Zombie.Start, after the scene's NavMesh is registered.
+            Assert.IsTrue(zombies.All(z => z.GetComponent<NavMeshAgent>().enabled && z.GetComponent<NavMeshAgent>().isOnNavMesh), "every zombie on the NavMesh");
             Vector3 spawn = player.transform.position;
             // Nobody reaches the start within the first seconds.
             yield return Wait(8f);
