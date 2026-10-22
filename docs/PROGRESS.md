@@ -1300,6 +1300,8 @@ GAME_SPEC・DECISIONSに記録のみ。サイト装備システム・倍率の�
 - Editor：EditMode 53件、PlayMode 115件すべて成功（遺跡でのSMG使用・再挑戦・マップの編集の確認を1件追加）。
 - 実機：統合版はまだ導入していない。ホーム背景の素材は含めていない。
 - 資料：`docs/review/integration-smg-dungeon/README.md`。
+- **方針（ユーザー、2026-10-22）**：今後の本編の追加開発は、統合ブランチ `feature/integration-smg-dungeon` を基点に進める。mainへのマージと、元の2ブランチへの反映は、別に指示があるまで行わない。
+- 実機：統合版 `01b700a` の開発ビルドを、iPhone 16 Proへ上書きで導入した（確認はユーザーの結果待ち）。
 
 ## 13. 未実装（今後の対象）
 
