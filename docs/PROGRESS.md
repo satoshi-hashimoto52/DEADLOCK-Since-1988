@@ -1326,7 +1326,12 @@ GAME_SPEC・DECISIONSに記録のみ。サイト装備システム・倍率の�
   - 大きさは縮めない。HUDも隠さない。
 - Editor：EditModeとPlayModeの自動テストはすべて成功した。3画面比で、変更前後の画像を比べた。
   - 保存位置（1.3倍）でのずれ：iPhone 16 Proは左へ31、16:9は左へ62・下へ112、4:3は下へ188。
-- 実機は未確認。資料：`docs/review/dungeon-test-field/minimap/README.md` の14章。
+- 資料：`docs/review/dungeon-test-field/minimap/README.md` の14章。
+- 実機（iPhone 16 Pro、`a7ea1f0` を上書きで導入、2026-10-23）：
+  - ユーザーが確認したのは再起動だけ。射撃場に戻り、ライフルになっていた。
+  - 再起動後の保存値で、配置編集の適用（ミニマップとADSの位置）が残っていることを確認した。
+  - 重ならないこと、位置が動かないこと、ハンドルが一致すること、Cancelは未確認。
+  - 記録：`docs/review/integration-smg-dungeon/README.md` の9章。
 
 ## 13. 未実装（今後の対象）
 
