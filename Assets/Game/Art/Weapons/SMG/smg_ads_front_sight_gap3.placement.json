@@ -1,0 +1,8 @@
+{
+  "note": "REVIEW placement of the SMG ADS comparison candidate smg_ads_front_sight_gap3.png (not registered: the game does not use it). Same image geometry as smg_ads_front_sight_revised.png (1774x887, alpha already binary, so it is used directly without an _opaque derivative): aim = top of the centre front-sight post (887, 386), unchanged; screenHeightPixels 772 and hold as the revised placement. SMG only: the flash reference is moved down from the post (887, 430) to the front-sight base / bore line (887, 480), and the flash is drawn smaller (adsMuzzleFlashScale 0.25 instead of the shared default 0.35), so the flash covers the post tip less. The aim point is not moved for this. Rifle placement and shared settings unchanged. Written by hand.",
+  "aim": [887, 386],
+  "muzzle": [887, 480],
+  "hold": [887, 634.3],
+  "screenHeightPixels": 772,
+  "adsMuzzleFlashScale": 0.25
+}
