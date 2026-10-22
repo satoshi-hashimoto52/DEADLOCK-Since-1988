@@ -1,0 +1,164 @@
+{
+  "note": "SMG ADS comparison candidate smg_ads_front_sight_gap3.png skin regions (development trial, not adopted). Same decided range as the hip: weapon_body = housing seen from behind (the stepped sight base / top of the receiver under the sights, the round cocking knob on the left of the sight base, the rear end block and its rear face); fixed colour = rear and front sight posts, the wire stock arms (left rail, right diagonal bar), sling loop, line black. Hands = glove, wrist band, sleeve base / camo. Areas read from the image (gridded crops, 2026-10-22). Read by Tools/pixelart/make_image_regions.py.",
+  "base": "Assets/Game/Art/Weapons/SMG/smg_ads_front_sight_gap3.png",
+  "outDir": "Assets/Game/Art/Weapons/SMG/Regions/ADS",
+  "maskDir": "Masks",
+  "maskFile": "smg_ads_{mask}.png",
+  "skinRegionsFile": "smg_ads_skin_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "steel": {
+      "satMax": 0.16,
+      "why": "dark grey steel housing (lightness median 0.24); the tan slot frame and the gloves are more saturated"
+    },
+    "glove": {
+      "hue": [
+        12,
+        35
+      ],
+      "satMin": 0.35,
+      "why": "brown leather glove"
+    },
+    "band": {
+      "satMax": 0.16,
+      "lightMax": 0.5,
+      "why": "dark grey wrist band"
+    },
+    "olive": {
+      "hue": [
+        30,
+        60
+      ],
+      "satMin": 0.12,
+      "why": "olive camo sleeve"
+    }
+  },
+  "areas": {
+    "sight_base": {
+      "polygon": [
+        [
+          838,
+          470
+        ],
+        [
+          985,
+          470
+        ],
+        [
+          995,
+          520
+        ],
+        [
+          1000,
+          600
+        ],
+        [
+          838,
+          600
+        ],
+        [
+          828,
+          520
+        ]
+      ],
+      "why": "stepped sight base / receiver top under the sight posts (the posts above y 470 stay fixed)"
+    },
+    "cocking_knob": {
+      "rect": [
+        808,
+        478,
+        842,
+        506
+      ],
+      "why": "round knob on the left of the sight base (the bolt / knob is recoloured)"
+    },
+    "rear_block": {
+      "rect": [
+        838,
+        588,
+        995,
+        887
+      ],
+      "why": "rear end block of the housing and its rear face; the wire stock arms left (x < 830) and right (diagonal bar, mostly x > 995) stay fixed"
+    },
+    "arms": {
+      "rect": [
+        0,
+        0,
+        1774,
+        887
+      ],
+      "why": "both hands and sleeves (glove / sleeve colours do not occur on the gun)"
+    },
+    "left_wrist": {
+      "rect": [
+        590,
+        620,
+        785,
+        780
+      ],
+      "why": "left wrist band only"
+    },
+    "right_wrist": {
+      "rect": [
+        1090,
+        795,
+        1255,
+        887
+      ],
+      "why": "right wrist band only"
+    }
+  },
+  "regions": {
+    "weapon_body": {
+      "areas": [
+        "sight_base",
+        "cocking_knob",
+        "rear_block"
+      ],
+      "colours": [
+        "steel"
+      ],
+      "minShare": 0.5,
+      "insideShare": 0.9
+    },
+    "glove_body": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "glove"
+      ],
+      "minShare": 0.5
+    },
+    "wrist_band": {
+      "areas": [
+        "left_wrist",
+        "right_wrist"
+      ],
+      "colours": [
+        "band"
+      ],
+      "minShare": 0.5
+    },
+    "sleeve": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "olive"
+      ],
+      "minShare": 0.5,
+      "split": {
+        "base": "sleeve_base",
+        "camo": "sleeve_camo",
+        "window": 30,
+        "sampleStep": 8,
+        "lightPercentile": 0.85,
+        "darkerBy": 0.05,
+        "speckleMaxPixels": 25
+      }
+    }
+  }
+}

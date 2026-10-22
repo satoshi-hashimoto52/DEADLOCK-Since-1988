@@ -30,6 +30,7 @@ namespace Deadlock.Editor
         public const string PlayerFrontPath = "Assets/Game/Art/Player/Front/player_front_gloves_adopted_opaque.png";
         public const string PlayerFrontRegionsPath = "Assets/Game/Art/Player/Front/player_front_gloves_adopted_skin_regions.png";
         const string RifleId = "proto_rifle";
+        const string SmgId = SmgCandidateSetup.WeaponId;
 
         public static SkinCatalog Prepare()
         {
@@ -66,6 +67,19 @@ namespace Deadlock.Editor
             catalog.uiMaterial = LoadOrCreateMaterial(UiShaderPath, UiMaterialPath);
             catalog.playerFront = EquipmentSprite(PlayerFrontPath);
             catalog.playerFrontRegions = EquipmentRegions(PlayerFrontRegionsPath, catalog.playerFront);
+            // The SMG candidate (development test choice): its own set with one test colour, next to the rifle. Added once
+            // to the hand-edited catalog; no side view yet (the equipment screen shows its caption only).
+            if (catalog.WeaponSet(SmgId) == null)
+            {
+                var list = new System.Collections.Generic.List<WeaponSkinSet>(catalog.weapons);
+                int rifle = list.FindIndex(w => w != null && w.weaponId == RifleId);
+                list.Insert(rifle + 1, new WeaponSkinSet
+                {
+                    weaponId = SmgId, label = "SMG（候補）",
+                    skins = new[] { new WeaponSkin { skinId = "test_green", label = "色違い（試作）", colours = new[] { Colour(SkinRegion.WeaponBody, 95f, 0.22f) } } },
+                });
+                catalog.weapons = list.ToArray();
+            }
             foreach (var set in catalog.weapons)
             {
                 if (set == null || set.weaponId != RifleId)

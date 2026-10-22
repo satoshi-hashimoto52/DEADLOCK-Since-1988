@@ -108,7 +108,9 @@ namespace Deadlock.Editor
             var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(RegistryPath);
             if (registry == null)
                 return;
-            Import(registry.weapons, registry.melee ?? Array.Empty<MeleeArtDefinition>(), RegistryPath);
+            var guns = new List<WeaponArtDefinition>(registry.weapons ?? Array.Empty<WeaponArtDefinition>());
+            guns.AddRange(registry.candidates ?? Array.Empty<WeaponArtDefinition>());
+            Import(guns, registry.melee ?? Array.Empty<MeleeArtDefinition>(), RegistryPath);
         }
 
         public static void Import(IList<WeaponArtDefinition> definitions, string context) =>

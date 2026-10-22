@@ -45,6 +45,7 @@ namespace Deadlock.Editor
         static ControlIconSet uiIcons;
         /// <summary>Skin catalog for this build run (see <see cref="SkinSetup"/>).</summary>
         static SkinCatalog skinCatalog;
+        static WeaponDefinition smgCandidate;
 
         [MenuItem("DEADLOCK/Prototype/Rebuild Firing Range")]
         public static void BuildFromMenu()
@@ -113,6 +114,10 @@ namespace Deadlock.Editor
             var projectiles = BuildProjectiles(mats, playerLayer, viewModelLayer);
             Vector3 spawn = training ? new Vector3(0f, 0.05f, -10f) : new Vector3(0f, 0.05f, 0f);
             var player = BuildPlayer(weapon, melee, projectiles, playerLayer, viewModelLayer, spawn);
+            // Development test choice of the gun (offline scenes only): the rifle, or the SMG candidate (rifle values).
+            var devGun = player.Root.AddComponent<DevGunSelection>();
+            Set(devGun, "gun", player.Gun);
+            SetArray(devGun, "options", new Object[] { weapon, smgCandidate });
             TrainingSession session = null;
             if (training)
             {
@@ -169,6 +174,8 @@ namespace Deadlock.Editor
             MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
             melee.viewProfile = PixelWeaponArt.PrepareKnife(AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
             EditorUtility.SetDirty(melee);
+            // The SMG candidate (development test choice only) joins the registry's candidates before the import.
+            smgCandidate = SmgCandidateSetup.Prepare();
             // Registered art (guns and melee) last: it replaces the provisional profiles above.
             PixelWeaponArt.ImportRegistered();
             skinCatalog = SkinSetup.Prepare();

@@ -10,5 +10,7 @@ namespace Deadlock.Editor
         public WeaponArtDefinition[] weapons = Array.Empty<WeaponArtDefinition>();
         [Tooltip("Melee weapons (one image each, no ADS).")]
         public MeleeArtDefinition[] melee = Array.Empty<MeleeArtDefinition>();
+        [Tooltip("Candidate guns before adoption: imported like the others, offered only by the development test choice (DevGunSelection).")]
+        public WeaponArtDefinition[] candidates = Array.Empty<WeaponArtDefinition>();
     }
 }

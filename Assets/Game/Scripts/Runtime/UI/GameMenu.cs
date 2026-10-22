@@ -1,4 +1,5 @@
 using System;
+using Deadlock.Combat;
 using Deadlock.Game;
 using Deadlock.Input;
 using Deadlock.View;
@@ -42,6 +43,11 @@ namespace Deadlock.UI
         Text transparencyText;
         Slider transparencySlider;
         TouchLayoutEditor layoutEditor;
+        DevGunSelection devGun;
+        Text devGunLabel;
+        RectTransform skinWindow;
+        RectTransform weaponPreview;
+        string weaponPreviewId;
 
         public bool IsOpen { get; private set; }
         public bool IsControlSettingsOpen => controlsPanel != null && controlsPanel.activeSelf;
@@ -81,6 +87,7 @@ namespace Deadlock.UI
                 return;
             IsOpen = true;
             input.Block("menu");
+            RefreshDevGun();
             panel.SetActive(true);
             Opened?.Invoke();
         }
@@ -142,6 +149,7 @@ namespace Deadlock.UI
             if (!IsOpen)
                 Open();
             panel.SetActive(false);
+            RefreshWeaponPreview();
             RefreshSkinSettings();
             skinPanel.SetActive(true);
             SkinSettingsOpened?.Invoke();
@@ -173,42 +181,19 @@ namespace Deadlock.UI
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", skinPanel.transform));
             safe.gameObject.AddComponent<SafeAreaFitter>();
             var window = UiBuild.Place(UiBuild.Rect("Window", safe), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1392f, 1000f));
+            skinWindow = window;
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 1f), true); // opaque: the touch controls behind do not show through the previews
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(1300f, 52f)),
                 "設定 → 装備・スキン（テスト用）", 38, TextAnchor.MiddleCenter);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Hint", window), new Vector2(0.5f, 1f), new Vector2(0f, -68f), new Vector2(1300f, 34f)),
                 "見た目だけが変わります（性能・判定・操作は変わりません）。武器と手・腕は別々に選べ、この端末に保存されます", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
 
-            // Previews: separate images (the player does not hold the rifle), aspect kept, whole image visible.
-            RectTransform Preview(string name, string caption, Vector2 position, Vector2 size, Sprite sprite, Texture2D regions, string weaponId, bool player)
-            {
-                var box = UiBuild.Place(UiBuild.Rect(name, window), new Vector2(0f, 1f), position, size);
-                UiBuild.Image(box, new Color(0.16f, 0.17f, 0.21f, 1f), false);
-                UiBuild.Text(UiBuild.Place(UiBuild.Rect("Caption", box), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(size.x - 20f, 32f)),
-                    sprite != null ? caption : caption + "（画像なし）", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
-                if (sprite == null)
-                    return box;
-                var art = UiBuild.Rect("Image", box);
-                art.anchorMin = Vector2.zero;
-                art.anchorMax = Vector2.one;
-                art.offsetMin = new Vector2(12f, 12f);
-                art.offsetMax = new Vector2(-12f, -44f);
-                art.gameObject.AddComponent<Image>();
-                art.gameObject.AddComponent<SkinnedImage>().Init(skins, sprite, regions, weaponId, player);
-                return box;
-            }
-
             var weaponIds = new System.Collections.Generic.List<string>();
-            WeaponSkinSet shown = null;
-            foreach (var set in skins.weapons)
-                if (set != null && !string.IsNullOrEmpty(set.weaponId) && set.sideView != null && shown == null)
-                    shown = set;
             Preview("PlayerPreview", "プレイヤー（正面）", new Vector2(24f, -116f), new Vector2(520f, 860f), skins.playerFront, skins.playerFrontRegions, null, true);
-            Preview("WeaponPreview", shown != null ? $"{shown.label}（横）" : "武器（横）", new Vector2(568f, -116f), new Vector2(800f, 400f),
-                shown?.sideView, shown?.sideViewRegions, shown?.weaponId, false);
+            RefreshWeaponPreview();
 
             // Choices (right column, below the weapon).
-            var choices = UiBuild.Place(UiBuild.Rect("Choices", window), new Vector2(0f, 1f), new Vector2(568f, -532f), new Vector2(800f, 444f));
+            var choices = UiBuild.Place(UiBuild.Rect("Choices", window), new Vector2(0f, 1f), new Vector2(568f, -472f), new Vector2(800f, 504f));
             float y = 0f;
             void Choices(string prefix, Func<string> current, (string id, string label)[] options, Action<string> choose)
             {
@@ -223,7 +208,7 @@ namespace Deadlock.UI
                         () => { choose(id); RefreshSkinSettings(); }, 26);
                 }
                 skinRefresh.Add(() => label.text = current());
-                y -= 136f;
+                y -= 120f;
             }
 
             var notes = new System.Collections.Generic.List<string>();
@@ -257,6 +242,64 @@ namespace Deadlock.UI
                 () => { SkinSelection.ResetToStandard(ids); RefreshSkinSettings(); }, 28);
             UiBuild.Button(choices, "SkinBackButton", "戻る", new Vector2(0.5f, 0f), new Vector2(160f, 0f), new Vector2(300f, 70f), CloseSkinSettings, 28);
             skinPanel.SetActive(false);
+        }
+
+        // Previews: separate images (the player does not hold the weapon), aspect kept, whole image visible.
+        RectTransform Preview(string name, string caption, Vector2 position, Vector2 size, Sprite sprite, Texture2D regions, string weaponId, bool player)
+        {
+            var box = UiBuild.Place(UiBuild.Rect(name, skinWindow), new Vector2(0f, 1f), position, size);
+            UiBuild.Image(box, new Color(0.16f, 0.17f, 0.21f, 1f), false);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Caption", box), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(size.x - 20f, 32f)),
+                sprite != null ? caption : caption + "（画像なし）", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+            if (sprite == null)
+                return box;
+            var art = UiBuild.Rect("Image", box);
+            art.anchorMin = Vector2.zero;
+            art.anchorMax = Vector2.one;
+            art.offsetMin = new Vector2(12f, 12f);
+            art.offsetMax = new Vector2(-12f, -44f);
+            art.gameObject.AddComponent<Image>();
+            art.gameObject.AddComponent<SkinnedImage>().Init(skins, sprite, regions, weaponId, player);
+            return box;
+        }
+
+        /// <summary>
+        /// The weapon preview shows the gun in hand: its own side view, or only its caption when it has none yet (the SMG
+        /// candidate: the rifle's side view is never shown as the SMG).
+        /// </summary>
+        void RefreshWeaponPreview()
+        {
+            if (skins == null || skinWindow == null)
+                return;
+            var gun = input.GetComponent<GunController>();
+            string id = gun != null ? gun.Definition.weaponId : null;
+            if (weaponPreview != null && id == weaponPreviewId)
+                return;
+            if (weaponPreview != null)
+            {
+                weaponPreview.name = "WeaponPreview_Old";
+                Destroy(weaponPreview.gameObject);
+            }
+            var set = id != null ? skins.WeaponSet(id) : null;
+            string caption = set != null ? $"{set.label}（横）" : "武器（横）";
+            if (set != null && set.sideView == null)
+                caption += "　全体図は未制作";
+            weaponPreview = Preview("WeaponPreview", caption, new Vector2(568f, -116f), new Vector2(800f, 340f), set?.sideView, set?.sideViewRegions, id, false);
+            weaponPreviewId = id;
+        }
+
+        string GunLabel(WeaponDefinition definition)
+        {
+            if (definition == null)
+                return "";
+            var set = skins != null ? skins.WeaponSet(definition.weaponId) : null;
+            return set != null ? set.label : definition.displayName;
+        }
+
+        void RefreshDevGun()
+        {
+            if (devGunLabel != null && devGun != null)
+                devGunLabel.text = $"銃（テスト用）：{GunLabel(devGun.Current)} → {GunLabel(devGun.Next())}";
         }
 
         void SetAdsMode(InputMode mode, AdsMode value)
@@ -378,6 +421,15 @@ namespace Deadlock.UI
             Add("LayoutButton", "操作レイアウト", OpenLayoutEditor);
             if (skins != null)
                 Add("SkinButton", "装備・スキン（テスト用）", OpenSkinSettings);
+            // Development test choice of the gun (offline scenes that offer it): rifle ⇄ SMG candidate.
+            devGun = input.GetComponent<DevGunSelection>();
+            if (devGun != null && devGun.Options.Count > 1)
+            {
+                Add("DevGunButton", "", () => { devGun.Select(devGun.Next().weaponId); RefreshDevGun(); });
+                devGunLabel = window.Find("DevGunButton").GetComponentInChildren<Text>();
+                devGunLabel.fontSize = 24;
+                RefreshDevGun();
+            }
             panel.SetActive(false);
             BuildControlSettings();
             if (skins != null)

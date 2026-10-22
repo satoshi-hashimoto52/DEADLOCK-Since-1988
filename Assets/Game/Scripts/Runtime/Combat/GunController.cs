@@ -41,6 +41,8 @@ namespace Deadlock.Combat
         public event Action ReloadFinished;
         public event Action ReloadCanceled;
         public event Action AmmoChanged;
+        /// <summary>The gun was swapped (<see cref="SetDefinition"/>): views re-read the definition's look.</summary>
+        public event Action DefinitionChanged;
 
         /// <summary>
         /// When set (online), a shot calls this with (origin, direction) instead of firing a local damaging projectile:
@@ -130,6 +132,29 @@ namespace Deadlock.Combat
             nextFireTime = 0f;
             waitForTriggerRelease = true;
             AmmoChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Swaps the gun (development test choice, <see cref="DevGunSelection"/>): the new definition starts fresh —
+        /// full magazine and starting reserve, no reload, no ADS, trigger released first. Same rig, same everything else.
+        /// </summary>
+        public void SetDefinition(WeaponDefinition next)
+        {
+            if (next == null || next == definition)
+                return;
+            if (IsReloading)
+            {
+                IsReloading = false;
+                ReloadCanceled?.Invoke();
+            }
+            definition = next;
+            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
+            AdsBlend = 0f;
+            nextFireTime = 0f;
+            waitForTriggerRelease = true;
+            input.CancelAds();
+            AmmoChanged?.Invoke();
+            DefinitionChanged?.Invoke();
         }
 
         /// <summary>Adds rounds to reserve (pickups). Returns the amount actually added.</summary>

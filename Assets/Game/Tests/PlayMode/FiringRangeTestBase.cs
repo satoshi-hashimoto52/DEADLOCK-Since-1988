@@ -35,7 +35,7 @@ namespace Deadlock.Tests
             ControlSettings.TouchAdsKey, ControlSettings.DesktopAdsKey, ControlSettings.TouchAdsDragAimKey, ControlSettings.TouchFireModeKey,
             ControlSettings.TouchTransparencyKey,
         };
-        protected static readonly string[] SkinWeaponIds = { "proto_rifle", "proto_knife" };
+        protected static readonly string[] SkinWeaponIds = { "proto_rifle", "proto_smg", "proto_knife" };
         readonly System.Collections.Generic.Dictionary<string, string> savedSkins = new System.Collections.Generic.Dictionary<string, string>();
 
         static System.Collections.Generic.IEnumerable<string> SkinKeys()

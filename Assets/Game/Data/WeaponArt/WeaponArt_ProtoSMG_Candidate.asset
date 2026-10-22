@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c87e56f70c4443891944abc4f8230a, type: 3}
+  m_Name: WeaponArt_ProtoSMG_Candidate
+  m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.WeaponArtDefinition
+  weapon: {fileID: 11400000, guid: d3eb20bf39c5d4a9b874d6609274e92e, type: 2}
+  baseProfile: {fileID: 11400000, guid: 869f4a554e455488f8c0a1be473ee411, type: 2}
+  viewProfile: {fileID: 11400000, guid: a5303ea361ecd42af9971802f9dca810, type: 2}
+  muzzleFlash: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hip:
+    source: {fileID: 2800000, guid: 02dc0e9ff45b84a4eb7f26be029f92be, type: 3}
+    image: {fileID: 2800000, guid: 5009f33b6f86a4768b1f65362b733e68, type: 3}
+    placement: {fileID: 4900000, guid: 426933004b0e94f80aac6977a116950d, type: 3}
+    skinRegions: {fileID: 2800000, guid: efbf1a89de90747a5a7434760df080d0, type: 3}
+  ads:
+    source: {fileID: 2800000, guid: dfdb697513cba479ab9bf556ad578663, type: 3}
+    image: {fileID: 2800000, guid: dfdb697513cba479ab9bf556ad578663, type: 3}
+    placement: {fileID: 4900000, guid: 49070414a1fa8424093e159f64ac3afe, type: 3}
+    skinRegions: {fileID: 2800000, guid: b039c62c56534448aa9a92e726f37b21, type: 3}

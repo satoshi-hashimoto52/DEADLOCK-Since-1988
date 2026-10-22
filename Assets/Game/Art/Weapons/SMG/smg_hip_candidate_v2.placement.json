@@ -1,13 +1,25 @@
 {
-  "note": "REVIEW placement of the SMG hip candidate v2 (not registered in WeaponArtRegistry: the game does not use it). Pixel coordinates from the image's top-left (1672x941, the rifle hip canvas). muzzle = centre of the barrel nut's front face (front x 963, face y 412-455), read from the image. hold = centre of the right hand on the pistol grip (kick / reload turn around it). The other values are the approved rifle hip's (same canvas and dot size): 1045 px per screen height, image bottom-right on the screen's bottom-right lowered by 0.05, right-edge follow on wider screens, 4:3 keeps the place. Written by hand.",
-  "muzzle": [967, 434],
-  "hold": [1265, 820],
+  "note": "Placement of the SMG hip candidate v2 for the development test choice (DevGunSelection; registry 'candidates', not adopted). Pixel coordinates from the image's top-left (1672x941, the rifle hip canvas). muzzle = centre of the barrel nut's front face (front x 963, face y 412-455), read from the image. hold = centre of the right hand on the pistol grip (kick / reload turn around it). The other values are the approved rifle hip's (same canvas and dot size): 1045 px per screen height, image bottom-right on the screen's bottom-right lowered by 0.05, right-edge follow on wider screens, 4:3 keeps the place. Written by hand.",
+  "muzzle": [
+    967,
+    434
+  ],
+  "hold": [
+    1265,
+    820
+  ],
   "screenHeightPixels": 1045,
   "anchorAspect": 0,
-  "offset": [0, -0.05],
+  "offset": [
+    0,
+    -0.05
+  ],
   "hipRightEdgeFollow": 1.0,
   "hipRightEdgeFollowNarrow": 0.0,
   "hipScaleAt4x3": 1.0,
   "hipMuzzleFlashScale": 0.4,
-  "hipToAds": [0, -0.2]
+  "hipToAds": [
+    0,
+    -0.2
+  ]
 }

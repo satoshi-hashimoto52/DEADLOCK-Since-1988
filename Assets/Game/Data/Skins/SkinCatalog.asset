@@ -28,6 +28,17 @@ MonoBehaviour:
         saturation: 0.22
     sideView: {fileID: 21300000, guid: 3de77b9c531784e668d8cc675258f27f, type: 3}
     sideViewRegions: {fileID: 2800000, guid: c45ba4c1589a348ceb7b2f59cece529c, type: 3}
+  - weaponId: proto_smg
+    label: "SMG\uFF08\u5019\u88DC\uFF09"
+    skins:
+    - skinId: test_green
+      label: "\u8272\u9055\u3044\uFF08\u8A66\u4F5C\uFF09"
+      colours:
+      - region: 1
+        hue: 95
+        saturation: 0.22
+    sideView: {fileID: 0}
+    sideViewRegions: {fileID: 0}
   - weaponId: proto_knife
     label: "\u30CA\u30A4\u30D5"
     skins: []

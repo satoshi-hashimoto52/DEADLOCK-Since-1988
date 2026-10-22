@@ -1,0 +1,214 @@
+{
+  "note": "SMG hip candidate v2 skin regions (development trial, the SMG is a candidate, not adopted). Same areas and colour rules as the region proposal decided on 2026-10-22 (docs/review/player-parts/smg/region-proposal, README_design_review.md 5): weapon_body = housing (front block, receiver, rear end block incl. its dark lower face, round bolt at the stock base); fixed colour = muzzle / barrel nut, sights, magazine, grip and trigger, wire stock and hinge plate, tan slot frame, line black. Hands = glove, wrist band, sleeve base / camo. Base = the displayed derivative smg_hip_candidate_v2_opaque.png (the original is only read). Read by Tools/pixelart/make_image_regions.py.",
+  "base": "Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/SMG/Regions/Hip",
+  "maskDir": "Masks",
+  "maskFile": "smg_hip_{mask}.png",
+  "skinRegionsFile": "smg_hip_skin_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "steel": {
+      "satMax": 0.16,
+      "why": "dark grey steel housing (lightness median 0.24); the tan slot frame and the gloves are more saturated"
+    },
+    "glove": {
+      "hue": [
+        12,
+        35
+      ],
+      "satMin": 0.35,
+      "why": "brown leather glove"
+    },
+    "band": {
+      "satMax": 0.16,
+      "lightMax": 0.5,
+      "why": "dark grey wrist band"
+    },
+    "olive": {
+      "hue": [
+        30,
+        60
+      ],
+      "satMin": 0.12,
+      "why": "olive camo sleeve"
+    }
+  },
+  "areas": {
+    "front_block": {
+      "rect": [
+        1028,
+        446,
+        1108,
+        650
+      ],
+      "why": "front block of the housing under the front sight (the sight posts and their base above y 446 stay fixed)"
+    },
+    "receiver": {
+      "polygon": [
+        [
+          1095,
+          440
+        ],
+        [
+          1240,
+          492
+        ],
+        [
+          1250,
+          548
+        ],
+        [
+          1300,
+          548
+        ],
+        [
+          1300,
+          700
+        ],
+        [
+          1095,
+          700
+        ]
+      ],
+      "why": "receiver with the side slots; the rear sight above (1250-1330, 465-545) stays fixed; the magazine below y 700 stays fixed"
+    },
+    "rear_block": {
+      "polygon": [
+        [
+          1300,
+          548
+        ],
+        [
+          1345,
+          548
+        ],
+        [
+          1455,
+          612
+        ],
+        [
+          1455,
+          650
+        ],
+        [
+          1378,
+          650
+        ],
+        [
+          1378,
+          752
+        ],
+        [
+          1300,
+          752
+        ]
+      ],
+      "why": "rear end block of the housing, including its dark lower face down to the right glove; the stock hinge plate (x 1380-1452, y 650-745) and the wire stock right of it stay fixed"
+    },
+    "arms": {
+      "rect": [
+        560,
+        480,
+        1672,
+        941
+      ],
+      "why": "both hands and sleeves (glove / sleeve colours do not occur on the gun)"
+    },
+    "left_wrist": {
+      "rect": [
+        900,
+        630,
+        1075,
+        775
+      ],
+      "why": "left wrist band only"
+    },
+    "right_wrist": {
+      "rect": [
+        1335,
+        825,
+        1480,
+        941
+      ],
+      "why": "right wrist band only"
+    },
+    "stock_hinge_knob": {
+      "rect": [
+        1400,
+        675,
+        1440,
+        722
+      ],
+      "why": "round bolt at the stock base: recoloured with the housing (the hinge plate around it and the wire stay fixed)"
+    }
+  },
+  "regions": {
+    "weapon_body": {
+      "areas": [
+        "front_block",
+        "receiver",
+        "rear_block",
+        "stock_hinge_knob"
+      ],
+      "colours": [
+        "steel"
+      ],
+      "minShare": 0.5,
+      "insideShare": 0.9,
+      "pixelSeeds": [
+        {
+          "seed": [
+            1056,
+            500
+          ],
+          "why": "front block side face: the cell runs into the barrel nut / sight base, so only its pixels inside the area are taken"
+        },
+        {
+          "seed": [
+            1092,
+            520
+          ],
+          "why": "front block edge strip (same reason)"
+        }
+      ]
+    },
+    "glove_body": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "glove"
+      ],
+      "minShare": 0.5
+    },
+    "wrist_band": {
+      "areas": [
+        "left_wrist",
+        "right_wrist"
+      ],
+      "colours": [
+        "band"
+      ],
+      "minShare": 0.5
+    },
+    "sleeve": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "olive"
+      ],
+      "minShare": 0.5,
+      "split": {
+        "base": "sleeve_base",
+        "camo": "sleeve_camo",
+        "window": 30,
+        "sampleStep": 8,
+        "lightPercentile": 0.85,
+        "darkerBy": 0.05,
+        "speckleMaxPixels": 25
+      }
+    }
+  }
+}

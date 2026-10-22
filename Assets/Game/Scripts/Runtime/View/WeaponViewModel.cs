@@ -37,11 +37,20 @@ namespace Deadlock.View
         float kick;
         float bobPhase;
         float flashUntil;
+        Material hipDefaultMaterial, adsDefaultMaterial;
 
         void Awake()
         {
-            profile = gun.Definition.viewProfile;
             switcher = gun.GetComponent<WeaponSwitcher>();
+            hipDefaultMaterial = hipSprite.sharedMaterial;
+            adsDefaultMaterial = adsSprite.sharedMaterial;
+            ApplyProfile();
+        }
+
+        /// <summary>Sprites, flash places and skin from the gun's current definition (again after a gun swap).</summary>
+        void ApplyProfile()
+        {
+            profile = gun.Definition.viewProfile;
             hipSprite.sprite = profile.hipSprite;
             adsSprite.sprite = profile.adsSprite;
             if (profile.muzzleFlashSprite != null)
@@ -60,12 +69,14 @@ namespace Deadlock.View
         void OnEnable()
         {
             gun.Fired += OnFired;
+            gun.DefinitionChanged += ApplyProfile;
             SkinSelection.Changed += ApplySkin;
         }
 
         void OnDisable()
         {
             gun.Fired -= OnFired;
+            gun.DefinitionChanged -= ApplyProfile;
             SkinSelection.Changed -= ApplySkin;
         }
 
@@ -75,10 +86,19 @@ namespace Deadlock.View
             if (skins == null || profile == null)
                 return;
             skins.FillColours(gun.Definition.weaponId, skinColours);
-            SpriteSkin.Apply(hipSprite, profile.hipSkinRegions, skins, skinColours);
-            SpriteSkin.Apply(adsSprite, profile.adsSkinRegions, skins, skinColours);
+            // A gun without a region map (after a swap) goes back to its drawn colours, never keeps another gun's map.
+            if (!SpriteSkin.Apply(hipSprite, profile.hipSkinRegions, skins, skinColours))
+                Unskin(hipSprite, hipDefaultMaterial);
+            if (!SpriteSkin.Apply(adsSprite, profile.adsSkinRegions, skins, skinColours))
+                Unskin(adsSprite, adsDefaultMaterial);
             string id = gun.Definition.weaponId;
             Debug.Log($"[DEADLOCK][skin] applied {id}: weapon={SkinSelection.GetWeaponSkinId(id)} player={SkinSelection.PlayerSkinId}");
+        }
+
+        static void Unskin(SpriteRenderer renderer, Material material)
+        {
+            renderer.sharedMaterial = material;
+            renderer.SetPropertyBlock(null);
         }
 
         void OnFired()
