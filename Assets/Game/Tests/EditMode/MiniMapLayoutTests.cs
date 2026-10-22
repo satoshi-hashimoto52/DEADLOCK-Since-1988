@@ -56,6 +56,40 @@ namespace Deadlock.Tests
                     Vector2 nearest = new Vector2(Mathf.Clamp(c.x, map.xMin, map.xMax), Mathf.Clamp(c.y, map.yMin, map.yMax));
                     Assert.Greater(Vector2.Distance(nearest, c), r, $"{name}: map over {item.id}");
                 }
+                Assert.AreEqual(MiniMapView.Margin.x, MiniMapView.ChoosePosition(safe, layout), $"{name}: default layout keeps the corner");
+            }
+        }
+
+        // A layout saved on the test iPhone (2026-10-22): the weapon button moved to the top-left corner, ADS to the top right.
+        const string DeviceLayout = "{\"version\":1,\"items\":[{\"id\":\"move_zone\",\"center\":{\"x\":0.2,\"y\":0.4},\"size\":{\"x\":0.4,\"y\":0.8},\"scale\":1.0},"
+            + "{\"id\":\"move_stick\",\"center\":{\"x\":0.1086,\"y\":0.2765},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.0},"
+            + "{\"id\":\"fire\",\"center\":{\"x\":0.9226,\"y\":0.2209},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.3},"
+            + "{\"id\":\"ads\",\"center\":{\"x\":0.8883,\"y\":0.8730},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.4},"
+            + "{\"id\":\"reload\",\"center\":{\"x\":0.7430,\"y\":0.2970},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.0},"
+            + "{\"id\":\"jump\",\"center\":{\"x\":0.7594,\"y\":0.0853},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":0.9},"
+            + "{\"id\":\"posture\",\"center\":{\"x\":0.6762,\"y\":0.0900},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.0},"
+            + "{\"id\":\"weapon\",\"center\":{\"x\":0.0359,\"y\":0.8548},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.1}]}";
+
+        [Test]
+        public void MiniMap_MovesAlongTheTop_ClearOfAButtonPutInTheCorner()
+        {
+            var layout = JsonUtility.FromJson<TouchLayoutData>(DeviceLayout);
+            foreach (var (name, safe) in Screens)
+            {
+                float left = MiniMapView.ChoosePosition(safe, layout);
+                Assert.Greater(left, MiniMapView.Margin.x, $"{name}: moved out of the corner");
+                var map = new Rect(left, safe.y - MiniMapView.Margin.y - MiniMapView.Size, MiniMapView.Size, MiniMapView.Size);
+                foreach (var item in layout.items)
+                {
+                    if (item.id == TouchLayout.MoveZone)
+                        continue;
+                    float d = TouchLayout.Diameter(item);
+                    Vector2 c = TouchLayout.ClampCircle(item.center, d, safe) * safe;
+                    Vector2 nearest = new Vector2(Mathf.Clamp(c.x, map.xMin, map.xMax), Mathf.Clamp(c.y, map.yMin, map.yMax));
+                    Assert.Greater(Vector2.Distance(nearest, c), d * 0.5f, $"{name}: map over {item.id}");
+                }
+                Assert.IsFalse(map.Overlaps(TouchLayout.MenuGuard(safe)), $"{name}: menu button");
+                Assert.LessOrEqual(map.xMax, safe.x * 0.5f - 300f, $"{name}: left of the status line");
             }
         }
     }

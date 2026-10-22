@@ -236,7 +236,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(0, below.Floor);
             Assert.AreEqual(1, view.DisplayedFloor);
             Assert.IsTrue(view.TryGetMarker(enemies[3], out shape, out _));
-            Assert.AreEqual("seen_down", shape);
+            Assert.That(shape, Does.EndWith("seen_down"), "an arrow down (on the edge when beyond the map's range)");
         }
 
         // ------------------------------------------------------------------ footsteps
@@ -295,7 +295,70 @@ namespace Deadlock.Tests
             Assert.AreEqual(1, up.Floor);
             yield return null;
             Assert.IsTrue(view.TryGetMarker(enemies[0], out shape, out _));
-            Assert.AreEqual("heard_up", shape);
+            Assert.That(shape, Is.EqualTo("heard_up").Or.EqualTo("self_heard_up"), "an arrow up (beside the player's arrow when straight above)");
+        }
+
+        [UnityTest]
+        public IEnumerator Markers_BeyondTheRange_OnTheEdge_TowardTheLastDetectedPosition_AboveAndBelow_BesideTheArrow()
+        {
+            yield return LoadRuins();
+            const float edge = 80f;
+            // Seen 18 m ahead (beyond the 11 m range): a pointer on the edge, straight up (ahead).
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Park(zombies[0], new Vector3(18f, 0f, -CorridorZ));
+            yield return Wait(0.3f);
+            yield return null;
+            Assert.IsTrue(view.TryGetMarker(enemies[0], out string shape, out Vector2 at));
+            Assert.AreEqual("edge_seen", shape);
+            Assert.AreEqual(0f, at.x, 1f);
+            Assert.AreEqual(edge, at.y, 1f, "held on the edge, toward the enemy");
+            var pointer = view.Frame.GetComponentsInChildren<Image>().First(i => i.enabled && i.name.StartsWith("Marker_"));
+            Assert.AreEqual(0f, Mathf.DeltaAngle(0f, pointer.rectTransform.localEulerAngles.z), 1f, "pointing outward (up)");
+
+            // Hidden and moved elsewhere: the pointer keeps the direction of the last detected position. Facing north,
+            // that position (east) is to the right; the zombie's current place (front-right, in range) is not used.
+            Vector3 lastSeen = zombies[0].transform.position;
+            Park(zombies[0], new Vector3(8f, 0f, -10.5f));
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 0f);
+            yield return Wait(0.3f);
+            Assert.IsTrue(detector.TryGetContact(enemies[0], out var held));
+            Assert.Less(Vector3.Distance(lastSeen, held.Position), 0.05f);
+            Assert.IsTrue(view.TryGetMarker(enemies[0], out shape, out at));
+            Assert.AreEqual("edge_seen", shape);
+            Assert.AreEqual(edge, at.x, 1f, "to the right: toward where it was last detected");
+            Assert.AreEqual(0f, at.y, 2f);
+            yield return Wait(detector.DisplayTime(ContactKind.Seen));
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _), "gone after the display time");
+            Assert.AreEqual(0, view.ShownMarkers);
+
+            // Straight above (heard through the floor): a boxed arrow up beside the player's arrow, not under it.
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Walk(zombies[1], new Vector3(-0.9f, Upper, -CorridorZ), new Vector3(0.9f, Upper, -CorridorZ));
+            yield return Wait(1.2f);
+            Park(zombies[1], zombies[1].transform.position);
+            yield return null;
+            Assert.IsTrue(view.TryGetMarker(enemies[1], out shape, out at));
+            Assert.AreEqual("self_heard_up", shape);
+            Assert.Greater(at.magnitude, 20f, "beside the player's arrow, not on it");
+            Assert.AreEqual(30f, at.x, 0.5f);
+
+            // Straight below, seen from upstairs is impossible through the slab: heard walking below.
+            Park(zombies[1], new Vector3(-16f, Upper, 15f));
+            Look(new Vector3(0f, Upper + 0.05f, -CorridorZ), 90f);
+            Walk(zombies[2], new Vector3(-0.9f, 0f, -CorridorZ), new Vector3(0.9f, 0f, -CorridorZ));
+            yield return Wait(1.2f);
+            yield return null;
+            Assert.IsTrue(view.TryGetMarker(enemies[2], out shape, out at));
+            Assert.AreEqual("self_heard_down", shape);
+            Park(zombies[2], new Vector3(-14f, Upper, 15f));
+
+            // Another floor and beyond the range: the edge pointer with an arrow down beside it.
+            Look(new Vector3(2f, Upper + 0.05f, 8.7f), 180f, -19f);
+            Park(zombies[3], new Vector3(2f, 0f, -6f));
+            yield return Wait(0.4f);
+            Assert.IsTrue(view.TryGetMarker(enemies[3], out shape, out at));
+            Assert.AreEqual("edge_seen_down", shape);
+            Assert.AreEqual(edge, at.y, 1f);
         }
 
         // ------------------------------------------------------------------ death, retry, setting

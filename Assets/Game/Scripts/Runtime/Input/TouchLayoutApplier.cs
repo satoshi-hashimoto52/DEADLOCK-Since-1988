@@ -30,6 +30,8 @@ namespace Deadlock.Input
 
         /// <summary>The applied-and-saved layout (a copy).</summary>
         public TouchLayoutData Saved => saved.Clone();
+        /// <summary>The layout on screen now (a copy; differs from <see cref="Saved"/> while editing).</summary>
+        public TouchLayoutData Shown => shown.Clone();
         public RectTransform SafeArea => safeArea;
         public Vector2 SafeSize => safeArea.rect.size;
 

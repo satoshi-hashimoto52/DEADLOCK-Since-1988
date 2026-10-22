@@ -154,6 +154,7 @@ namespace Deadlock.Editor
             Set(miniMap, "detector", detector);
             Set(miniMap, "player", player.Root.transform);
             Set(miniMap, "hud", canvas.GetComponentInChildren<HudController>());
+            Set(miniMap, "touchLayout", canvas.GetComponentInChildren<Deadlock.Input.TouchLayoutApplier>());
             var pause = new GameObject("OfflineSessionPause").AddComponent<OfflineSessionPause>();
             Set(pause, "menu", menu);
 
