@@ -89,9 +89,10 @@ namespace Deadlock.Editor
             BuildScene(false, playerLayer, viewModelLayer, enemyLayer);
             BuildScene(true, playerLayer, viewModelLayer, enemyLayer);
             BuildOnlineScene(playerLayer, viewModelLayer, enemyLayer, hitboxLayer, ownHitboxLayer);
+            BuildRuinsScene(playerLayer, viewModelLayer, enemyLayer);
             ConfigureProject();
             AssetDatabase.SaveAssets();
-            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}");
+            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}, {RuinsScenePath}");
         }
 
         /// <summary>Firing range or training: same player rig, HUD, touch controls and menu; different stage.</summary>
@@ -216,6 +217,7 @@ namespace Deadlock.Editor
                 new EditorBuildSettingsScene(ScenePath, true),
                 new EditorBuildSettingsScene(TrainingScenePath, true),
                 new EditorBuildSettingsScene(OnlineScenePath, true),
+                new EditorBuildSettingsScene(RuinsScenePath, true),
             };
 
             // The template sample scene is replaced by the prototype scene.

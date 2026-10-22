@@ -336,7 +336,7 @@ namespace Deadlock.UI
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 940f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 1000f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             if (icons != null && icons.titleLogo != null)
                 UiBuild.Icon(window, icons.titleLogo, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(300f, 100f)).name = "TitleLogo";
@@ -362,6 +362,8 @@ namespace Deadlock.UI
                 Add("SceneButton", "射撃場へ", () => GameScenes.Load(GameScenes.FiringRange));
             if (current != GameScenes.Training)
                 Add("TrainingButton", "トレーニングへ", () => GameScenes.Load(GameScenes.Training));
+            if (current != GameScenes.Ruins)
+                Add("RuinsButton", "遺跡（テスト）へ", () => GameScenes.Load(GameScenes.Ruins));
             if (current != GameScenes.Online)
                 Add("OnlineButton", "オンライン検証（LAN）へ", () => GameScenes.Load(GameScenes.Online));
             var header = UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),

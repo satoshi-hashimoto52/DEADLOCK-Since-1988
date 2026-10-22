@@ -10,6 +10,8 @@ namespace Deadlock.Game
         public const string Training = "Proto_Training";
         /// <summary>LAN two-player test scene (host + one client).</summary>
         public const string Online = "Proto_Online";
+        /// <summary>Ruins test field (closed two-storey stone building; prototype for future dungeons).</summary>
+        public const string Ruins = "Proto_Ruins";
 
         public static bool IsTraining => SceneManager.GetActiveScene().name == Training;
 
