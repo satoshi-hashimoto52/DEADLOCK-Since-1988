@@ -1,0 +1,35 @@
+{
+ "assumption": "rifle hip placement values (screenHeightPixels 1045, offset (0,-0.05), right-edge follow 1.0 wider / 0.0 narrower, hipScaleAt4x3 1.0) and the rifle's reload motion (drop 0.10, roll 14 deg around the hold point). Offline preview, not the game.",
+ "screens": {
+  "iPhone16Pro_2622x1206": {
+   "sleeveCutMarginPx(+ = off screen)": {
+    "rifle rest hold=(1260, 880)": 37.0,
+    "rifle reload_mid hold=(1260, 880)": 50.0,
+    "smg rest hold=(1260, 880)": 64.7,
+    "smg reload_mid hold=(1260, 880)": 83.6,
+    "smg rest hold=(1300, 790)": 64.7,
+    "smg reload_mid hold=(1300, 790)": 91.6
+   }
+  },
+  "16x9_1920x1080": {
+   "sleeveCutMarginPx(+ = off screen)": {
+    "rifle rest hold=(1260, 880)": 33.1,
+    "rifle reload_mid hold=(1260, 880)": 44.8,
+    "smg rest hold=(1260, 880)": 57.9,
+    "smg reload_mid hold=(1260, 880)": 74.8,
+    "smg rest hold=(1300, 790)": 57.9,
+    "smg reload_mid hold=(1300, 790)": 82.1
+   }
+  },
+  "iPad_4x3_2048x1536": {
+   "sleeveCutMarginPx(+ = off screen)": {
+    "rifle rest hold=(1260, 880)": 82.3,
+    "rifle reload_mid hold=(1260, 880)": 155.7,
+    "smg rest hold=(1260, 880)": 82.3,
+    "smg reload_mid hold=(1260, 880)": 155.1,
+    "smg rest hold=(1300, 790)": 82.3,
+    "smg reload_mid hold=(1300, 790)": 170.8
+   }
+  }
+ }
+}

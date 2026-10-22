@@ -1,0 +1,133 @@
+{
+ "file": "Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2.png (untracked, read only)",
+ "sha256": "9a91543fb656eec60c21365f56492699d5843ad7185b8c69a4bacd317001b59c",
+ "size": [
+  1672,
+  941
+ ],
+ "sameCanvasAs": "Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png (1672x941)",
+ "alpha": {
+  "0": 1271912,
+  "1-127": 17001,
+  "128-254": 283885,
+  "255": 554,
+  "faint 1-7": 12023,
+  "opaqueBBox(>=128)": [
+   579,
+   384,
+   1649,
+   941
+  ]
+ },
+ "afterBinarize128": {
+  "opaqueComponents": 1,
+  "enclosedTransparent": [
+   {
+    "pixels": 2813,
+    "bbox": [
+     1448,
+     691,
+     1502,
+     791
+    ],
+    "what": "inside of the folded wire stock loop (drawn gap, not a hole)"
+   }
+  ]
+ },
+ "canvasEdges": {
+  "bottom": [
+   [
+    579,
+    991
+   ],
+   [
+    1344,
+    1648
+   ]
+  ],
+  "right": "none (the right sleeve leaves through the bottom edge; transparent corner x 1650-1671)",
+  "top/left": "none"
+ },
+ "outlineDarkRunModesPx": {
+  "smg": [
+   9,
+   10,
+   11
+  ],
+  "rifleHip": [
+   9,
+   8,
+   7,
+   6
+  ]
+ },
+ "glove": {
+  "smg": {
+   "left": {
+    "hue": 23.2,
+    "sat": 0.484,
+    "lMed": 0.32,
+    "lP95": 0.392
+   },
+   "right": {
+    "hue": 23.1,
+    "sat": 0.486,
+    "lMed": 0.325,
+    "lP95": 0.4
+   }
+  },
+  "rifleHip": {
+   "left": {
+    "hue": 23.8,
+    "sat": 0.479,
+    "lMed": 0.304,
+    "lP95": 0.398
+   },
+   "right": {
+    "hue": 23.6,
+    "sat": 0.467,
+    "lMed": 0.325,
+    "lP95": 0.418
+   }
+  }
+ },
+ "sleeve": {
+  "smg": {
+   "hue": 46.2,
+   "sat": 0.286,
+   "lMed": 0.31
+  },
+  "rifleHip": {
+   "hue": 46.9,
+   "sat": 0.288,
+   "lMed": 0.265
+  }
+ },
+ "gunBodyLightness(p10/median/p90)": {
+  "smgGreyPixels": [
+   0.218,
+   0.241,
+   0.486
+  ],
+  "rifleWeaponBodyRegion": [
+   0.312,
+   0.582,
+   0.753
+  ]
+ },
+ "leftGloveBBox": {
+  "smg": [
+   938,
+   499,
+   1104,
+   720
+  ],
+  "rifleHip": [
+   954,
+   448,
+   1149,
+   727
+  ]
+ },
+ "note": "Measured on the original (alpha >= 128 as opaque where relevant). Glove / sleeve by colour rules (glove hue 14-30, sat >= 0.35; sleeve hue 36-56, sat 0.12-0.40), dark outline = max channel < 45."
+}
