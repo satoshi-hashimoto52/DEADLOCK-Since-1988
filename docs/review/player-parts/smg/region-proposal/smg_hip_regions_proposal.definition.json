@@ -1,5 +1,5 @@
 {
-  "note": "PROPOSAL ONLY (not adopted, not in Assets): skin region proposal for the SMG hip candidate v2, read by Tools/pixelart/make_image_regions.py. Base = the alpha-binarised copy of the candidate made in this folder with make_opaque.py (threshold 128); the candidate itself is only read. weapon_body = the grey steel cells of the housing (front block under the front sight, receiver with its side slots, rear end block); fixed colour = muzzle / barrel nut, front and rear sights, magazine, pistol grip and trigger, wire stock, the tan slot frame, line black. Hands = glove, wrist band, sleeve (base / camo), as the player hand / arm skin. Areas read from the image (gridded crops). See ../README_design_review.md.",
+  "note": "PROPOSAL ONLY (not adopted, not in Assets): skin region proposal for the SMG hip candidate v2, read by Tools/pixelart/make_image_regions.py. Base = the alpha-binarised copy of the candidate made in this folder with make_opaque.py (threshold 128); the candidate itself is only read. weapon_body = the grey steel cells of the housing (front block under the front sight, receiver with its side slots, rear end block incl. its dark lower face, and the round bolt at the stock base); fixed colour = muzzle / barrel nut, front and rear sights, magazine, pistol grip and trigger, wire stock and its hinge plate, the tan slot frame, line black. Hands = glove, wrist band, sleeve (base / camo), as the player hand / arm skin. Areas read from the image (gridded crops). See ../README_design_review.md.",
   "base": "docs/review/player-parts/smg/region-proposal/smg_hip_candidate_v2_opaque.png",
   "outDir": "docs/review/player-parts/smg/region-proposal",
   "maskDir": "masks",
@@ -89,18 +89,22 @@
         ],
         [
           1455,
-          690
+          650
         ],
         [
-          1420,
-          722
+          1378,
+          650
+        ],
+        [
+          1378,
+          752
         ],
         [
           1300,
-          722
+          752
         ]
       ],
-      "why": "rear end block / stock hinge; the wire stock bars right of it stay fixed"
+      "why": "rear end block of the housing, including its dark lower face down to the right glove; the stock hinge plate (x 1380-1452, y 650-745) and the wire stock right of it stay fixed"
     },
     "arms": {
       "rect": [
@@ -128,6 +132,15 @@
         941
       ],
       "why": "right wrist band only"
+    },
+    "stock_hinge_knob": {
+      "rect": [
+        1400,
+        675,
+        1440,
+        722
+      ],
+      "why": "round bolt at the stock base: recoloured with the housing (the hinge plate around it and the wire stay fixed)"
     }
   },
   "regions": {
@@ -135,7 +148,8 @@
       "areas": [
         "front_block",
         "receiver",
-        "rear_block"
+        "rear_block",
+        "stock_hinge_knob"
       ],
       "colours": [
         "steel"

@@ -1,9 +1,9 @@
 {
  "smg_weapon_body_test_green": {
-  "pixels": 43519,
-  "deltaE76_p10": 9.6,
+  "pixels": 44265,
+  "deltaE76_p10": 9.5,
   "deltaE76_median": 20.3,
-  "deltaE76_p90": 29.7,
+  "deltaE76_p90": 29.4,
   "L*_median": 25.0
  },
  "rifle_weapon_body_test_green": {
