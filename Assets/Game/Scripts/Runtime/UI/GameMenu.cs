@@ -2,6 +2,7 @@ using System;
 using Deadlock.Combat;
 using Deadlock.Game;
 using Deadlock.Input;
+using Deadlock.Map;
 using Deadlock.View;
 using UnityEngine;
 using UnityEngine.UI;
@@ -42,6 +43,7 @@ namespace Deadlock.UI
         Text fireModeText;
         Text transparencyText;
         Slider transparencySlider;
+        Text minimapText;
         TouchLayoutEditor layoutEditor;
         DevGunSelection devGun;
         Text devGunLabel;
@@ -317,6 +319,7 @@ namespace Deadlock.UI
             int transparency = ControlSettings.TouchControlTransparency;
             transparencyText.text = $"操作ボタンの透過率：{transparency}%　（100%でも操作は有効）";
             transparencySlider.SetValueWithoutNotify(transparency);
+            minimapText.text = $"ミニマップを表示（遺跡）　現在：{(MapSettings.MinimapVisible ? "ON" : "OFF")}";
         }
 
         void BuildControlSettings()
@@ -339,7 +342,7 @@ namespace Deadlock.UI
                     () => { onLeft(); RefreshControlSettings(); }, 26);
                 UiBuild.Button(window, prefix + "Right", right, new Vector2(0.5f, 1f), new Vector2(150f, y - 50f), new Vector2(280f, 70f),
                     () => { onRight(); RefreshControlSettings(); }, 26);
-                y -= 150f;
+                y -= 130f;
                 return label;
             }
             touchAdsText = Row("TouchAds", "長押し", () => SetAdsMode(InputMode.Touch, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Touch, AdsMode.Toggle));
@@ -351,7 +354,15 @@ namespace Deadlock.UI
                 "", 26, TextAnchor.MiddleCenter);
             transparencySlider = UiBuild.Slider(window, "TransparencySlider", new Vector2(0.5f, 1f), new Vector2(0f, y - 54f), new Vector2(640f, 56f), 0f, 100f,
                 v => { ControlSettings.TouchControlTransparency = Mathf.RoundToInt(v); RefreshControlSettings(); });
-            y -= 150f;
+            y -= 126f;
+            // Floor map on / off (display only), on one line: saved separately from the control settings.
+            minimapText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("MinimapLabel", window), new Vector2(0.5f, 1f), new Vector2(-190f, y - 15f), new Vector2(520f, 40f)),
+                "", 26, TextAnchor.MiddleLeft);
+            UiBuild.Button(window, "MinimapOn", "ON", new Vector2(0.5f, 1f), new Vector2(170f, y), new Vector2(180f, 70f),
+                () => { MapSettings.MinimapVisible = true; RefreshControlSettings(); }, 26);
+            UiBuild.Button(window, "MinimapOff", "OFF", new Vector2(0.5f, 1f), new Vector2(370f, y), new Vector2(180f, 70f),
+                () => { MapSettings.MinimapVisible = false; RefreshControlSettings(); }, 26);
+            y -= 84f;
             // The PC setting is only meaningful where a mouse can be used (Editor / desktop).
             desktopAdsText = Row("DesktopAds", "長押し", () => SetAdsMode(InputMode.Desktop, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Desktop, AdsMode.Toggle));
             if (Application.isMobilePlatform)
@@ -379,7 +390,7 @@ namespace Deadlock.UI
 
             panel = UiBuild.Stretch(UiBuild.Rect("MenuPanel", layer)).gameObject;
             UiBuild.Image((RectTransform)panel.transform, new Color(0f, 0f, 0f, 0.6f), true);
-            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 940f));
+            var window = UiBuild.Place(UiBuild.Rect("Window", panel.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620f, 1000f));
             UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.95f), true);
             if (icons != null && icons.titleLogo != null)
                 UiBuild.Icon(window, icons.titleLogo, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(300f, 100f)).name = "TitleLogo";
@@ -405,6 +416,8 @@ namespace Deadlock.UI
                 Add("SceneButton", "射撃場へ", () => GameScenes.Load(GameScenes.FiringRange));
             if (current != GameScenes.Training)
                 Add("TrainingButton", "トレーニングへ", () => GameScenes.Load(GameScenes.Training));
+            if (current != GameScenes.Ruins)
+                Add("RuinsButton", "遺跡（テスト）へ", () => GameScenes.Load(GameScenes.Ruins));
             if (current != GameScenes.Online)
                 Add("OnlineButton", "オンライン検証（LAN）へ", () => GameScenes.Load(GameScenes.Online));
             var header = UiBuild.Text(UiBuild.Place(UiBuild.Rect("SettingsHeader", window), new Vector2(0.5f, 1f), new Vector2(0f, y - 6f), new Vector2(480f, 40f)),

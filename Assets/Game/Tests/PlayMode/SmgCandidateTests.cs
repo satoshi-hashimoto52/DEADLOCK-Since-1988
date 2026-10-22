@@ -3,6 +3,7 @@ using System.Linq;
 using Deadlock.Combat;
 using Deadlock.Game;
 using Deadlock.Input;
+using Deadlock.Map;
 using Deadlock.UI;
 using Deadlock.View;
 using NUnit.Framework;
@@ -128,6 +129,81 @@ namespace Deadlock.Tests
             Assert.AreEqual(fresh.Definition.magazineSize, fresh.Ammo.Loaded, "fresh magazine");
             var view = fresh.GetComponentInChildren<WeaponViewModel>(true);
             StringAssert.Contains("smg_hip_candidate_v2", view.transform.Find("Hip").GetComponent<SpriteRenderer>().sprite.texture.name);
+        }
+
+        [UnityTest]
+        public IEnumerator Ruins_SmgFiresAndAims_RetryKeepsIt_MapEditStillWorks()
+        {
+            // The floor map's saved place is the user's: kept around this test.
+            string layoutKey = MapSettings.MinimapLayoutKey, visibleKey = MapSettings.MinimapVisibleKey;
+            string savedLayout = PlayerPrefs.GetString(layoutKey, null);
+            bool hadVisible = PlayerPrefs.HasKey(visibleKey);
+            int savedVisible = PlayerPrefs.GetInt(visibleKey, 1);
+            MapSettings.ClearSaved();
+            DevGunSelection.ClearSelection();
+            try
+            {
+                yield return Load(GameScenes.Ruins);
+                foreach (var z in Object.FindObjectsByType<Zombie>(FindObjectsSortMode.None))
+                    z.Active = false;
+                Assert.IsNotNull(selection, "the ruins offer the test choice too");
+                Assert.AreEqual(Rifle, gun.Definition.weaponId);
+                menu.Open();
+                yield return null;
+                menu.transform.Find("MenuLayer/MenuPanel/Window/DevGunButton").GetComponent<Button>().onClick.Invoke();
+                menu.Close();
+                yield return null;
+                Assert.AreEqual(Smg, gun.Definition.weaponId);
+                StringAssert.Contains("smg_hip_candidate_v2", hip.sprite.texture.name);
+
+                Press(mouse.leftButton, queueEventOnly: true);
+                yield return Wait(0.4f);
+                Release(mouse.leftButton, queueEventOnly: true);
+                yield return null;
+                Assert.Less(gun.Ammo.Loaded, gun.Definition.magazineSize, "fired in the ruins");
+                Press(mouse.rightButton, queueEventOnly: true);
+                yield return Wait(gun.Definition.adsTime + 0.2f);
+                Assert.AreEqual(1f, gun.AdsBlend, 1e-3f);
+                StringAssert.Contains("smg_ads_front_sight_gap3", ads.sprite.texture.name);
+                Release(mouse.rightButton, queueEventOnly: true);
+                yield return Wait(0.3f);
+
+                // The floor map is still there and its place can be edited and saved.
+                var map = Object.FindAnyObjectByType<MiniMapView>();
+                Assert.IsNotNull(map);
+                var editor = menu.GetComponent<TouchLayoutEditor>();
+                menu.OpenLayoutEditor();
+                yield return null;
+                Assert.IsTrue(editor.MoveBy(MiniMapView.LayoutId, new Vector2(300f, -200f)));
+                Assert.IsTrue(editor.Resize(MiniMapView.LayoutId, +1));
+                editor.ApplyAndClose();
+                menu.Close();
+                yield return null;
+                Assert.IsTrue(MapSettings.TryLoadPlacement(out var placed));
+                Assert.AreEqual(1.1f, placed.scale, 1e-3f);
+
+                // Retry: still the SMG (fresh), the map keeps its saved place.
+                Object.FindAnyObjectByType<TrainingSession>().Retry();
+                yield return null;
+                yield return null;
+                yield return null;
+                var fresh = GameObject.Find("Player").GetComponent<GunController>();
+                Assert.AreEqual(Smg, fresh.Definition.weaponId, "kept through the retry");
+                Assert.AreEqual(fresh.Definition.magazineSize, fresh.Ammo.Loaded, "fresh magazine");
+                var freshMap = Object.FindAnyObjectByType<MiniMapView>();
+                yield return null;
+                Assert.IsTrue(freshMap.PlacementSaved);
+                Assert.AreEqual(placed.center.x, freshMap.Placement.center.x, 1e-4f);
+                Assert.AreEqual(placed.scale, freshMap.Placement.scale, 1e-4f);
+            }
+            finally
+            {
+                MapSettings.ClearSaved();
+                if (!string.IsNullOrEmpty(savedLayout))
+                    PlayerPrefs.SetString(layoutKey, savedLayout);
+                if (hadVisible)
+                    PlayerPrefs.SetInt(visibleKey, savedVisible);
+            }
         }
 
         static Vector4 Region(SpriteRenderer r, SkinRegion region)

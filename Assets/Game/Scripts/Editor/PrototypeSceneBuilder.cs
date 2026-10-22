@@ -90,9 +90,10 @@ namespace Deadlock.Editor
             BuildScene(false, playerLayer, viewModelLayer, enemyLayer);
             BuildScene(true, playerLayer, viewModelLayer, enemyLayer);
             BuildOnlineScene(playerLayer, viewModelLayer, enemyLayer, hitboxLayer, ownHitboxLayer);
+            BuildRuinsScene(playerLayer, viewModelLayer, enemyLayer);
             ConfigureProject();
             AssetDatabase.SaveAssets();
-            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}");
+            Debug.Log($"[DEADLOCK] Prototype scenes built: {ScenePath}, {TrainingScenePath}, {OnlineScenePath}, {RuinsScenePath}");
         }
 
         /// <summary>Firing range or training: same player rig, HUD, touch controls and menu; different stage.</summary>
@@ -223,6 +224,7 @@ namespace Deadlock.Editor
                 new EditorBuildSettingsScene(ScenePath, true),
                 new EditorBuildSettingsScene(TrainingScenePath, true),
                 new EditorBuildSettingsScene(OnlineScenePath, true),
+                new EditorBuildSettingsScene(RuinsScenePath, true),
             };
 
             // The template sample scene is replaced by the prototype scene.
@@ -647,6 +649,9 @@ namespace Deadlock.Editor
             agent.height = 1.8f;
             agent.angularSpeed = 360f;
             agent.acceleration = 12f;
+            // Off in the saved scene: Zombie.Start switches it on once the scene's NavMesh is registered (the online
+            // prefab is also saved off and switched on by NetworkZombie on the host).
+            agent.enabled = false;
             var zombie = go.AddComponent<Zombie>();
             SetMask(zombie, "sightMask", sightMask);
 

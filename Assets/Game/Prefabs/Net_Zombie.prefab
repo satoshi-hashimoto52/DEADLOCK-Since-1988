@@ -162,6 +162,7 @@ MonoBehaviour:
   stepsPerMetre: 1.6
   hitColor: {r: 1, g: 0.55, b: 0.5, a: 1}
   hitFadeTime: 0.15
+  minStepSpeed: 0.3
 --- !u!114 &5680815561943459411
 MonoBehaviour:
   m_ObjectHideFlags: 0
