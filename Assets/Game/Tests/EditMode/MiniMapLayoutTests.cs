@@ -57,6 +57,7 @@ namespace Deadlock.Tests
                     Assert.Greater(Vector2.Distance(nearest, c), r, $"{name}: map over {item.id}");
                 }
                 Assert.AreEqual(MiniMapView.Margin.x, MiniMapView.ChoosePosition(safe, layout), $"{name}: default layout keeps the corner");
+                Assert.AreEqual(4f / 3f, map.width / map.height, 0.001f, $"{name}: 4:3, a little wider than tall");
             }
         }
 
@@ -71,6 +72,25 @@ namespace Deadlock.Tests
             + "{\"id\":\"weapon\",\"center\":{\"x\":0.0359,\"y\":0.8548},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.1}]}";
 
         [Test]
+        public void Placement_KeptInsideTheSafeArea_ScaleLimited_AspectKept()
+        {
+            foreach (var (name, safe) in Screens)
+            {
+                foreach (var (centre, scale) in new[] { (new Vector2(-1f, 2f), 1f), (new Vector2(2f, -1f), 3f), (new Vector2(0.5f, 0.5f), 0.1f) })
+                {
+                    var p = MiniMapView.Clamp(new Deadlock.Map.MiniMapPlacement { center = centre, scale = scale }, safe);
+                    Rect r = MiniMapView.PlacementRect(p, safe);
+                    Assert.That(p.scale, Is.InRange(MiniMapView.MinScale, MiniMapView.MaxScale), name);
+                    Assert.GreaterOrEqual(r.xMin, -0.01f, name);
+                    Assert.GreaterOrEqual(r.yMin, -0.01f, name);
+                    Assert.LessOrEqual(r.xMax, safe.x + 0.01f, name);
+                    Assert.LessOrEqual(r.yMax, safe.y + 0.01f, name);
+                    Assert.AreEqual(4f / 3f, r.width / r.height, 0.001f, name);
+                }
+            }
+        }
+
+        [Test]
         public void MiniMap_MovesAlongTheTop_ClearOfAButtonPutInTheCorner()
         {
             var layout = JsonUtility.FromJson<TouchLayoutData>(DeviceLayout);
@@ -78,7 +98,7 @@ namespace Deadlock.Tests
             {
                 float left = MiniMapView.ChoosePosition(safe, layout);
                 Assert.Greater(left, MiniMapView.Margin.x, $"{name}: moved out of the corner");
-                var map = new Rect(left, safe.y - MiniMapView.Margin.y - MiniMapView.Size, MiniMapView.Size, MiniMapView.Size);
+                var map = new Rect(left, safe.y - MiniMapView.Margin.y - MiniMapView.BaseSize.y, MiniMapView.BaseSize.x, MiniMapView.BaseSize.y);
                 foreach (var item in layout.items)
                 {
                     if (item.id == TouchLayout.MoveZone)

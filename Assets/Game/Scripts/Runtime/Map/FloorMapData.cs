@@ -12,6 +12,10 @@ namespace Deadlock.Map
         Void,
         /// <summary>Stair ramp (shown on every floor it links).</summary>
         Stairs,
+        /// <summary>Stair ramp, a step line across it (not near the end that meets this floor).</summary>
+        StairsStep,
+        /// <summary>Stair ramp at the end that leads to another floor (a boundary line across the stair).</summary>
+        StairsEnd,
     }
 
     /// <summary>
@@ -45,6 +49,8 @@ namespace Deadlock.Map
                 return MapCell.Outside;
             return (MapCell)floors[floor].cells[y * width + x];
         }
+
+        public static bool IsStairs(MapCell cell) => cell == MapCell.Stairs || cell == MapCell.StairsStep || cell == MapCell.StairsEnd;
 
         public MapCell CellAt(int floor, Vector3 world)
         {

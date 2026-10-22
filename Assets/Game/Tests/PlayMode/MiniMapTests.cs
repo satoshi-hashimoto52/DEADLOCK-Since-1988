@@ -107,9 +107,29 @@ namespace Deadlock.Tests
             Cell(1, RingHalf, 3f, MapCell.Wall, "ring wall upstairs");
             Cell(0, RingHalf, 0f, MapCell.Floor, "main door of the ring wall");
             Cell(0, 21.3f, 0f, MapCell.Wall, "outer wall");
-            Cell(0, 19.35f, -2f, MapCell.Stairs, "east stair");
-            Cell(1, 19.35f, -2f, MapCell.Stairs, "east stair (both floors)");
-            Cell(0, -19.35f, 2f, MapCell.Stairs, "west stair");
+            void Stairs(int floor, float x, float z, string what) =>
+                Assert.IsTrue(FloorMapData.IsStairs(map.CellAt(floor, new Vector3(x, 0f, z))), $"{what} ({x}, {z}) floor {floor + 1}");
+            Stairs(0, 19.35f, -2f, "east stair");
+            Stairs(1, 19.35f, -2f, "east stair (both floors)");
+            Stairs(0, -19.35f, 2f, "west stair");
+            // Boundary lines: drawn across the end that leads to the other floor, never across the way on / off this
+            // floor (east ramp: bottom z -7 on the ground, top z 1.66 at the upper floor; west mirrored).
+            Cell(0, 19.35f, 1.5f, MapCell.StairsEnd, "east stair, 1F: boundary at the top (to 2F)");
+            Cell(1, 19.35f, -6.85f, MapCell.StairsEnd, "east stair, 2F: boundary at the bottom (to 1F)");
+            Cell(0, -19.35f, -1.5f, MapCell.StairsEnd, "west stair, 1F: boundary at the top");
+            Cell(1, -19.35f, 6.85f, MapCell.StairsEnd, "west stair, 2F: boundary at the bottom");
+            foreach (var (floor, z, what) in new[] { (0, -6.9f, "east stair, 1F: way on from the ground"), (1, 1.55f, "east stair, 2F: way on from the upper floor") })
+                for (float x = 17.8f; x < 21f; x += 0.25f)
+                {
+                    var c = map.CellAt(floor, new Vector3(x, 0f, z));
+                    Assert.AreNotEqual(MapCell.StairsEnd, c, $"{what}: no boundary line ({x})");
+                    Assert.AreNotEqual(MapCell.StairsStep, c, $"{what}: no step line ({x})");
+                }
+            int steps = 0;
+            for (float z = -7f; z < 1.6f; z += 0.25f)
+                if (map.CellAt(0, new Vector3(19.35f, 0f, z)) == MapCell.StairsStep)
+                    steps++;
+            Assert.Greater(steps, 5, "step lines along the ramp");
             Cell(0, 0f, 0f, MapCell.Wall, "altar (cover)");
 
             // Floor cells and walls agree with the building: every floor cell has a floor under it and room above.
@@ -302,7 +322,8 @@ namespace Deadlock.Tests
         public IEnumerator Markers_BeyondTheRange_OnTheEdge_TowardTheLastDetectedPosition_AboveAndBelow_BesideTheArrow()
         {
             yield return LoadRuins();
-            const float edge = 80f;
+            Vector2 edgeHalf = MiniMapView.EdgeHalf;
+            float edge = edgeHalf.y;
             // Seen 18 m ahead (beyond the 11 m range): a pointer on the edge, straight up (ahead).
             Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
             Park(zombies[0], new Vector3(18f, 0f, -CorridorZ));
@@ -325,7 +346,7 @@ namespace Deadlock.Tests
             Assert.Less(Vector3.Distance(lastSeen, held.Position), 0.05f);
             Assert.IsTrue(view.TryGetMarker(enemies[0], out shape, out at));
             Assert.AreEqual("edge_seen", shape);
-            Assert.AreEqual(edge, at.x, 1f, "to the right: toward where it was last detected");
+            Assert.AreEqual(edgeHalf.x, at.x, 1f, "to the right: toward where it was last detected (the map is wider than tall)");
             Assert.AreEqual(0f, at.y, 2f);
             yield return Wait(detector.DisplayTime(ContactKind.Seen));
             Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _), "gone after the display time");
@@ -438,13 +459,169 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
+        public IEnumerator LayoutEditor_MovesAndResizesTheMap_SavedRestored_KeptInside_NotMovedByTheGame()
+        {
+            yield return LoadRuins();
+            MapSettings.MinimapVisible = false; // the preview shows even when the map is switched off
+            yield return null;
+            Assert.IsFalse(view.IsShown);
+            var menu = Object.FindAnyObjectByType<GameMenu>();
+            var editor = menu.GetComponent<TouchLayoutEditor>();
+            menu.OpenLayoutEditor();
+            yield return null;
+            Assert.IsTrue(view.IsShown && view.IsEditing, "shown for editing");
+            Assert.IsTrue(view.Frame.Find("EditPreview").gameObject.activeSelf, "sample markers while editing");
+            Assert.IsTrue(menu.transform.Find("LayoutEditorLayer/Handles/Handle_minimap").gameObject.activeSelf, "a handle on the map");
+
+            var start = view.Placement;
+            Assert.IsTrue(editor.MoveBy(MiniMapView.LayoutId, new Vector2(400f, -250f)));
+            Assert.IsTrue(editor.Resize(MiniMapView.LayoutId, +1));
+            Assert.IsTrue(editor.Resize(MiniMapView.LayoutId, +1));
+            yield return null;
+            var moved = view.Placement;
+            Assert.Greater(moved.center.x, start.center.x, "moved right");
+            Assert.Less(moved.center.y, start.center.y, "moved down");
+            Assert.AreEqual(1.2f, moved.scale, 0.001f, "bigger");
+            Assert.AreEqual(moved.scale, view.Frame.localScale.x, 0.001f);
+            Assert.AreEqual(view.Frame.localScale.x, view.Frame.localScale.y, 0.001f, "aspect kept");
+            editor.ApplyAndClose();
+            yield return null;
+            Assert.IsTrue(view.PlacementSaved);
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out var saved));
+            Assert.AreEqual(moved.center.x, saved.center.x, 1e-4f);
+            Assert.AreEqual(moved.scale, saved.scale, 1e-4f);
+            Assert.IsFalse(view.IsShown, "still switched off after editing");
+            Assert.IsFalse(MapSettings.MinimapVisible);
+            var buttons = TouchLayout.Load();
+            var defaults = TouchLayout.Defaults();
+            foreach (var item in defaults.items)
+                Assert.AreEqual(item.center, buttons.Get(item.id).center, $"{item.id}: buttons not moved by the map");
+
+            // Restored after a reload, even with a control moved onto the map (the game never moves a saved map).
+            MapSettings.MinimapVisible = true;
+            var layout = TouchLayout.Defaults();
+            var weapon = layout.Get(TouchLayout.Weapon);
+            weapon.center = saved.center;
+            layout.Set(weapon);
+            TouchLayout.Save(layout);
+            yield return LoadRuins();
+            Assert.IsTrue(view.PlacementSaved);
+            Assert.AreEqual(saved.center.x, view.Placement.center.x, 1e-4f);
+            Assert.AreEqual(saved.center.y, view.Placement.center.y, 1e-4f);
+            Assert.AreEqual(saved.scale, view.Frame.localScale.x, 1e-4f);
+            TouchLayout.ClearSaved();
+            yield return LoadRuins();
+
+            // Never fully off screen: dragged far away, it stays inside the Safe Area.
+            menu = Object.FindAnyObjectByType<GameMenu>();
+            editor = menu.GetComponent<TouchLayoutEditor>();
+            menu.OpenLayoutEditor();
+            yield return null;
+            editor.MoveBy(MiniMapView.LayoutId, new Vector2(-100000f, 100000f));
+            for (int i = 0; i < 10; i++)
+                editor.Resize(MiniMapView.LayoutId, +1);
+            yield return null;
+            Rect inside = MiniMapView.PlacementRect(view.Placement, view.SafeSize);
+            Assert.GreaterOrEqual(inside.xMin, -0.01f);
+            Assert.LessOrEqual(inside.yMax, view.SafeSize.y + 0.01f);
+            Assert.AreEqual(MiniMapView.MaxScale, view.Placement.scale, 1e-4f);
+            // Cancel: back to the saved place.
+            editor.CancelAndClose();
+            yield return null;
+            Assert.AreEqual(saved.center.x, view.Placement.center.x, 1e-4f);
+            Assert.AreEqual(saved.scale, view.Placement.scale, 1e-4f);
+
+            // Reset + apply: automatic again (nothing saved).
+            menu.OpenLayoutEditor();
+            yield return null;
+            editor.ResetToDefaults();
+            editor.ApplyAndClose();
+            yield return null;
+            Assert.IsFalse(view.PlacementSaved);
+            Assert.IsFalse(MapSettings.TryLoadPlacement(out _));
+            var auto = MiniMapView.AutoPlacement(view.SafeSize, TouchLayout.Defaults());
+            Assert.AreEqual(auto.center.x, view.Placement.center.x, 1e-4f);
+        }
+
+        [UnityTest]
+        public IEnumerator PerfLog_FollowsTheRealPlayer_MovementShotsAndSwings_AlsoAfterRetry()
+        {
+            yield return LoadRuins();
+            var lines = new List<string>();
+            var monitor = FrameRateMonitor.Attach();
+            monitor.LogInterval = 1f;
+            monitor.Logged += lines.Add;
+            try
+            {
+                Assert.AreSame(player.transform, monitor.TrackedPlayer, "the player rig (not another object named Player)");
+                yield return WaitRealtime(2.3f); // the load window
+                Look(new Vector3(-18f, 0.05f, -CorridorZ), 90f);
+                lines.Clear();
+                Press(keyboard.wKey, queueEventOnly: true);
+                Press(mouse.leftButton, queueEventOnly: true);
+                yield return Wait(1.5f);
+                Release(mouse.leftButton, queueEventOnly: true);
+                Release(keyboard.wKey, queueEventOnly: true);
+                yield return Tap(keyboard.digit2Key);
+                yield return Wait(weapons.SwitchTime + 0.3f);
+                yield return Tap(mouse.leftButton);
+                yield return WaitRealtime(2.5f);
+                var perf = lines.Where(l => l.StartsWith("[DEADLOCK][perf] ")).ToList();
+                Assert.GreaterOrEqual(perf.Count, 2);
+                float moved = 0f;
+                int shots = 0, swings = 0;
+                foreach (var l in perf)
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(l, @"moved ([\d.]+) m, shots (\d+), melee (\d+)");
+                    Assert.IsTrue(m.Success, l);
+                    moved += float.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    shots += int.Parse(m.Groups[2].Value);
+                    swings += int.Parse(m.Groups[3].Value);
+                }
+                Assert.Greater(moved, 2f, "walked about 1.5 s");
+                Assert.Greater(shots, 0, "shots counted");
+                Assert.AreEqual(1, swings, "one knife swing");
+                // The place on the line is the player's place (standing still now).
+                var last = System.Text.RegularExpressions.Regex.Match(perf[perf.Count - 1], @"Proto_Ruins \(([-\d.]+), ([-\d.]+), ([-\d.]+)\)$");
+                Assert.IsTrue(last.Success, perf[perf.Count - 1]);
+                Assert.AreEqual(player.transform.position.x, float.Parse(last.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), 0.15f);
+                Assert.AreEqual(player.transform.position.z, float.Parse(last.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture), 0.15f);
+
+                // Retry reloads the scene: the new player is tracked.
+                lines.Clear();
+                Object.FindAnyObjectByType<TrainingSession>().Retry();
+                yield return null;
+                yield return null;
+                var fresh = Object.FindAnyObjectByType<Deadlock.Player.PlayerRig>();
+                StringAssert.Contains($"tracking Player #{fresh.GetInstanceID()}", string.Join("\n", lines));
+                Assert.AreSame(fresh.transform, monitor.TrackedPlayer, "the new round's player");
+                var controller = fresh.GetComponent<CharacterController>();
+                controller.enabled = false;
+                fresh.transform.position = new Vector3(5f, 0.05f, -CorridorZ);
+                controller.enabled = true;
+                yield return WaitRealtime(3.6f);
+                var after = lines.Where(l => l.StartsWith("[DEADLOCK][perf] ")).ToList();
+                Assert.Greater(after.Count, 0);
+                StringAssert.EndsWith($"Proto_Ruins (5.0, 0.0, {-CorridorZ:0.0})", after[after.Count - 1], "the new player's place");
+            }
+            finally
+            {
+                Object.Destroy(monitor.gameObject);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Frame_IsPlacedAsTheLayoutSays()
         {
             yield return LoadRuins();
             var frame = view.Frame;
-            Assert.AreEqual(new Vector2(0f, 1f), frame.anchorMin);
-            Assert.AreEqual(new Vector2(MiniMapView.Margin.x, -MiniMapView.Margin.y), frame.anchoredPosition);
-            Assert.AreEqual(new Vector2(MiniMapView.Size, MiniMapView.Size), frame.sizeDelta);
+            Assert.IsFalse(view.PlacementSaved, "nothing saved: automatic first place");
+            var auto = MiniMapView.AutoPlacement(view.SafeSize, TouchLayout.Defaults());
+            Assert.AreEqual(auto.center.x, view.Placement.center.x, 1e-4f);
+            Assert.AreEqual(auto.center.y, view.Placement.center.y, 1e-4f);
+            Assert.AreEqual(auto.center * view.SafeSize, frame.anchoredPosition);
+            Assert.AreEqual(MiniMapView.BaseSize, frame.sizeDelta);
+            Assert.AreEqual(Vector3.one, frame.localScale);
             Assert.IsNotNull(frame.parent.GetComponent<SafeAreaFitter>(), "inside the Safe Area (notch)");
             foreach (var g in frame.GetComponentsInChildren<Graphic>())
                 Assert.IsFalse(g.raycastTarget, $"{g.name}: display only, never takes a touch");

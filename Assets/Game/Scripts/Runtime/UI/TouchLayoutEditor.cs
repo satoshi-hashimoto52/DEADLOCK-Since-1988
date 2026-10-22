@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Deadlock.Input;
+using Deadlock.Map;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,6 +12,10 @@ namespace Deadlock.UI
     /// widget, select it and use − / ＋ to resize. Changes preview live; Apply saves them on the device, Cancel
     /// restores the saved layout, Reset shows the defaults (saved only on Apply). Moves that would leave the Safe Area
     /// or make widgets overlap are refused. A full-screen blocker stops game input while editing.
+    /// Where the scene has a floor map (<see cref="MiniMapView"/>), it is one more item: drag to move, − / ＋ to resize
+    /// (aspect kept), shown with sample markers while editing, always kept inside the Safe Area. It may overlap a
+    /// control (it is display only and never takes a touch); a note says so. Its place is saved separately from the
+    /// touch layout and only when it was changed here; the buttons' own places and settings are not touched by it.
     /// </summary>
     public sealed class TouchLayoutEditor : MonoBehaviour
     {
@@ -31,12 +36,18 @@ namespace Deadlock.UI
         readonly Dictionary<string, RectTransform> handles = new Dictionary<string, RectTransform>();
         readonly Dictionary<string, Image> handleImages = new Dictionary<string, Image>();
         TouchLayoutData working;
+        MiniMapView miniMap;
+        MiniMapPlacement mapWorking;
+        bool mapChanged;
+        bool mapReset;
         string selected;
         bool touchWasVisible;
         Action onClosed;
 
         public bool IsOpen { get; private set; }
         public TouchLayoutData Working => working?.Clone();
+        /// <summary>The floor map's place / size being edited (when the scene has one).</summary>
+        public MiniMapPlacement MapWorking => mapWorking;
         public string Selected => selected;
         public string Message => messageText != null ? messageText.text : "";
         /// <summary>The toolbar sits at the bottom (true) or the top (false) of the screen.</summary>
@@ -74,8 +85,17 @@ namespace Deadlock.UI
             onClosed = closed;
             input.Block("layout");
             working = applier.Saved;
+            miniMap = FindAnyObjectByType<MiniMapView>();
+            mapChanged = mapReset = false;
+            if (miniMap != null)
+            {
+                mapWorking = miniMap.Placement;
+                miniMap.SetEditing(true);
+            }
             if (layer == null)
                 Build();
+            if (handles.TryGetValue(MiniMapView.LayoutId, out var mapHandle))
+                mapHandle.gameObject.SetActive(miniMap != null);
             layer.gameObject.SetActive(true);
             layer.SetAsLastSibling();
             Select(null);
@@ -91,6 +111,15 @@ namespace Deadlock.UI
             Vector2 safe = applier.SafeSize;
             Vector2 delta = screenDelta / Mathf.Max(0.0001f, canvas.scaleFactor);
             Vector2 normalized = new Vector2(delta.x / Mathf.Max(1f, safe.x), delta.y / Mathf.Max(1f, safe.y));
+            if (id == MiniMapView.LayoutId)
+            {
+                if (miniMap == null)
+                    return false;
+                var p = mapWorking;
+                Vector2 mapSafe = miniMap.SafeSize;
+                p.center += new Vector2(delta.x / Mathf.Max(1f, mapSafe.x), delta.y / Mathf.Max(1f, mapSafe.y));
+                return AcceptMap(p);
+            }
             var candidate = working.Clone();
             var item = candidate.Get(id);
             if (id == TouchLayout.MoveZone)
@@ -114,6 +143,14 @@ namespace Deadlock.UI
         /// <summary>Grows (+1) or shrinks (−1) the selected widget.</summary>
         public bool Resize(string id, int direction)
         {
+            if (id == MiniMapView.LayoutId)
+            {
+                if (miniMap == null)
+                    return false;
+                var p = mapWorking;
+                p.scale = Mathf.Clamp(p.scale + ScaleStep * direction, MiniMapView.MinScale, MiniMapView.MaxScale);
+                return AcceptMap(p);
+            }
             var candidate = working.Clone();
             var item = candidate.Get(id);
             if (id == TouchLayout.MoveZone)
@@ -134,19 +171,66 @@ namespace Deadlock.UI
         {
             working = TouchLayout.Defaults();
             applier.Apply(working);
+            if (miniMap != null)
+            {
+                // The map goes back to its automatic first place for the default layout (and stays automatic once applied).
+                mapWorking = miniMap.AutoPlacementFor(working);
+                miniMap.Preview(mapWorking);
+                mapReset = true;
+                mapChanged = false;
+            }
             ShowMessage("初期配置を表示中です（「適用」で保存）");
         }
 
         public void ApplyAndClose()
         {
             applier.Commit(working);
+            if (miniMap != null)
+            {
+                if (mapChanged)
+                    miniMap.Commit(mapWorking);
+                else if (mapReset)
+                {
+                    MapSettings.ClearPlacement();
+                    miniMap.Revert();
+                }
+            }
             Close();
         }
 
         public void CancelAndClose()
         {
             applier.Revert();
+            if (miniMap != null)
+                miniMap.Revert();
             Close();
+        }
+
+        /// <summary>A new place / size for the floor map: kept inside the Safe Area; an overlap with a control is allowed but noted.</summary>
+        bool AcceptMap(MiniMapPlacement candidate)
+        {
+            mapWorking = MiniMapView.Clamp(candidate, miniMap.SafeSize);
+            miniMap.Preview(mapWorking);
+            mapChanged = true;
+            mapReset = false;
+            ShowMessage(MapOverlapsControl() ? "ミニマップが操作ボタンと重なっています（表示だけなので操作はできます）" : "");
+            return true;
+        }
+
+        bool MapOverlapsControl()
+        {
+            Vector2 safe = miniMap.SafeSize;
+            Rect map = MiniMapView.PlacementRect(mapWorking, safe);
+            foreach (string id in TouchLayout.Circles)
+            {
+                var item = working.Get(id);
+                float d = TouchLayout.Diameter(item);
+                Vector2 c = TouchLayout.ClampCircle(item.center, d, safe) * safe;
+                Vector2 nearest = new Vector2(Mathf.Clamp(c.x, map.xMin, map.xMax), Mathf.Clamp(c.y, map.yMin, map.yMax));
+                if (Vector2.Distance(nearest, c) < d * 0.5f)
+                    return true;
+            }
+            return false;
         }
 
         bool TryAccept(TouchLayoutData candidate)
@@ -170,6 +254,8 @@ namespace Deadlock.UI
             if (opacity != null)
                 opacity.SetEditing(false);
             controls.SetVisible(touchWasVisible);
+            if (miniMap != null)
+                miniMap.SetEditing(false);
             input.Unblock("layout");
             onClosed?.Invoke();
         }
@@ -177,17 +263,21 @@ namespace Deadlock.UI
         void Select(string id)
         {
             selected = id;
-            selectedText.text = id == null ? "動かすボタンをドラッグ／選んで − ＋ で大きさ" : $"選択中：{TouchLayout.DisplayName(id)}";
+            selectedText.text = id == null ? "動かすボタンをドラッグ／選んで − ＋ で大きさ" : $"選択中：{Name(id)}";
             foreach (var pair in handleImages)
                 pair.Value.color = HandleColor(pair.Key, pair.Key == id);
         }
 
         void ShowMessage(string text) => messageText.text = text;
 
+        static string Name(string id) => id == MiniMapView.LayoutId ? MiniMapView.DisplayName : TouchLayout.DisplayName(id);
+
         static Color HandleColor(string id, bool selected)
         {
             if (selected)
-                return new Color(1f, 0.8f, 0.2f, 0.55f);
+                return new Color(1f, 0.8f, 0.2f, id == MiniMapView.LayoutId ? 0.3f : 0.55f);
+            if (id == MiniMapView.LayoutId)
+                return new Color(0.45f, 0.78f, 0.95f, 0.18f);
             return id == TouchLayout.MoveZone ? new Color(0.3f, 0.6f, 1f, 0.22f) : new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -200,7 +290,9 @@ namespace Deadlock.UI
             // Handles follow the real widgets (which the applier positions), so what you drag is what you get.
             foreach (var pair in handles)
             {
-                var widget = applier.Widget(pair.Key);
+                if (pair.Key == MiniMapView.LayoutId && miniMap == null)
+                    continue;
+                var widget = pair.Key == MiniMapView.LayoutId ? miniMap.Frame : applier.Widget(pair.Key);
                 var corners = new Vector3[4];
                 widget.GetWorldCorners(corners);
                 Vector2 a = handleRoot.InverseTransformPoint(corners[0]);
@@ -217,7 +309,7 @@ namespace Deadlock.UI
             UiBuild.Image(layer, new Color(0f, 0f, 0f, 0.35f), true);
             handleRoot = UiBuild.Stretch(UiBuild.Rect("Handles", layer));
 
-            var ids = new List<string> { TouchLayout.MoveZone };
+            var ids = new List<string> { TouchLayout.MoveZone, MiniMapView.LayoutId };
             ids.AddRange(TouchLayout.Circles);
             foreach (string id in ids)
             {
@@ -225,17 +317,18 @@ namespace Deadlock.UI
                 handleImages[id] = UiBuild.Image(handle, HandleColor(id, false), true);
                 // Name above the zone, under the circles (not on top of the widget's own label).
                 if (id == TouchLayout.MoveZone)
-                    UiBuild.Text(UiBuild.Stretch(UiBuild.Rect("Name", handle)), TouchLayout.DisplayName(id), 22, TextAnchor.UpperCenter);
+                    UiBuild.Text(UiBuild.Stretch(UiBuild.Rect("Name", handle)), Name(id), 22, TextAnchor.UpperCenter);
                 else
                     UiBuild.Text(UiBuild.Place(UiBuild.Rect("Name", handle), new Vector2(0.5f, 0f), new Vector2(0f, -30f), new Vector2(260f, 30f)),
-                        TouchLayout.DisplayName(id), 22, TextAnchor.MiddleCenter, new Color(1f, 0.95f, 0.7f));
+                        Name(id), 22, TextAnchor.MiddleCenter, new Color(1f, 0.95f, 0.7f));
                 var drag = handle.gameObject.AddComponent<LayoutHandle>();
                 string captured = id;
                 drag.Pressed = () => Select(captured);
                 drag.Dragged = delta => MoveBy(captured, delta);
                 handles[id] = handle;
             }
-            // Smaller widgets above the zone so they stay grabbable.
+            // Smaller widgets above the zone and the map so they stay grabbable.
+            handles[MiniMapView.LayoutId].SetAsFirstSibling();
             handles[TouchLayout.MoveZone].SetAsFirstSibling();
 
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", layer));

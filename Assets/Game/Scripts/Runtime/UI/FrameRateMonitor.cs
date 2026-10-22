@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using Deadlock.Combat;
+using Deadlock.Input;
+using Deadlock.Player;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
@@ -11,11 +15,20 @@ namespace Deadlock.UI
     /// <see cref="LogInterval"/> seconds (readable with `xcrun devicectl device process launch --console`): average and
     /// percentile frame times, long frames, memory, scene and player position. The first seconds after a scene load are
     /// reported on their own line (loading is not normal play), and single frames over 100 ms get a line with the place.
-    /// Never created in the Editor or in non-development builds.
+    /// Each line also says what the player did in those seconds, so a log can be matched to play: metres moved (summed
+    /// every frame; jumps over 5 m in one frame, such as a respawn, are not counted), shots, melee swings, seconds
+    /// paused (menu) and seconds with input blocked (menu, layout editor, round result). The player is the scene's
+    /// <see cref="PlayerRig"/>, looked up again after every scene load (retry included); a line names the object.
+    /// Never created in the Editor or in non-development builds (tests attach it by hand).
     /// </summary>
     public sealed class FrameRateMonitor : MonoBehaviour
     {
-        const float LogInterval = 10f;
+        /// <summary>Seconds per console line (shorter in tests).</summary>
+        public float LogInterval { get; set; } = 10f;
+        /// <summary>The player whose place and movement are logged (the scene's player rig).</summary>
+        public Transform TrackedPlayer => player;
+        /// <summary>Every line written (tests).</summary>
+        public event Action<string> Logged;
 
         Text label;
         float windowStart;
@@ -32,6 +45,16 @@ namespace Deadlock.UI
         float loadWorst;
         int loadLong;
         Transform player;
+        PlayerInputRouter router;
+        GunController gun;
+        MeleeWeapon melee;
+        Vector3 lastPosition;
+        bool hasLastPosition;
+        float moved;
+        int shots;
+        int swings;
+        float pausedTime;
+        float blockedTime;
         float inactiveSince = -1f;   // realtime when the app lost focus / paused (-1 = active)
         float lastInactiveMs;        // length of the last inactive period, reported with the next frame
         bool afterInactive;
@@ -41,9 +64,21 @@ namespace Deadlock.UI
         {
             if (Application.isEditor || !Debug.isDebugBuild)
                 return;
+            Attach();
+        }
+
+        /// <summary>Creates the monitor (development builds on start-up; tests by hand).</summary>
+        public static FrameRateMonitor Attach()
+        {
             var go = new GameObject("FrameRateMonitor");
             DontDestroyOnLoad(go);
-            go.AddComponent<FrameRateMonitor>();
+            return go.AddComponent<FrameRateMonitor>();
+        }
+
+        void Log(string line)
+        {
+            Debug.Log(line);
+            Logged?.Invoke(line);
         }
 
         void Awake()
@@ -76,7 +111,11 @@ namespace Deadlock.UI
             OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single); // the first scene loaded before this existed
         }
 
-        void OnDestroy() => SceneManager.sceneLoaded -= OnSceneLoaded;
+        void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            Track(null);
+        }
 
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
@@ -85,8 +124,59 @@ namespace Deadlock.UI
             loadFrames = 0;
             loadWorst = 0f;
             loadLong = 0;
-            var go = GameObject.Find("Player");
-            player = go != null ? go.transform : null;
+            // The scene's player rig (not an object found by name: other objects may share the name "Player").
+            var rig = FindAnyObjectByType<PlayerRig>();
+            Track(rig);
+            Log($"[DEADLOCK][perf][scene] {scene.name}: tracking {(rig != null ? $"{rig.name} #{rig.GetInstanceID()}" : "no player")}");
+        }
+
+        void Track(PlayerRig rig)
+        {
+            if (gun != null)
+                gun.Fired -= OnFired;
+            if (melee != null)
+                melee.SwingStarted -= OnSwing;
+            player = rig != null ? rig.transform : null;
+            router = rig != null ? rig.Input : null;
+            gun = rig != null ? rig.Gun : null;
+            melee = rig != null ? rig.Melee : null;
+            if (gun != null)
+                gun.Fired += OnFired;
+            if (melee != null)
+                melee.SwingStarted += OnSwing;
+            hasLastPosition = false;
+        }
+
+        void OnFired() => shots++;
+
+        void OnSwing() => swings++;
+
+        /// <summary>What the player did since the last line (cheap: one distance per frame and two counters).</summary>
+        void TrackPlay(float dt)
+        {
+            if (Time.timeScale == 0f)
+                pausedTime += dt;
+            if (router != null && router.IsBlocked)
+                blockedTime += dt;
+            if (player == null)
+                return;
+            Vector3 p = player.position;
+            if (hasLastPosition)
+            {
+                float d = Vector3.Distance(p, lastPosition);
+                if (d < 5f)
+                    moved += d;
+            }
+            lastPosition = p;
+            hasLastPosition = true;
+        }
+
+        string Activity() => $"moved {moved:0.0} m, shots {shots}, melee {swings}, paused {pausedTime:0.0} s, input blocked {blockedTime:0.0} s";
+
+        void ResetActivity()
+        {
+            moved = pausedTime = blockedTime = 0f;
+            shots = swings = 0;
         }
 
         string Place() => player != null ? $"{SceneManager.GetActiveScene().name} ({player.position.x:0.0}, {player.position.y:0.0}, {player.position.z:0.0})" : SceneManager.GetActiveScene().name;
@@ -106,16 +196,18 @@ namespace Deadlock.UI
             }
             if (loadScene != null)
             {
-                Debug.Log($"[DEADLOCK][perf][load] {loadScene}: first {LoadWindow:0.0}s {loadFrames} frames, worst {loadWorst * 1000f:0.0} ms, {loadLong} over 50 ms");
+                Log($"[DEADLOCK][perf][load] {loadScene}: first {LoadWindow:0.0}s {loadFrames} frames, worst {loadWorst * 1000f:0.0} ms, {loadLong} over 50 ms");
                 loadScene = null;
+                ResetActivity();
                 windowStart = logStart = now;
                 windowFrames = logFrames = 0;
                 windowWorst = logWorst = 0f;
                 logTimes.Clear();
                 return;
             }
+            TrackPlay(dt);
             if (dt > 0.1f)
-                Debug.Log($"[DEADLOCK][perf][hitch] {dt * 1000f:0.0} ms at {Place()}" + (afterInactive ? $" (first frame after {lastInactiveMs:0} ms inactive)" : ""));
+                Log($"[DEADLOCK][perf][hitch] {dt * 1000f:0.0} ms at {Place()}" + (afterInactive ? $" (first frame after {lastInactiveMs:0} ms inactive)" : ""));
             afterInactive = false;
             logTimes.Add(dt);
             windowFrames++;
@@ -142,10 +234,11 @@ namespace Deadlock.UI
                     if (t > 0.05f) over50++;
                     if (t > 0.1f) over100++;
                 }
-                Debug.Log($"[DEADLOCK][perf] {now - logStart:0.0}s avg {logFrames / (now - logStart):0.0} fps, worst frame {logWorst * 1000f:0.0} ms, {Screen.width}x{Screen.height}" +
+                Log($"[DEADLOCK][perf] {now - logStart:0.0}s avg {logFrames / (now - logStart):0.0} fps, worst frame {logWorst * 1000f:0.0} ms, {Screen.width}x{Screen.height}" +
                           $" | p50 {P(0.5f):0.0} p95 {P(0.95f):0.0} p99 {P(0.99f):0.0} ms, >33ms {over33}, >50ms {over50}, >100ms {over100}" +
                           $" | mem alloc {Profiler.GetTotalAllocatedMemoryLong() / 1048576f:0} MB reserved {Profiler.GetTotalReservedMemoryLong() / 1048576f:0} MB mono {Profiler.GetMonoUsedSizeLong() / 1048576f:0} MB gfx {Profiler.GetAllocatedMemoryForGraphicsDriver() / 1048576f:0} MB" +
-                          $" | {Place()}");
+                          $" | {Activity()} | {Place()}");
+                ResetActivity();
                 logTimes.Clear();
                 logStart = now;
                 logFrames = 0;
@@ -170,7 +263,7 @@ namespace Deadlock.UI
             {
                 lastInactiveMs = (now - inactiveSince) * 1000f;
                 afterInactive = true;
-                Debug.Log($"[DEADLOCK][perf][inactive] {lastInactiveMs:0} ms at {Place()}");
+                Log($"[DEADLOCK][perf][inactive] {lastInactiveMs:0} ms at {Place()}");
                 inactiveSince = -1f;
             }
         }
@@ -185,6 +278,8 @@ namespace Deadlock.UI
             windowFrames = logFrames = 0;
             windowWorst = logWorst = 0f;
             logTimes.Clear();
+            ResetActivity();
+            hasLastPosition = false;
         }
     }
 }

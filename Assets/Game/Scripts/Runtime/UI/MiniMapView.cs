@@ -7,11 +7,13 @@ using UnityEngine.UI;
 namespace Deadlock.UI
 {
     /// <summary>
-    /// Small floor map in the top-left corner of the Safe Area (clear of the notch, the top-centre menu / status, the
-    /// ammo counter and the default touch controls). Heading-up: the map turns around the player's arrow in the middle.
+    /// Small floor map on the HUD, a 4:3 rectangle (wider than tall, like the screen). Heading-up: the map turns around
+    /// the player's arrow in the middle, at the same scale across and down (the ground is never stretched).
     /// Shows the floor the player is on (switched with hysteresis on the stairs, <see cref="FloorMapData.FloorFor"/>):
-    /// floor, walls, stairs and the atrium drop (hatched, not walkable), and the enemies the
-    /// <see cref="EnemyDetector"/> currently reports, at their detected positions:
+    /// walkable floor, walls, stairs (step lines, and a boundary line at the end that leads to the other floor),
+    /// the atrium drop (hatched) and, outside the building, an opaque near-black background; the frame has a light
+    /// blue edge. The colours keep clear of the enemy markers' red and amber.
+    /// Enemies the <see cref="EnemyDetector"/> currently reports are shown at their detected positions:
     /// seen = filled circle (red), heard = ring (amber); on another floor = an up / down triangle (filled = seen,
     /// hollow = heard) instead, so it never looks like an enemy on this floor. Markers fade out before they go.
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
@@ -19,9 +21,10 @@ namespace Deadlock.UI
     ///   seen, hollow = heard), with a small up / down triangle beside it for another floor;
     /// - another floor, (nearly) straight above / below the player: a boxed up / down triangle in a slot beside the
     ///   player's arrow, instead of a triangle hidden under the arrow.
-    /// Placed at the top-left by default; when the player's own touch layout puts a control there, the map slides
-    /// right along the top edge to the first place clear of the controls, the menu button, the status line and the
-    /// ammo / posture text (<see cref="ChoosePosition"/>, re-checked twice a second, so layout edits are followed).
+    /// Place and size are part of Settings → Control layout (<see cref="TouchLayoutEditor"/>), saved on the device
+    /// (<see cref="MapSettings.SavePlacement"/>) and never moved by the game once saved (only kept inside the Safe
+    /// Area). Until the player places it, it goes once to the top-left corner, or along the top edge to the first place
+    /// clear of the controls (<see cref="ChoosePosition"/>).
     /// The map image comes from the baked <see cref="FloorMapData"/> (no extra camera). "Show minimap" off
     /// (<see cref="MapSettings"/>) hides this display only. Display only: never changes the game.
     /// </summary>
@@ -33,29 +36,41 @@ namespace Deadlock.UI
         [SerializeField] Transform player;
         [Tooltip("Optional: the HUD, whose Editor help text moves right of the map.")]
         [SerializeField] HudController hud;
-        [Tooltip("Optional: the touch layout, whose controls the map keeps clear of.")]
+        [Tooltip("Optional: the touch layout, whose controls the first automatic placement keeps clear of.")]
         [SerializeField] TouchLayoutApplier touchLayout;
-        [Tooltip("Metres shown across the map.")]
+        [Tooltip("Metres shown across 188 canvas units (the scale of the first, square map; unchanged).")]
         [SerializeField, Min(4f)] float metresAcross = 22f;
 
-        /// <summary>Map size and its distance from the Safe Area's top-left corner (canvas units, reference height 1080).</summary>
-        public const float Size = 188f;
+        /// <summary>Id of the map in the control layout editor.</summary>
+        public const string LayoutId = "minimap";
+        public const string DisplayName = "ミニマップ";
+        /// <summary>Map size at scale 1 (canvas units, reference height 1080): 4:3.</summary>
+        public static readonly Vector2 BaseSize = new Vector2(224f, 168f);
+        /// <summary>Distance of the automatic placement from the Safe Area's top-left corner.</summary>
         public static readonly Vector2 Margin = new Vector2(14f, 14f);
+        public const float MinScale = 0.7f;
+        public const float MaxScale = 1.6f;
+        const float ReferenceSide = 188f;
+        const float Border = 3f;
         const float MarkerSize = 20f;
-        /// <summary>Markers farther than this from the centre (canvas units, either axis) go on the edge instead.</summary>
-        const float EdgeInset = 80f;
+        /// <summary>Edge markers sit this far inside the map's edge (canvas units).</summary>
+        const float EdgeGap = 12f;
         /// <summary>Another floor's marker closer than this to the centre would hide under the player's arrow.</summary>
         const float SelfRadius = 16f;
 
         static readonly Color SeenColor = new Color(1f, 0.27f, 0.22f, 1f);
         static readonly Color HeardColor = new Color(1f, 0.78f, 0.25f, 1f);
+        static readonly Color FrameColor = new Color(0.45f, 0.78f, 0.95f, 0.95f);
+        static readonly Color32 OutsideColor = new Color32(6, 7, 11, 255);
 
+        RectTransform safeRect;
         RectTransform frame;
         RectTransform rotor;
         RawImage mapImage;
         RectTransform markerLayer;
         RectTransform north;
         Text floorLabel;
+        GameObject editPreview;
         Texture2D[] floorTextures;
         readonly List<Image> markers = new List<Image>();
         readonly List<Image> badges = new List<Image>();
@@ -64,24 +79,35 @@ namespace Deadlock.UI
         int shownMarkers;
         float yaw;
         Sprite circle, ring, triangle, triangleHollow, pointer, pointerHollow, box;
+        MiniMapPlacement placement;
+        bool placed;
+        Vector2 placedFor;
+        bool editing;
 
         public int DisplayedFloor { get; private set; } = -1;
         public bool IsShown => frame != null && frame.gameObject.activeSelf;
         public RectTransform Frame => frame;
-        public float UnitsPerMetre => Size / metresAcross;
+        public float UnitsPerMetre => ReferenceSide / metresAcross;
         /// <summary>Rotation of the map (degrees, counter-clockwise on screen) = the player's heading.</summary>
         public float MapRotation => yaw;
         public int ShownMarkers => shownMarkers;
+        /// <summary>Place and size on screen now.</summary>
+        public MiniMapPlacement Placement => placement;
+        /// <summary>The player placed the map (saved): the game does not move it.</summary>
+        public bool PlacementSaved { get; private set; }
+        public Vector2 SafeSize => safeRect.rect.size;
+        public bool IsEditing => editing;
 
-        /// <summary>The map's rectangle inside a Safe Area of this size (canvas units, origin bottom-left, y up).</summary>
+        /// <summary>The automatic first place inside a Safe Area of this size (canvas units, origin bottom-left, y up).</summary>
         public static Rect LayoutRect(Vector2 safeSize) => LayoutRect(safeSize, Margin.x);
 
-        static Rect LayoutRect(Vector2 safeSize, float left) => new Rect(left, safeSize.y - Margin.y - Size, Size, Size);
+        static Rect LayoutRect(Vector2 safeSize, float left) => new Rect(left, safeSize.y - Margin.y - BaseSize.y, BaseSize.x, BaseSize.y);
 
         /// <summary>
-        /// Left edge of the map (canvas units from the Safe Area's left) for a touch layout: the top-left corner, or the
-        /// first place to the right along the top edge that is clear of every control (8 units apart), the menu button
-        /// and its margin, the top-centre status line and the top-right ammo / posture text. None clear: the corner.
+        /// Left edge of the first placement (canvas units from the Safe Area's left) for a touch layout: the top-left
+        /// corner, or the first place to the right along the top edge that is clear of every control (8 units apart),
+        /// the menu button and its margin, the top-centre status line and the top-right ammo / posture text.
+        /// None clear: the corner.
         /// </summary>
         public static float ChoosePosition(Vector2 safeSize, TouchLayoutData layout)
         {
@@ -92,7 +118,7 @@ namespace Deadlock.UI
                 new Rect(safeSize.x * 0.5f - 300f, safeSize.y - 124f, 600f, 124f),              // status line
                 new Rect(safeSize.x - 48f - 420f, safeSize.y - 206f, 468f, 206f),              // ammo / posture
             };
-            for (float left = Margin.x; left + Size + Margin.x <= safeSize.x; left += gap)
+            for (float left = Margin.x; left + BaseSize.x + Margin.x <= safeSize.x; left += gap)
             {
                 Rect map = LayoutRect(safeSize, left);
                 bool clear = true;
@@ -114,19 +140,47 @@ namespace Deadlock.UI
             return Margin.x;
         }
 
+        /// <summary>The automatic first placement as a placement (scale 1).</summary>
+        public static MiniMapPlacement AutoPlacement(Vector2 safeSize, TouchLayoutData layout)
+        {
+            float left = ChoosePosition(safeSize, layout);
+            var centre = new Vector2(left + BaseSize.x * 0.5f, safeSize.y - Margin.y - BaseSize.y * 0.5f);
+            return new MiniMapPlacement { center = new Vector2(centre.x / safeSize.x, centre.y / safeSize.y), scale = 1f };
+        }
+
+        /// <summary>Scale within limits, and the whole map inside the Safe Area.</summary>
+        public static MiniMapPlacement Clamp(MiniMapPlacement p, Vector2 safeSize)
+        {
+            float scale = Mathf.Clamp(p.IsValid ? p.scale : 1f, MinScale, MaxScale);
+            Vector2 half = BaseSize * scale * 0.5f;
+            Vector2 c = p.center * safeSize;
+            c.x = safeSize.x > half.x * 2f ? Mathf.Clamp(c.x, half.x, safeSize.x - half.x) : safeSize.x * 0.5f;
+            c.y = safeSize.y > half.y * 2f ? Mathf.Clamp(c.y, half.y, safeSize.y - half.y) : safeSize.y * 0.5f;
+            return new MiniMapPlacement { center = new Vector2(c.x / Mathf.Max(1f, safeSize.x), c.y / Mathf.Max(1f, safeSize.y)), scale = scale };
+        }
+
+        /// <summary>The map's rectangle for a placement (Safe Area canvas units, origin bottom-left).</summary>
+        public static Rect PlacementRect(MiniMapPlacement p, Vector2 safeSize)
+        {
+            Vector2 size = BaseSize * p.scale;
+            Vector2 c = p.center * safeSize;
+            return new Rect(c - size * 0.5f, size);
+        }
+
         void Awake()
         {
             BuildSprites();
             var layer = UiBuild.Stretch(UiBuild.Rect("MiniMapLayer", transform));
-            var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", layer));
-            safe.gameObject.AddComponent<SafeAreaFitter>();
-            // The frame draws a thin light border (its own image) around the dark map background.
-            frame = UiBuild.Place(UiBuild.Rect("MiniMap", safe), new Vector2(0f, 1f), new Vector2(Margin.x, -Margin.y), new Vector2(Size, Size));
-            UiBuild.Image(frame, new Color(1f, 1f, 1f, 0.35f), false);
+            safeRect = UiBuild.Stretch(UiBuild.Rect("SafeArea", layer));
+            safeRect.gameObject.AddComponent<SafeAreaFitter>();
+            // The frame's own image is its light blue edge; the map sits on an opaque "outside" background inside it.
+            frame = UiBuild.Place(UiBuild.Rect("MiniMap", safeRect), new Vector2(0f, 0f), Vector2.zero, BaseSize);
+            frame.pivot = new Vector2(0.5f, 0.5f);
+            UiBuild.Image(frame, FrameColor, false);
             var background = UiBuild.Stretch(UiBuild.Rect("Background", frame));
-            background.offsetMin = new Vector2(3f, 3f);
-            background.offsetMax = new Vector2(-3f, -3f);
-            UiBuild.Image(background, new Color(0.02f, 0.03f, 0.05f, 0.85f), false);
+            background.offsetMin = new Vector2(Border, Border);
+            background.offsetMax = new Vector2(-Border, -Border);
+            UiBuild.Image(background, OutsideColor, false);
             var viewport = UiBuild.Stretch(UiBuild.Rect("Viewport", background));
             viewport.gameObject.AddComponent<RectMask2D>();
             rotor = UiBuild.Place(UiBuild.Rect("Rotor", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
@@ -138,22 +192,40 @@ namespace Deadlock.UI
             // Markers do not turn with the map: their places are computed in the frame (so triangles stay upright).
             markerLayer = UiBuild.Place(UiBuild.Rect("Markers", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
 
-            // The player: an arrow in the middle, always pointing up (heading-up map).
-            var arrowOutline = UiBuild.Place(UiBuild.Rect("PlayerOutline", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 28f));
+            // The player: an arrow in the middle, always pointing up (heading-up map). (Not named "Player": that is
+            // the player object's name, looked up by name elsewhere.)
+            var arrowOutline = UiBuild.Place(UiBuild.Rect("PlayerArrowOutline", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 28f));
             Graphic(arrowOutline, triangle, Color.black);
-            var arrow = UiBuild.Place(UiBuild.Rect("Player", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(18f, 20f));
-            Graphic(arrow, triangle, new Color(0.55f, 0.9f, 1f, 1f));
+            var arrow = UiBuild.Place(UiBuild.Rect("PlayerArrow", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(18f, 20f));
+            Graphic(arrow, triangle, Color.white);
             north = UiBuild.Place(UiBuild.Rect("North", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(30f, 30f));
             UiBuild.Text(north, "N", 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.75f));
             floorLabel = UiBuild.Text(UiBuild.Place(UiBuild.Rect("FloorLabel", frame), new Vector2(0f, 1f), new Vector2(8f, -4f), new Vector2(80f, 30f)),
                 "", 24, TextAnchor.UpperLeft, new Color(1f, 1f, 1f, 0.9f));
             floorLabel.gameObject.AddComponent<Shadow>().effectColor = new Color(0f, 0f, 0f, 0.9f);
+            BuildEditPreview();
 
             floorTextures = new Texture2D[map != null ? map.floors.Length : 0];
             for (int f = 0; f < floorTextures.Length; f++)
                 floorTextures[f] = BuildTexture(f);
             if (map != null)
                 mapRect.sizeDelta = new Vector2(map.width, map.height) * map.cellSize * UnitsPerMetre;
+        }
+
+        /// <summary>Sample markers and a label, shown only while the control layout is being edited.</summary>
+        void BuildEditPreview()
+        {
+            var root = UiBuild.Stretch(UiBuild.Rect("EditPreview", frame));
+            editPreview = root.gameObject;
+            var seen = UiBuild.Place(UiBuild.Rect("SampleSeen", root), new Vector2(0.5f, 0.5f), new Vector2(-46f, 26f), new Vector2(MarkerSize, MarkerSize));
+            Graphic(seen, circle, SeenColor);
+            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(MarkerSize, MarkerSize));
+            Graphic(heard, ring, HeardColor);
+            var edge = UiBuild.Place(UiBuild.Rect("SampleEdge", root), new Vector2(0.5f, 1f), new Vector2(60f, -EdgeGap - Border), new Vector2(MarkerSize, MarkerSize));
+            Graphic(edge, pointer, SeenColor);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Label", root), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(BaseSize.x, 28f)),
+                "ミニマップ（プレビュー）", 20, TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.9f));
+            editPreview.SetActive(false);
         }
 
         void OnEnable()
@@ -173,37 +245,92 @@ namespace Deadlock.UI
 
         void ApplySetting()
         {
-            bool visible = MapSettings.MinimapVisible;
-            frame.gameObject.SetActive(visible);
+            frame.gameObject.SetActive(editing || MapSettings.MinimapVisible);
             ReserveHelp();
         }
 
-        // The Editor / desktop help text (top-left) moves right of the map while it is shown.
+        // The Editor / desktop help text (top-left) moves right of the map while the map is at the top-left.
         void ReserveHelp()
         {
-            if (hud != null)
-                hud.ReserveTopLeft(IsShown ? frame.anchoredPosition.x + Size + 16f : 0f);
+            if (hud == null || !placed)
+                return;
+            Rect r = PlacementRect(placement, SafeSize);
+            bool topLeft = IsShown && r.yMax > SafeSize.y - 140f && r.xMin < SafeSize.x * 0.25f;
+            hud.ReserveTopLeft(topLeft ? r.xMax + 16f : 0f);
         }
 
-        float nextPlacement;
+        // ------------------------------------------------------------------ placement (also used by the layout editor)
+
+        /// <summary>Shows a place / size without saving it (layout editor preview).</summary>
+        public void Preview(MiniMapPlacement p)
+        {
+            placement = Clamp(p, SafeSize);
+            placed = true;
+            placedFor = SafeSize;
+            ApplyPlacement();
+        }
+
+        /// <summary>Shows and saves a place / size: from now on the game does not move the map.</summary>
+        public void Commit(MiniMapPlacement p)
+        {
+            Preview(p);
+            MapSettings.SavePlacement(placement);
+            PlacementSaved = true;
+        }
+
+        /// <summary>Back to the saved place (or the automatic first place when none is saved).</summary>
+        public void Revert()
+        {
+            placed = false;
+            Place();
+        }
+
+        /// <summary>The automatic first place for a touch layout (the layout editor's "reset").</summary>
+        public MiniMapPlacement AutoPlacementFor(TouchLayoutData layout) => AutoPlacement(SafeSize, layout);
+
+        /// <summary>While the control layout is edited: shown even if switched off, with sample markers.</summary>
+        public void SetEditing(bool on)
+        {
+            editing = on;
+            editPreview.SetActive(on);
+            ApplySetting();
+        }
 
         void Place()
         {
-            if (touchLayout == null || Time.unscaledTime < nextPlacement)
+            Vector2 safe = SafeSize;
+            if (safe.x <= 1f || safe.y <= 1f)
                 return;
-            nextPlacement = Time.unscaledTime + 0.5f;
-            float left = ChoosePosition(((RectTransform)frame.parent).rect.size, touchLayout.Shown);
-            if (Mathf.Approximately(left, frame.anchoredPosition.x))
+            if (placed && safe == placedFor)
                 return;
-            frame.anchoredPosition = new Vector2(left, -Margin.y);
+            if (MapSettings.TryLoadPlacement(out var saved))
+            {
+                PlacementSaved = true;
+                placement = Clamp(saved, safe);   // the player's place: only kept inside the Safe Area
+            }
+            else
+            {
+                PlacementSaved = false;
+                placement = AutoPlacement(safe, touchLayout != null ? touchLayout.Saved : null);
+            }
+            placed = true;
+            placedFor = safe;
+            ApplyPlacement();
+        }
+
+        void ApplyPlacement()
+        {
+            frame.anchoredPosition = placement.center * SafeSize;
+            frame.localScale = Vector3.one * placement.scale;
             ReserveHelp();
         }
 
         void LateUpdate()
         {
+            if (!editing)
+                Place();
             if (!IsShown || map == null || player == null)
                 return;
-            Place();
             Vector3 p = player.position;
             int floor = map.FloorFor(p.y, DisplayedFloor);
             if (floor != DisplayedFloor)
@@ -217,17 +344,31 @@ namespace Deadlock.UI
                 yaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
             rotor.localRotation = Quaternion.Euler(0f, 0f, yaw);
             mapImage.rectTransform.anchoredPosition = -map.ToCells(p) * map.cellSize * UnitsPerMetre;
-            float r = Size * 0.5f - 14f;
             float a = yaw * Mathf.Deg2Rad;
-            north.anchoredPosition = new Vector2(-Mathf.Sin(a), Mathf.Cos(a)) * r;
+            north.anchoredPosition = ToEdge(new Vector2(-Mathf.Sin(a), Mathf.Cos(a)), 2f);
             UpdateMarkers(p);
+        }
+
+        /// <summary>Half size of the area inside the frame where edge markers sit (rectangle, before the frame's scale).</summary>
+        public static Vector2 EdgeHalf => (BaseSize - Vector2.one * (2f * Border)) * 0.5f - Vector2.one * EdgeGap;
+
+        /// <summary>Beyond the edge rectangle?</summary>
+        static bool BeyondEdge(Vector2 at) => Mathf.Abs(at.x) > EdgeHalf.x || Mathf.Abs(at.y) > EdgeHalf.y;
+
+        /// <summary>The point on the edge rectangle in this direction (from the centre), moved in by extra.</summary>
+        static Vector2 ToEdge(Vector2 direction, float extra = 0f)
+        {
+            Vector2 half = EdgeHalf - Vector2.one * extra;
+            float fx = Mathf.Abs(direction.x) > 1e-5f ? half.x / Mathf.Abs(direction.x) : float.MaxValue;
+            float fy = Mathf.Abs(direction.y) > 1e-5f ? half.y / Mathf.Abs(direction.y) : float.MaxValue;
+            return direction * Mathf.Min(fx, fy);
         }
 
         void UpdateMarkers(Vector3 playerPosition)
         {
             shownMarkers = 0;
             int selfSlots = 0;
-            if (detector != null)
+            if (detector != null && !editing)
             {
                 var contacts = detector.Contacts;
                 for (int i = 0; i < contacts.Count; i++)
@@ -249,11 +390,10 @@ namespace Deadlock.UI
                     var rect = image.rectTransform;
                     string shape;
                     badge.enabled = false;
-                    float far = Mathf.Max(Mathf.Abs(at.x), Mathf.Abs(at.y));
-                    if (far > EdgeInset)
+                    if (BeyondEdge(at))
                     {
                         // Beyond the range: a pointer on the edge, toward the last detected position.
-                        Vector2 edge = at * (EdgeInset / far);
+                        Vector2 edge = ToEdge(at.normalized);
                         image.sprite = seen ? pointer : pointerHollow;
                         rect.sizeDelta = new Vector2(MarkerSize, MarkerSize);
                         rect.anchoredPosition = edge;
@@ -339,7 +479,7 @@ namespace Deadlock.UI
             return false;
         }
 
-        /// <summary>Where a world position appears in the map frame (canvas units from the centre = the player).</summary>
+        /// <summary>Where a world position appears in the map frame (canvas units from the centre = the player, before the frame's scale).</summary>
         public Vector2 WorldToFrame(Vector3 world)
         {
             Vector3 d = world - player.position;
@@ -357,12 +497,28 @@ namespace Deadlock.UI
 
         // ------------------------------------------------------------------ images
 
-        static readonly Color32 FloorColor = new Color32(78, 82, 98, 220);
-        static readonly Color32 WallColor = new Color32(225, 225, 235, 255);
-        static readonly Color32 VoidColor = new Color32(12, 12, 20, 230);
-        static readonly Color32 VoidHatch = new Color32(60, 58, 80, 230);
-        static readonly Color32 StairColor = new Color32(160, 140, 96, 240);
-        static readonly Color32 StairLine = new Color32(104, 90, 62, 240);
+        // Floor slate blue, walls light grey, the drop deep violet with a hatch, stairs teal with darker step lines and
+        // a bright cyan boundary toward the other floor, outside near black: apart from each other and from the
+        // markers' red / amber, and readable on a dark screen.
+        public static readonly Color32 FloorColor = new Color32(58, 76, 102, 240);
+        public static readonly Color32 WallColor = new Color32(222, 226, 232, 255);
+        public static readonly Color32 VoidColor = new Color32(26, 16, 44, 255);
+        public static readonly Color32 VoidHatch = new Color32(84, 62, 120, 255);
+        public static readonly Color32 StairColor = new Color32(48, 122, 108, 250);
+        public static readonly Color32 StairLine = new Color32(28, 78, 70, 250);
+        public static readonly Color32 StairEndColor = new Color32(120, 240, 230, 255);
+
+        public static Color32 CellColor(MapCell cell, int x, int y) => cell switch
+        {
+            MapCell.Floor => FloorColor,
+            MapCell.Wall => WallColor,
+            // Hatched: an open drop, clearly not floor.
+            MapCell.Void => (x + y) % 6 < 2 ? VoidHatch : VoidColor,
+            MapCell.Stairs => StairColor,
+            MapCell.StairsStep => StairLine,
+            MapCell.StairsEnd => StairEndColor,
+            _ => OutsideColor,
+        };
 
         /// <summary>One texel per cell, point filtered (the map keeps the game's pixel look).</summary>
         Texture2D BuildTexture(int floor)
@@ -376,18 +532,7 @@ namespace Deadlock.UI
             var pixels = new Color32[map.width * map.height];
             for (int y = 0; y < map.height; y++)
                 for (int x = 0; x < map.width; x++)
-                {
-                    pixels[y * map.width + x] = map.Cell(floor, x, y) switch
-                    {
-                        MapCell.Floor => FloorColor,
-                        MapCell.Wall => WallColor,
-                        // Hatched: an open drop, clearly not floor.
-                        MapCell.Void => (x + y) % 6 < 2 ? VoidHatch : VoidColor,
-                        // Step lines across the ramp (the ramps run north-south).
-                        MapCell.Stairs => y % 3 == 0 ? StairLine : StairColor,
-                        _ => new Color32(0, 0, 0, 0),
-                    };
-                }
+                    pixels[y * map.width + x] = CellColor(map.Cell(floor, x, y), x, y);
             tex.SetPixels32(pixels);
             tex.Apply(false, true);
             return tex;
@@ -410,7 +555,7 @@ namespace Deadlock.UI
             Vector2 Shrink(Vector2 v) => centroid + (v - centroid) * 0.45f;
             // Edge pointer: an arrowhead with a notch at its base (not a plain triangle), pointing up before rotation.
             Vector2 notch = new Vector2(15.5f, 13f), notchHollow = new Vector2(15.5f, 19f);
-            bool Arrowhead(Vector2 p, Vector2 n) => Inside(p, a, b, c) && !Inside(p, b, n, c);
+            bool Arrowhead(Vector2 p, Vector2 tip) => Inside(p, a, b, c) && !Inside(p, b, tip, c);
             pointer = MakeSprite("MarkerPointer", (x, y) => Arrowhead(new Vector2(x, y), notch));
             pointerHollow = MakeSprite("MarkerPointerHollow", (x, y) =>
             {
