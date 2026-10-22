@@ -51,6 +51,13 @@ namespace Deadlock.UI
         const float DamageFlashTime = 0.2f;
         const float DamageFlashAlpha = 0.18f;
 
+        /// <summary>HUD text the floor map keeps clear of (ammo / melee name, posture line), with their widest contents.</summary>
+        public Text AmmoText => ammoText;
+        public Text StanceText => stanceText;
+        public string MeleeName => melee != null && melee.Definition != null ? melee.Definition.displayName : "";
+        /// <summary>The HP bar and its number (bottom centre), when the player has health.</summary>
+        public RectTransform HealthArea => hpFill != null ? (RectTransform)hpFill.transform.parent : null;
+
         /// <summary>Current alpha of the red damage flash (0 when not shown).</summary>
         public float DamageFlashLevel => damageFlash != null ? damageFlash.color.a : 0f;
 

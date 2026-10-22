@@ -14,6 +14,10 @@ namespace Deadlock.UI
         UnityEngine.UI.Text resultDetail;
 
         public GameObject ResultPanel => resultPanel;
+        /// <summary>The status line (top centre); the floor map keeps clear of it.</summary>
+        public UnityEngine.UI.Text StatusText => status;
+        /// <summary>The widest this round's status line gets (all defeated, up to 99:59), for layout checks.</summary>
+        public string WidestStatus => $"トレーニング（試作）　討伐 {session.Total} / {session.Total}　99:59";
 
         void Awake()
         {

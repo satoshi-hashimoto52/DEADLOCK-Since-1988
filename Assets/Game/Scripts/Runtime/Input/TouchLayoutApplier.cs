@@ -36,6 +36,8 @@ namespace Deadlock.Input
         public Vector2 SafeSize => safeArea.rect.size;
 
         public RectTransform Widget(string id) => widgets[id];
+        /// <summary>Goes up whenever the widgets are placed again (layout applied / edited / screen size changed).</summary>
+        public int Version { get; private set; }
 
         void Awake()
         {
@@ -63,6 +65,7 @@ namespace Deadlock.Input
         public void Apply(TouchLayoutData layout)
         {
             shown = layout.Clone();
+            Version++;
             lastSafeSize = safeArea.rect.size;
             Vector2 safe = lastSafeSize;
 

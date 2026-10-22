@@ -651,6 +651,164 @@ namespace Deadlock.Tests
             Assert.AreEqual(saved.scale, still.scale, 1e-6f);
         }
 
+        // The touch layout saved on the test iPhone before the integration build (2026-10-22): FIRE / ADS on the right,
+        // the weapon button in the top-left corner.
+        const string DeviceLayout = "{\"version\":1,\"items\":[{\"id\":\"move_zone\",\"center\":{\"x\":0.2,\"y\":0.4},\"size\":{\"x\":0.4,\"y\":0.8},\"scale\":1.0},"
+            + "{\"id\":\"move_stick\",\"center\":{\"x\":0.1086,\"y\":0.2765},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.0},"
+            + "{\"id\":\"fire\",\"center\":{\"x\":0.9166,\"y\":0.2392},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.4},"
+            + "{\"id\":\"ads\",\"center\":{\"x\":0.9444,\"y\":0.8835},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.4},"
+            + "{\"id\":\"reload\",\"center\":{\"x\":0.7399,\"y\":0.3679},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.0},"
+            + "{\"id\":\"jump\",\"center\":{\"x\":0.7350,\"y\":0.0752},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.1},"
+            + "{\"id\":\"posture\",\"center\":{\"x\":0.6402,\"y\":0.2361},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.2},"
+            + "{\"id\":\"weapon\",\"center\":{\"x\":0.0359,\"y\":0.8548},\"size\":{\"x\":0.0,\"y\":0.0},\"scale\":1.1}]}";
+        static readonly MiniMapPlacement DevicePlace = new MiniMapPlacement { center = new Vector2(0.7299997806549072f, 0.8867603540420532f), scale = 1.3000000715255738f };
+
+        /// <summary>Screen rectangle of the text actually drawn (from the text's generated glyphs), in the map's Safe Area units.</summary>
+        static Rect DrawnText(Text text, MiniMapView map)
+        {
+            var verts = text.cachedTextGenerator.verts;
+            Assert.Greater(verts.Count, 0, $"{text.name} draws something");
+            Vector2 min = Vector2.positiveInfinity, max = Vector2.negativeInfinity;
+            var safe = (RectTransform)map.Frame.parent;
+            foreach (var v in verts)
+            {
+                Vector3 world = text.rectTransform.TransformPoint(v.position / text.pixelsPerUnit);
+                Vector2 local = (Vector2)safe.InverseTransformPoint(world) + safe.rect.size * safe.pivot;
+                min = Vector2.Min(min, local);
+                max = Vector2.Max(max, local);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        static Rect FrameOnScreen(MiniMapView map, RectTransform rt)
+        {
+            var corners = new Vector3[4];
+            rt.GetWorldCorners(corners);
+            var safe = (RectTransform)map.Frame.parent;
+            Vector2 a = (Vector2)safe.InverseTransformPoint(corners[0]) + safe.rect.size * safe.pivot;
+            Vector2 b = (Vector2)safe.InverseTransformPoint(corners[2]) + safe.rect.size * safe.pivot;
+            return Rect.MinMaxRect(a.x, a.y, b.x, b.y);
+        }
+
+        void AssertClearOfHudAndControls(string why)
+        {
+            Rect map = FrameOnScreen(view, view.Frame);
+            Assert.AreEqual(view.ShownRect.center.x, map.center.x, 0.5f, $"{why}: drawn where it says");
+            Assert.GreaterOrEqual(map.xMin, -0.5f, why);
+            Assert.GreaterOrEqual(map.yMin, -0.5f, why);
+            Assert.LessOrEqual(map.xMax, view.SafeSize.x + 0.5f, why);
+            Assert.LessOrEqual(map.yMax, view.SafeSize.y + 0.5f, why);
+            var hud = Object.FindAnyObjectByType<HudController>();
+            var texts = new List<Text> { hud.AmmoText, hud.StanceText, Object.FindAnyObjectByType<TrainingHud>().StatusText };
+            foreach (var t in texts)
+                Assert.IsFalse(map.Overlaps(DrawnText(t, view)), $"{why}: map over the text '{t.text}'");
+            var menu = Object.FindAnyObjectByType<GameMenu>();
+            Assert.IsFalse(map.Overlaps(FrameOnScreen(view, (RectTransform)menu.MenuButton.transform)), $"{why}: map over the menu button");
+            var applier = Object.FindAnyObjectByType<TouchLayoutApplier>();
+            foreach (string id in TouchLayout.Circles)
+            {
+                Rect w = FrameOnScreen(view, applier.Widget(id));
+                Vector2 c = w.center;
+                float r = w.width * 0.5f;
+                Vector2 nearest = new Vector2(Mathf.Clamp(c.x, map.xMin, map.xMax), Mathf.Clamp(c.y, map.yMin, map.yMax));
+                Assert.GreaterOrEqual(Vector2.Distance(nearest, c), r - 0.5f, $"{why}: map over {id}");
+            }
+        }
+
+        IEnumerator LoadWithDevicePlace()
+        {
+            TouchLayout.Save(JsonUtility.FromJson<TouchLayoutData>(DeviceLayout));
+            MapSettings.SavePlacement(DevicePlace);
+            yield return LoadScene(InputMode.Touch, Ruins);
+            view = Object.FindAnyObjectByType<MiniMapView>();
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SavedPlace_ShownClearOfHudTextAndControls_SavedValueKept_BackToTheSavedPlaceWhenRoomReturns()
+        {
+            yield return LoadWithDevicePlace();
+            Debug.Log($"[DEADLOCK][minimap] safe {view.SafeSize} asked {MiniMapView.PlacementRect(view.Placement, view.SafeSize)} shown {view.ShownRect} failed {view.AvoidanceFailed}");
+            Assert.IsFalse(view.AvoidanceFailed, "a clear place exists");
+            AssertClearOfHudAndControls("saved place");
+            Assert.AreEqual(1.3f, view.Placement.scale, 1e-4f, "size kept");
+            Assert.AreEqual(MiniMapView.BaseSize.x * 1.3f, view.ShownRect.width, 0.01f, "not shrunk");
+            Assert.AreEqual(MiniMapView.BaseSize.y * 1.3f, view.ShownRect.height, 0.01f, "not shrunk");
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out var saved));
+            Assert.AreEqual(DevicePlace.center, saved.center, "saved value not rewritten");
+            Assert.AreEqual(DevicePlace.scale, saved.scale);
+
+            // Not moved again while nothing changes (no per-frame movement).
+            Vector2 before = view.Frame.anchoredPosition;
+            yield return Wait(0.5f);
+            Assert.AreEqual(before, view.Frame.anchoredPosition);
+
+            // A narrower screen (the Safe Area squeezed from both sides), then back: worked out from the saved place each time.
+            var fitters = Object.FindObjectsByType<SafeAreaFitter>(FindObjectsSortMode.None);
+            foreach (var f in fitters)
+            {
+                f.enabled = false;
+                var r = (RectTransform)f.transform;
+                r.anchorMin = new Vector2(0.12f, 0f);
+                r.anchorMax = new Vector2(0.88f, 1f);
+            }
+            yield return null;
+            yield return null;
+            AssertClearOfHudAndControls("narrower screen");
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out saved));
+            Assert.AreEqual(DevicePlace.center, saved.center, "a screen change never saves");
+            foreach (var f in fitters)
+                f.enabled = true;
+            yield return null;
+            yield return null;
+            Assert.AreEqual(before, view.Frame.anchoredPosition, "back on the first screen: shown where it was");
+        }
+
+        [UnityTest]
+        public IEnumerator Editing_HandleFollowsTheShownMap_ApplySavesTheAskedPlace_CancelKeepsTheSaved()
+        {
+            yield return LoadWithDevicePlace();
+            var menu = Object.FindAnyObjectByType<GameMenu>();
+            var editor = menu.GetComponent<TouchLayoutEditor>();
+            menu.OpenLayoutEditor();
+            yield return null;
+            yield return null;
+            var handle = (RectTransform)menu.transform.Find("LayoutEditorLayer/Handles/Handle_minimap");
+            Rect Handle() => FrameOnScreen(view, handle);
+            Rect Map() => FrameOnScreen(view, view.Frame);
+            Assert.AreEqual(Map().center.x, Handle().center.x, 1f, "the handle is on the map as shown");
+            Assert.AreEqual(Map().width, Handle().width, 1f);
+
+            // Drag a little: the shown map stays clear of the HUD, the handle stays on it.
+            Assert.IsTrue(editor.MoveBy(MiniMapView.LayoutId, new Vector2(-60f, 40f)));
+            yield return null;
+            AssertClearOfHudAndControls("while editing");
+            Assert.AreEqual(Map().center.x, Handle().center.x, 1f);
+            Assert.AreEqual(Map().center.y, Handle().center.y, 1f);
+            var asked = editor.MapWorking;
+
+            // Cancel: the saved place is kept.
+            editor.CancelAndClose();
+            yield return null;
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out var saved));
+            Assert.AreEqual(DevicePlace.center, saved.center, "cancel keeps the saved place");
+
+            // Apply: the asked place (not the shifted one) is saved.
+            menu.OpenLayoutEditor();
+            yield return null;
+            Assert.IsTrue(editor.MoveBy(MiniMapView.LayoutId, new Vector2(-60f, 40f)));
+            asked = editor.MapWorking;
+            editor.ApplyAndClose();
+            menu.Close();
+            yield return null;
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out saved));
+            Assert.AreEqual(asked.center.x, saved.center.x, 1e-5f, "apply saves the asked place");
+            Assert.AreEqual(asked.center.y, saved.center.y, 1e-5f);
+            Assert.AreEqual(1.3f, saved.scale, 1e-4f);
+            AssertClearOfHudAndControls("after apply");
+        }
+
         [UnityTest]
         public IEnumerator Frame_IsPlacedAsTheLayoutSays()
         {

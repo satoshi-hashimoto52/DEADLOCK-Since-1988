@@ -13,9 +13,10 @@ namespace Deadlock.UI
     /// restores the saved layout, Reset shows the defaults (saved only on Apply). Moves that would leave the Safe Area
     /// or make widgets overlap are refused. A full-screen blocker stops game input while editing.
     /// Where the scene has a floor map (<see cref="MiniMapView"/>), it is one more item: drag to move, − / ＋ to resize
-    /// (aspect kept), shown with sample markers while editing, always kept inside the Safe Area. It may overlap a
-    /// control (it is display only and never takes a touch); a note says so. Its place is saved separately from the
-    /// touch layout and only when it was changed here; the buttons' own places and settings are not touched by it.
+    /// (aspect kept), shown with sample markers while editing, always kept inside the Safe Area. The handle follows where
+    /// the map is actually shown, which keeps clear of the HUD text and the controls (a note says when it is moved off the
+    /// asked place, or when no clear place exists). The asked place is saved separately from the touch layout, only on
+    /// Apply and only when it was changed here; Cancel keeps the saved one. The buttons' own places are not touched by it.
     /// </summary>
     public sealed class TouchLayoutEditor : MonoBehaviour
     {
@@ -213,24 +214,10 @@ namespace Deadlock.UI
             miniMap.Preview(mapWorking);
             mapChanged = true;
             mapReset = false;
-            ShowMessage(MapOverlapsControl() ? "ミニマップが操作ボタンと重なっています（表示だけなので操作はできます）" : "");
+            Rect asked = MiniMapView.PlacementRect(mapWorking, miniMap.SafeSize);
+            ShowMessage(miniMap.AvoidanceFailed ? "ミニマップを置ける空きがありません（この位置のまま表示されます）"
+                : Vector2.Distance(asked.center, miniMap.ShownRect.center) > 0.5f ? "HUDや操作ボタンを避けた位置に表示されます" : "");
             return true;
-        }
-
-        bool MapOverlapsControl()
-        {
-            Vector2 safe = miniMap.SafeSize;
-            Rect map = MiniMapView.PlacementRect(mapWorking, safe);
-            foreach (string id in TouchLayout.Circles)
-            {
-                var item = working.Get(id);
-                float d = TouchLayout.Diameter(item);
-                Vector2 c = TouchLayout.ClampCircle(item.center, d, safe) * safe;
-                Vector2 nearest = new Vector2(Mathf.Clamp(c.x, map.xMin, map.xMax), Mathf.Clamp(c.y, map.yMin, map.yMax));
-                if (Vector2.Distance(nearest, c) < d * 0.5f)
-                    return true;
-            }
-            return false;
         }
 
         bool TryAccept(TouchLayoutData candidate)

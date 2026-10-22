@@ -112,5 +112,62 @@ namespace Deadlock.Tests
                 Assert.LessOrEqual(map.xMax, safe.x * 0.5f - 300f, $"{name}: left of the status line");
             }
         }
+
+        [Test]
+        public void AvoidCentre_KeepsTheAskedPlaceWhenClear_OtherwiseNearestClear_NeverShrinks()
+        {
+            var safe = new Vector2(1440f, 1080f);
+            var size = MiniMapView.BaseSize * 1.3f;
+            var boxes = new System.Collections.Generic.List<Rect>
+            {
+                new Rect(1070f, 950f, 330f, 90f),   // ammo text (top right)
+                new Rect(440f, 950f, 560f, 40f),    // status line (top centre)
+            };
+            var circles = new System.Collections.Generic.List<Vector3> { new Vector3(1359f, 954f, 112f) }; // a button
+
+            // Clear: unchanged.
+            var clear = new Vector2(300f, 500f);
+            Assert.AreEqual(clear, MiniMapView.AvoidCentre(safe, size, clear, boxes, circles, 8f, out bool found));
+            Assert.IsTrue(found);
+
+            // Over the HUD (the place a 4:3 screen gives the iPhone-chosen map): moved to the nearest clear place.
+            var asked = new Vector2(0.73f * safe.x, 0.887f * safe.y);
+            var shown = MiniMapView.AvoidCentre(safe, size, asked, boxes, circles, 8f, out found);
+            Assert.IsTrue(found);
+            var r = new Rect(shown - size * 0.5f, size);
+            Assert.GreaterOrEqual(r.xMin, -0.01f);
+            Assert.GreaterOrEqual(r.yMin, -0.01f);
+            Assert.LessOrEqual(r.xMax, safe.x + 0.01f);
+            Assert.LessOrEqual(r.yMax, safe.y + 0.01f);
+            var padded = new Rect(r.position - Vector2.one * 8f, r.size + Vector2.one * 16f);
+            foreach (var b in boxes)
+                Assert.IsFalse(padded.Overlaps(b), $"clear of {b}");
+            float moved = Vector2.Distance(asked, shown);
+            // Nothing clear is nearer (checked on a finer grid around the asked place).
+            for (float dx = -moved; dx <= moved; dx += 2f)
+                for (float dy = -moved; dy <= moved; dy += 2f)
+                {
+                    if (dx * dx + dy * dy >= (moved - 4f) * (moved - 4f))
+                        continue;
+                    var c = asked + new Vector2(dx, dy);
+                    var cr = new Rect(c - size * 0.5f - Vector2.one * 8f, size + Vector2.one * 16f);
+                    bool inside = c.x - size.x * 0.5f >= 0f && c.y - size.y * 0.5f >= 0f && c.x + size.x * 0.5f <= safe.x && c.y + size.y * 0.5f <= safe.y;
+                    bool overlap = false;
+                    foreach (var b in boxes)
+                        overlap |= cr.Overlaps(b);
+                    var k = circles[0];
+                    float nx = Mathf.Clamp(k.x, cr.xMin, cr.xMax), ny = Mathf.Clamp(k.y, cr.yMin, cr.yMax);
+                    overlap |= (nx - k.x) * (nx - k.x) + (ny - k.y) * (ny - k.y) < k.z * k.z;
+                    Assert.IsFalse(inside && !overlap, $"a clear place {c} is clearly nearer than {shown}");
+                }
+
+            // The same asked place always gives the same result (going back to a screen shows it where it was).
+            Assert.AreEqual(shown, MiniMapView.AvoidCentre(safe, size, asked, boxes, circles, 8f, out _));
+
+            // No room at all: the asked place is kept (no shrinking, nothing hidden), and it is reported.
+            var full = new System.Collections.Generic.List<Rect> { new Rect(0f, 0f, safe.x, safe.y) };
+            Assert.AreEqual(asked, MiniMapView.AvoidCentre(safe, size, asked, full, new System.Collections.Generic.List<Vector3>(), 8f, out found));
+            Assert.IsFalse(found);
+        }
     }
 }

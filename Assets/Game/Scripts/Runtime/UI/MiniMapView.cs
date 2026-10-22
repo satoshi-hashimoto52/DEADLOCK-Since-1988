@@ -23,9 +23,14 @@ namespace Deadlock.UI
     /// - another floor, (nearly) straight above / below the player: a boxed up / down triangle in a slot beside the
     ///   player's arrow, instead of a triangle hidden under the arrow.
     /// Place and size are part of Settings → Control layout (<see cref="TouchLayoutEditor"/>), saved on the device
-    /// (<see cref="MapSettings.SavePlacement"/>) and never moved by the game once saved (only kept inside the Safe
-    /// Area). Until the player places it, it goes once to the top-left corner, or along the top edge to the first place
-    /// clear of the controls (<see cref="ChoosePosition"/>).
+    /// (<see cref="MapSettings.SavePlacement"/>) only when the player applies them. Until the player places it, it goes
+    /// once to the top-left corner, or along the top edge to the first place clear of the controls
+    /// (<see cref="ChoosePosition"/>). Where it is shown is worked out from that place each time the screen size or the
+    /// touch layout changes (never every frame): kept inside the Safe Area, and moved the shortest way off the HUD text
+    /// (ammo / melee name, posture line, status line, dev frame-time line, HP bar), the menu button and the touch
+    /// controls (<see cref="AvoidCentre"/>). The saved place is never rewritten by this, so going back to a screen where
+    /// it fits shows it at the saved place again. Its size is never reduced and no HUD is hidden: if no clear place
+    /// exists, it stays at the saved place and <see cref="AvoidanceFailed"/> says so.
     /// The map image comes from the baked <see cref="FloorMapData"/> (no extra camera). "Show minimap" off
     /// (<see cref="MapSettings"/>) hides this display only. Display only: never changes the game.
     /// </summary>
@@ -83,7 +88,13 @@ namespace Deadlock.UI
         MiniMapPlacement placement;
         bool placed;
         Vector2 placedFor;
+        int placedForLayout = -1;
         bool editing;
+        Vector2 shownCentre;
+        readonly List<Rect> avoidBoxes = new List<Rect>();
+        readonly List<Vector3> avoidCircles = new List<Vector3>();
+        /// <summary>Space kept between the map and the HUD / controls (canvas units).</summary>
+        public const float AvoidGap = 8f;
 
         public int DisplayedFloor { get; private set; } = -1;
         public bool IsShown => frame != null && frame.gameObject.activeSelf;
@@ -92,8 +103,15 @@ namespace Deadlock.UI
         /// <summary>Rotation of the map (degrees, counter-clockwise on screen) = the player's heading.</summary>
         public float MapRotation => yaw;
         public int ShownMarkers => shownMarkers;
-        /// <summary>Place and size on screen now.</summary>
+        /// <summary>The place / size asked for (saved, or being edited), kept inside the Safe Area.</summary>
         public MiniMapPlacement Placement => placement;
+        /// <summary>Where the map is actually shown (Safe Area canvas units, origin bottom-left), after keeping clear of the HUD.</summary>
+        public Rect ShownRect => new Rect(shownCentre - BaseSize * placement.scale * 0.5f, BaseSize * placement.scale);
+        /// <summary>No clear place was found: shown at the asked place, over some HUD or control.</summary>
+        public bool AvoidanceFailed { get; private set; }
+        /// <summary>The areas kept clear of in the last placement (Safe Area canvas units): boxes, and circles (x, y, radius).</summary>
+        public IReadOnlyList<Rect> AvoidedBoxes => avoidBoxes;
+        public IReadOnlyList<Vector3> AvoidedCircles => avoidCircles;
         /// <summary>The player placed the map (saved): the game does not move it.</summary>
         public bool PlacementSaved { get; private set; }
         public Vector2 SafeSize => safeRect.rect.size;
@@ -255,7 +273,7 @@ namespace Deadlock.UI
         {
             if (hud == null || !placed)
                 return;
-            Rect r = PlacementRect(placement, SafeSize);
+            Rect r = ShownRect;
             bool topLeft = IsShown && r.yMax > SafeSize.y - 140f && r.xMin < SafeSize.x * 0.25f;
             hud.ReserveTopLeft(topLeft ? r.xMax + 16f : 0f);
         }
@@ -297,13 +315,20 @@ namespace Deadlock.UI
             ApplySetting();
         }
 
+        int LayoutVersion => touchLayout != null ? touchLayout.Version : 0;
+
         void Place()
         {
             Vector2 safe = SafeSize;
             if (safe.x <= 1f || safe.y <= 1f)
                 return;
             if (placed && safe == placedFor)
+            {
+                // The controls moved (layout applied / edited): only the avoidance is worked out again.
+                if (LayoutVersion != placedForLayout)
+                    ApplyPlacement();
                 return;
+            }
             if (MapSettings.TryLoadPlacement(out var saved))
             {
                 PlacementSaved = true;
@@ -321,15 +346,146 @@ namespace Deadlock.UI
 
         void ApplyPlacement()
         {
-            frame.anchoredPosition = placement.center * SafeSize;
+            Vector2 safe = SafeSize;
+            Vector2 size = BaseSize * placement.scale;
+            CollectAvoidAreas();
+            shownCentre = AvoidCentre(safe, size, placement.center * safe, avoidBoxes, avoidCircles, AvoidGap, out bool found);
+            if (!found && !AvoidanceFailed)
+                Debug.LogWarning($"[DEADLOCK][minimap] no clear place for the map ({size.x:0}x{size.y:0} in a {safe.x:0}x{safe.y:0} Safe Area): shown at the asked place");
+            AvoidanceFailed = !found;
+            placedForLayout = LayoutVersion;
+            frame.anchoredPosition = shownCentre;
             frame.localScale = Vector3.one * placement.scale;
             ReserveHelp();
+        }
+
+        /// <summary>
+        /// Centre to show the map at (Safe Area units, origin bottom-left): the asked centre if the map there is clear
+        /// of every box and circle (with the gap), otherwise the nearest clear centre (4-unit grid) with the whole map
+        /// inside the Safe Area. found = false: none clear, the asked centre is returned unchanged (size is never reduced).
+        /// </summary>
+        public static Vector2 AvoidCentre(Vector2 safe, Vector2 size, Vector2 wanted, IList<Rect> boxes, IList<Vector3> circles, float gap, out bool found)
+        {
+            Vector2 half = size * 0.5f;
+            bool Clear(Vector2 c)
+            {
+                var r = new Rect(c - half - Vector2.one * gap, size + Vector2.one * (2f * gap));
+                for (int i = 0; i < boxes.Count; i++)
+                    if (r.Overlaps(boxes[i]))
+                        return false;
+                for (int i = 0; i < circles.Count; i++)
+                {
+                    var k = circles[i];
+                    float nx = Mathf.Clamp(k.x, r.xMin, r.xMax), ny = Mathf.Clamp(k.y, r.yMin, r.yMax);
+                    if ((nx - k.x) * (nx - k.x) + (ny - k.y) * (ny - k.y) < k.z * k.z)
+                        return false;
+                }
+                return true;
+            }
+            found = true;
+            if (Clear(wanted))
+                return wanted;
+            const float step = 4f;
+            float bestD = float.MaxValue;
+            Vector2 best = wanted;
+            for (float x = half.x; x <= safe.x - half.x + 0.01f; x += step)
+                for (float y = half.y; y <= safe.y - half.y + 0.01f; y += step)
+                {
+                    float d = (x - wanted.x) * (x - wanted.x) + (y - wanted.y) * (y - wanted.y);
+                    if (d < bestD && Clear(new Vector2(x, y)))
+                    {
+                        bestD = d;
+                        best = new Vector2(x, y);
+                    }
+                }
+            found = bestD < float.MaxValue;
+            return best;
+        }
+
+        /// <summary>HUD text (sized for its widest content), the HP bar, the menu button and the touch controls, in Safe Area units.</summary>
+        void CollectAvoidAreas()
+        {
+            avoidBoxes.Clear();
+            avoidCircles.Clear();
+            if (hud != null)
+            {
+                AddText(hud.AmmoText, "888 / 888", hud.MeleeName);
+                AddText(hud.StanceText, "スライディング　ダッシュ\n頭上が塞がっています");
+                if (hud.HealthArea != null)
+                {
+                    var bar = WorldRect(hud.HealthArea);
+                    avoidBoxes.Add(new Rect(bar.x, bar.y, bar.width, bar.height + 34f)); // the HP number above it
+                }
+            }
+            var training = FindAnyObjectByType<TrainingHud>();
+            if (training != null)
+                AddText(training.StatusText, training.WidestStatus);
+            var monitor = FrameRateMonitor.Instance;
+            if (monitor != null && monitor.Label != null)
+                AddText(monitor.Label, FrameRateMonitor.LabelTemplate);
+            var menu = FindAnyObjectByType<GameMenu>();
+            if (menu != null && menu.MenuButton != null)
+            {
+                var b = WorldRect((RectTransform)menu.MenuButton.transform);
+                avoidBoxes.Add(new Rect(b.x - TouchLayout.MenuGuardMargin, b.y - TouchLayout.MenuGuardMargin,
+                    b.width + 2f * TouchLayout.MenuGuardMargin, b.height + 2f * TouchLayout.MenuGuardMargin));
+            }
+            if (touchLayout != null)
+                foreach (string id in TouchLayout.Circles)
+                {
+                    var w = WorldRect(touchLayout.Widget(id));
+                    avoidCircles.Add(new Vector3(w.center.x, w.center.y, Mathf.Max(w.width, w.height) * 0.5f));
+                }
+        }
+
+        /// <summary>A RectTransform's screen rectangle in this map's Safe Area units (origin bottom-left).</summary>
+        Rect WorldRect(RectTransform rt)
+        {
+            var corners = new Vector3[4];
+            rt.GetWorldCorners(corners);
+            Vector2 a = safeRect.InverseTransformPoint(corners[0]), b = safeRect.InverseTransformPoint(corners[2]);
+            Vector2 offset = safeRect.rect.size * safeRect.pivot;
+            return Rect.MinMaxRect(a.x + offset.x, a.y + offset.y, b.x + offset.x, b.y + offset.y);
+        }
+
+        /// <summary>The area a text takes with its widest content (lines split by '\n'), placed by its alignment in its rect.</summary>
+        void AddText(Text text, params string[] widest)
+        {
+            if (text == null || !text.isActiveAndEnabled)
+                return;
+            var settings = text.GetGenerationSettings(Vector2.zero);
+            var generator = text.cachedTextGeneratorForLayout;
+            float w = 0f, h = 0f;
+            foreach (string s in widest)
+            {
+                if (string.IsNullOrEmpty(s))
+                    continue;
+                w = Mathf.Max(w, generator.GetPreferredWidth(s, settings) / text.pixelsPerUnit);
+                h = Mathf.Max(h, generator.GetPreferredHeight(s, settings) / text.pixelsPerUnit);
+            }
+            w = Mathf.Max(w, generator.GetPreferredWidth(text.text ?? "", settings) / text.pixelsPerUnit);
+            h = Mathf.Max(h, generator.GetPreferredHeight(text.text ?? "", settings) / text.pixelsPerUnit);
+            var box = WorldRect(text.rectTransform);
+            // Screen units → Safe Area units (the canvases share one scale; the box is already in Safe Area units).
+            float scale = box.width / Mathf.Max(1f, text.rectTransform.rect.width);
+            w *= scale;
+            h *= scale;
+            var anchor = text.alignment;
+            float x = anchor == TextAnchor.UpperLeft || anchor == TextAnchor.MiddleLeft || anchor == TextAnchor.LowerLeft ? box.xMin
+                : anchor == TextAnchor.UpperRight || anchor == TextAnchor.MiddleRight || anchor == TextAnchor.LowerRight ? box.xMax - w
+                : box.center.x - w * 0.5f;
+            float y = anchor == TextAnchor.UpperLeft || anchor == TextAnchor.UpperCenter || anchor == TextAnchor.UpperRight ? box.yMax - h
+                : anchor == TextAnchor.LowerLeft || anchor == TextAnchor.LowerCenter || anchor == TextAnchor.LowerRight ? box.yMin
+                : box.center.y - h * 0.5f;
+            avoidBoxes.Add(new Rect(x, y, w, h));
         }
 
         void LateUpdate()
         {
             if (!editing)
                 Place();
+            else if (placed && LayoutVersion != placedForLayout)
+                ApplyPlacement(); // buttons moved while editing: the preview keeps clear of them as the game will
             if (!IsShown || map == null || player == null)
                 return;
             Vector3 p = player.position;

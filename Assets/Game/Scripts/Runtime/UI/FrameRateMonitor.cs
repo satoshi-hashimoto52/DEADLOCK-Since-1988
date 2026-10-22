@@ -25,6 +25,11 @@ namespace Deadlock.UI
     {
         /// <summary>Seconds per console line (shorter in tests).</summary>
         public float LogInterval { get; set; } = 10f;
+        /// <summary>The development frame-time readout (top centre); the floor map keeps clear of it.</summary>
+        public Text Label => label;
+        public const string LabelTemplate = "DEV  60.0 fps  worst 999.9 ms  target 60";
+        public static FrameRateMonitor Instance { get; private set; }
+
         /// <summary>The player whose place and movement are logged (the scene's player rig).</summary>
         public Transform TrackedPlayer => player;
         /// <summary>Every line written (tests).</summary>
@@ -83,6 +88,7 @@ namespace Deadlock.UI
 
         void Awake()
         {
+            Instance = this;
             var canvas = gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 1000;
@@ -113,6 +119,8 @@ namespace Deadlock.UI
 
         void OnDestroy()
         {
+            if (Instance == this)
+                Instance = null;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             Track(null);
         }
