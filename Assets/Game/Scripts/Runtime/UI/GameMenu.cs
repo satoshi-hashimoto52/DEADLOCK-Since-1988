@@ -1,6 +1,7 @@
 using System;
 using Deadlock.Game;
 using Deadlock.Input;
+using Deadlock.Map;
 using Deadlock.View;
 using UnityEngine;
 using UnityEngine.UI;
@@ -41,6 +42,7 @@ namespace Deadlock.UI
         Text fireModeText;
         Text transparencyText;
         Slider transparencySlider;
+        Text minimapText;
         TouchLayoutEditor layoutEditor;
 
         public bool IsOpen { get; private set; }
@@ -274,6 +276,7 @@ namespace Deadlock.UI
             int transparency = ControlSettings.TouchControlTransparency;
             transparencyText.text = $"操作ボタンの透過率：{transparency}%　（100%でも操作は有効）";
             transparencySlider.SetValueWithoutNotify(transparency);
+            minimapText.text = $"ミニマップを表示（遺跡）　現在：{(MapSettings.MinimapVisible ? "ON" : "OFF")}";
         }
 
         void BuildControlSettings()
@@ -296,7 +299,7 @@ namespace Deadlock.UI
                     () => { onLeft(); RefreshControlSettings(); }, 26);
                 UiBuild.Button(window, prefix + "Right", right, new Vector2(0.5f, 1f), new Vector2(150f, y - 50f), new Vector2(280f, 70f),
                     () => { onRight(); RefreshControlSettings(); }, 26);
-                y -= 150f;
+                y -= 130f;
                 return label;
             }
             touchAdsText = Row("TouchAds", "長押し", () => SetAdsMode(InputMode.Touch, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Touch, AdsMode.Toggle));
@@ -308,7 +311,15 @@ namespace Deadlock.UI
                 "", 26, TextAnchor.MiddleCenter);
             transparencySlider = UiBuild.Slider(window, "TransparencySlider", new Vector2(0.5f, 1f), new Vector2(0f, y - 54f), new Vector2(640f, 56f), 0f, 100f,
                 v => { ControlSettings.TouchControlTransparency = Mathf.RoundToInt(v); RefreshControlSettings(); });
-            y -= 150f;
+            y -= 126f;
+            // Floor map on / off (display only), on one line: saved separately from the control settings.
+            minimapText = UiBuild.Text(UiBuild.Place(UiBuild.Rect("MinimapLabel", window), new Vector2(0.5f, 1f), new Vector2(-190f, y - 15f), new Vector2(520f, 40f)),
+                "", 26, TextAnchor.MiddleLeft);
+            UiBuild.Button(window, "MinimapOn", "ON", new Vector2(0.5f, 1f), new Vector2(170f, y), new Vector2(180f, 70f),
+                () => { MapSettings.MinimapVisible = true; RefreshControlSettings(); }, 26);
+            UiBuild.Button(window, "MinimapOff", "OFF", new Vector2(0.5f, 1f), new Vector2(370f, y), new Vector2(180f, 70f),
+                () => { MapSettings.MinimapVisible = false; RefreshControlSettings(); }, 26);
+            y -= 84f;
             // The PC setting is only meaningful where a mouse can be used (Editor / desktop).
             desktopAdsText = Row("DesktopAds", "長押し", () => SetAdsMode(InputMode.Desktop, AdsMode.Hold), "切り替え", () => SetAdsMode(InputMode.Desktop, AdsMode.Toggle));
             if (Application.isMobilePlatform)

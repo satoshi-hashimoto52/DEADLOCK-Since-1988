@@ -139,6 +139,19 @@ namespace Deadlock.UI
         bool helpVisible;
         int helpState = -1;
         float helpLayoutWidth = -1f;
+        float helpLeft = float.NaN;
+
+        /// <summary>Keeps this much width free at the top-left (e.g. the floor map): the help text starts right of it.</summary>
+        public void ReserveTopLeft(float width)
+        {
+            if (helpText == null)
+                return;
+            var rect = helpText.rectTransform;
+            if (float.IsNaN(helpLeft))
+                helpLeft = rect.anchoredPosition.x;
+            rect.anchoredPosition = new Vector2(Mathf.Max(helpLeft, width), rect.anchoredPosition.y);
+            helpLayoutWidth = -1f;
+        }
 
         void OnModeChanged(InputMode mode)
         {

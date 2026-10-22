@@ -3,7 +3,9 @@ using System.IO;
 using System.Linq;
 using Deadlock.Combat;
 using Deadlock.Game;
+using Deadlock.Map;
 using Deadlock.UI;
+using Deadlock.View;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -32,6 +34,7 @@ namespace Deadlock.Editor
     {
         public const string RuinsScenePath = "Assets/Game/Scenes/Proto_Ruins.unity";
         const string RuinsNavMeshPath = "Assets/Game/Generated/NavMesh_Ruins.asset";
+        const string RuinsFloorMapPath = "Assets/Game/Generated/RuinsFloorMap.asset";
 
         const float UpperY = 5f;          // upper floor walking surface
         const float SlabBottom = 4.6f;    // underside of the upper floor slab = ground floor ceiling
@@ -116,6 +119,9 @@ namespace Deadlock.Editor
 
             SetupRuinsLighting();
             BuildRuins(rm);
+            // Floor map from the geometry just built (no hand-drawn image: changing a corridor re-bakes it).
+            var floorMap = FloorMapBaker.Bake(RuinsFloorMapPath, new Rect(-HalfX - 0.5f, -HalfZ - 0.5f, 2f * HalfX + 1f, 2f * HalfZ + 1f), 0.25f,
+                new[] { 0f, UpperY }, new[] { "1F", "2F" }, RoofY - 0.05f, 1 << LayerMask.NameToLayer("Default"));
             var projectiles = BuildProjectiles(mats, playerLayer, viewModelLayer);
             var player = BuildPlayer(weapon, melee, projectiles, playerLayer, viewModelLayer, RuinsSpawn);
             player.Root.transform.rotation = Quaternion.Euler(0f, RuinsSpawnYaw, 0f);
@@ -135,6 +141,19 @@ namespace Deadlock.Editor
             Set(menu, "session", session);
             var hud = canvas.AddComponent<TrainingHud>();
             Set(hud, "session", session);
+
+            // Floor map (development prototype): detection on its own object, the display in the HUD canvas.
+            var detector = new GameObject("MapDetection").AddComponent<EnemyDetector>();
+            Set(detector, "eye", player.WorldCamera);
+            Set(detector, "map", floorMap);
+            SetMask(detector, "occluders", 1 << LayerMask.NameToLayer("Default"));
+            var mapRect = Rect("MiniMap", canvas.transform);
+            Stretch(mapRect);
+            var miniMap = mapRect.gameObject.AddComponent<MiniMapView>();
+            Set(miniMap, "map", floorMap);
+            Set(miniMap, "detector", detector);
+            Set(miniMap, "player", player.Root.transform);
+            Set(miniMap, "hud", canvas.GetComponentInChildren<HudController>());
             var pause = new GameObject("OfflineSessionPause").AddComponent<OfflineSessionPause>();
             Set(pause, "menu", menu);
 
@@ -511,10 +530,13 @@ namespace Deadlock.Editor
             var zombies = new Zombie[spawns.Length];
             for (int i = 0; i < spawns.Length; i++)
             {
-                var (go, zombie, _) = CreateZombieObject($"Zombie_{i + 1}", enemyLayer, sight);
+                var (go, zombie, view) = CreateZombieObject($"Zombie_{i + 1}", enemyLayer, sight);
                 go.transform.SetParent(root, false);
                 go.transform.SetPositionAndRotation(spawns[i], Quaternion.Euler(0f, 180f, 0f));
                 Set(zombie, "target", player.Health);
+                var mapEnemy = go.AddComponent<MapEnemy>(); // seen / heard on the floor map
+                Set(mapEnemy, "zombie", zombie);
+                Set(mapEnemy, "view", view);
                 zombies[i] = zombie;
             }
             return zombies;
