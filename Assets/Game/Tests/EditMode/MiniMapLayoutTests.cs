@@ -57,7 +57,7 @@ namespace Deadlock.Tests
                     Assert.Greater(Vector2.Distance(nearest, c), r, $"{name}: map over {item.id}");
                 }
                 Assert.AreEqual(MiniMapView.Margin.x, MiniMapView.ChoosePosition(safe, layout), $"{name}: default layout keeps the corner");
-                Assert.AreEqual(4f / 3f, map.width / map.height, 0.001f, $"{name}: 4:3, a little wider than tall");
+                Assert.AreEqual(1.5f, map.width / map.height, 0.001f, $"{name}: 3:2, wider than tall");
             }
         }
 
@@ -85,7 +85,7 @@ namespace Deadlock.Tests
                     Assert.GreaterOrEqual(r.yMin, -0.01f, name);
                     Assert.LessOrEqual(r.xMax, safe.x + 0.01f, name);
                     Assert.LessOrEqual(r.yMax, safe.y + 0.01f, name);
-                    Assert.AreEqual(4f / 3f, r.width / r.height, 0.001f, name);
+                    Assert.AreEqual(1.5f, r.width / r.height, 0.001f, name);
                 }
             }
         }

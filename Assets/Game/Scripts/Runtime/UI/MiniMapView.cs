@@ -7,7 +7,8 @@ using UnityEngine.UI;
 namespace Deadlock.UI
 {
     /// <summary>
-    /// Small floor map on the HUD, a 4:3 rectangle (wider than tall, like the screen). Heading-up: the map turns around
+    /// Small floor map on the HUD, a 3:2 rectangle (wider than tall, like the screen; was 4:3, widened at the same height
+    /// and scale so more is seen to the sides). Heading-up: the map turns around
     /// the player's arrow in the middle, at the same scale across and down (the ground is never stretched).
     /// Shows the floor the player is on (switched with hysteresis on the stairs, <see cref="FloorMapData.FloorFor"/>):
     /// walkable floor, walls, stairs (step lines, and a boundary line at the end that leads to the other floor),
@@ -44,8 +45,8 @@ namespace Deadlock.UI
         /// <summary>Id of the map in the control layout editor.</summary>
         public const string LayoutId = "minimap";
         public const string DisplayName = "ミニマップ";
-        /// <summary>Map size at scale 1 (canvas units, reference height 1080): 4:3.</summary>
-        public static readonly Vector2 BaseSize = new Vector2(224f, 168f);
+        /// <summary>Map size at scale 1 (canvas units, reference height 1080): 3:2 (was 224 x 168, 4:3; same height).</summary>
+        public static readonly Vector2 BaseSize = new Vector2(252f, 168f);
         /// <summary>Distance of the automatic placement from the Safe Area's top-left corner.</summary>
         public static readonly Vector2 Margin = new Vector2(14f, 14f);
         public const float MinScale = 0.7f;

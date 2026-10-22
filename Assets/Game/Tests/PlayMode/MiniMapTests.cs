@@ -38,6 +38,7 @@ namespace Deadlock.Tests
             base.Setup();
             hadMinimapKey = PlayerPrefs.HasKey(MapSettings.MinimapVisibleKey);
             savedMinimap = PlayerPrefs.GetInt(MapSettings.MinimapVisibleKey, 1);
+            savedMapLayout = PlayerPrefs.GetString(MapSettings.MinimapLayoutKey, null);
             MapSettings.ClearSaved();
         }
 
@@ -46,8 +47,12 @@ namespace Deadlock.Tests
             MapSettings.ClearSaved();
             if (hadMinimapKey)
                 PlayerPrefs.SetInt(MapSettings.MinimapVisibleKey, savedMinimap);
+            if (!string.IsNullOrEmpty(savedMapLayout))
+                PlayerPrefs.SetString(MapSettings.MinimapLayoutKey, savedMapLayout);
             base.TearDown();
         }
+
+        string savedMapLayout;
 
         IEnumerator LoadRuins()
         {
@@ -623,6 +628,27 @@ namespace Deadlock.Tests
             {
                 Object.Destroy(monitor.gameObject);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator SavedPlace_FromTheNarrowerMap_ShownInsideTheSafeArea_SavedValueNotRewritten()
+        {
+            // A place saved with the earlier 4:3 map right at the edge: the wider map is moved in only as far as needed,
+            // for display; the saved value stays as the player left it.
+            var saved = new MiniMapPlacement { center = new Vector2(0.95f, 0.9f), scale = 1.3f };
+            MapSettings.SavePlacement(saved);
+            yield return LoadRuins();
+            yield return null;
+            Rect r = MiniMapView.PlacementRect(view.Placement, view.SafeSize);
+            Assert.LessOrEqual(r.xMax, view.SafeSize.x + 0.01f, "inside on the right");
+            Assert.AreEqual(view.SafeSize.x, r.xMax, 0.01f, "moved in just to the edge, no further");
+            Assert.LessOrEqual(r.yMax, view.SafeSize.y + 0.01f);
+            Assert.AreEqual(1.3f, view.Placement.scale, 1e-4f, "size kept");
+            Assert.AreEqual(MiniMapView.BaseSize * 1.3f, r.size, "3:2 at the saved size");
+            Assert.IsTrue(MapSettings.TryLoadPlacement(out var still));
+            Assert.AreEqual(saved.center.x, still.center.x, 1e-6f, "the saved value is not rewritten");
+            Assert.AreEqual(saved.center.y, still.center.y, 1e-6f);
+            Assert.AreEqual(saved.scale, still.scale, 1e-6f);
         }
 
         [UnityTest]
