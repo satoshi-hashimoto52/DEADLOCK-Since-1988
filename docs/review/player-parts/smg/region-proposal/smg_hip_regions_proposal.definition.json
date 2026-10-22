@@ -1,0 +1,200 @@
+{
+  "note": "PROPOSAL ONLY (not adopted, not in Assets): skin region proposal for the SMG hip candidate v2, read by Tools/pixelart/make_image_regions.py. Base = the alpha-binarised copy of the candidate made in this folder with make_opaque.py (threshold 128); the candidate itself is only read. weapon_body = the grey steel cells of the housing (front block under the front sight, receiver with its side slots, rear end block); fixed colour = muzzle / barrel nut, front and rear sights, magazine, pistol grip and trigger, wire stock, the tan slot frame, line black. Hands = glove, wrist band, sleeve (base / camo), as the player hand / arm skin. Areas read from the image (gridded crops). See ../README_design_review.md.",
+  "base": "docs/review/player-parts/smg/region-proposal/smg_hip_candidate_v2_opaque.png",
+  "outDir": "docs/review/player-parts/smg/region-proposal",
+  "maskDir": "masks",
+  "maskFile": "smg_hip_proposal_{mask}.png",
+  "skinRegionsFile": "smg_hip_proposal_skin_regions.png",
+  "darkMax": 45,
+  "maskLineMax": 18,
+  "colours": {
+    "steel": {
+      "satMax": 0.16,
+      "why": "dark grey steel housing (lightness median 0.24); the tan slot frame and the gloves are more saturated"
+    },
+    "glove": {
+      "hue": [
+        12,
+        35
+      ],
+      "satMin": 0.35,
+      "why": "brown leather glove"
+    },
+    "band": {
+      "satMax": 0.16,
+      "lightMax": 0.5,
+      "why": "dark grey wrist band"
+    },
+    "olive": {
+      "hue": [
+        30,
+        60
+      ],
+      "satMin": 0.12,
+      "why": "olive camo sleeve"
+    }
+  },
+  "areas": {
+    "front_block": {
+      "rect": [
+        1028,
+        446,
+        1108,
+        650
+      ],
+      "why": "front block of the housing under the front sight (the sight posts and their base above y 446 stay fixed)"
+    },
+    "receiver": {
+      "polygon": [
+        [
+          1095,
+          440
+        ],
+        [
+          1240,
+          492
+        ],
+        [
+          1250,
+          548
+        ],
+        [
+          1300,
+          548
+        ],
+        [
+          1300,
+          700
+        ],
+        [
+          1095,
+          700
+        ]
+      ],
+      "why": "receiver with the side slots; the rear sight above (1250-1330, 465-545) stays fixed; the magazine below y 700 stays fixed"
+    },
+    "rear_block": {
+      "polygon": [
+        [
+          1300,
+          548
+        ],
+        [
+          1345,
+          548
+        ],
+        [
+          1455,
+          612
+        ],
+        [
+          1455,
+          690
+        ],
+        [
+          1420,
+          722
+        ],
+        [
+          1300,
+          722
+        ]
+      ],
+      "why": "rear end block / stock hinge; the wire stock bars right of it stay fixed"
+    },
+    "arms": {
+      "rect": [
+        560,
+        480,
+        1672,
+        941
+      ],
+      "why": "both hands and sleeves (glove / sleeve colours do not occur on the gun)"
+    },
+    "left_wrist": {
+      "rect": [
+        900,
+        630,
+        1075,
+        775
+      ],
+      "why": "left wrist band only"
+    },
+    "right_wrist": {
+      "rect": [
+        1335,
+        825,
+        1480,
+        941
+      ],
+      "why": "right wrist band only"
+    }
+  },
+  "regions": {
+    "weapon_body": {
+      "areas": [
+        "front_block",
+        "receiver",
+        "rear_block"
+      ],
+      "colours": [
+        "steel"
+      ],
+      "minShare": 0.5,
+      "insideShare": 0.9,
+      "pixelSeeds": [
+        {
+          "seed": [
+            1056,
+            500
+          ],
+          "why": "front block side face: the cell runs into the barrel nut / sight base, so only its pixels inside the area are taken"
+        },
+        {
+          "seed": [
+            1092,
+            520
+          ],
+          "why": "front block edge strip (same reason)"
+        }
+      ]
+    },
+    "glove_body": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "glove"
+      ],
+      "minShare": 0.5
+    },
+    "wrist_band": {
+      "areas": [
+        "left_wrist",
+        "right_wrist"
+      ],
+      "colours": [
+        "band"
+      ],
+      "minShare": 0.5
+    },
+    "sleeve": {
+      "areas": [
+        "arms"
+      ],
+      "colours": [
+        "olive"
+      ],
+      "minShare": 0.5,
+      "split": {
+        "base": "sleeve_base",
+        "camo": "sleeve_camo",
+        "window": 30,
+        "sampleStep": 8,
+        "lightPercentile": 0.85,
+        "darkerBy": 0.05,
+        "speckleMaxPixels": 25
+      }
+    }
+  }
+}

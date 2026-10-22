@@ -1,0 +1,17 @@
+{
+ "smg_weapon_body_test_green": {
+  "pixels": 43519,
+  "deltaE76_p10": 9.6,
+  "deltaE76_median": 20.3,
+  "deltaE76_p90": 29.7,
+  "L*_median": 25.0
+ },
+ "rifle_weapon_body_test_green": {
+  "pixels": 68947,
+  "deltaE76_p10": 22.0,
+  "deltaE76_median": 26.9,
+  "deltaE76_p90": 28.3,
+  "L*_median": 66.3
+ },
+ "note": "CIE76 colour difference between the standard and the test_green preview, over the weapon_body pixels. Reference: about 2-3 = just noticeable side by side; 10+ = clearly different. SMG map = this proposal; rifle map = the adopted hip map."
+}
