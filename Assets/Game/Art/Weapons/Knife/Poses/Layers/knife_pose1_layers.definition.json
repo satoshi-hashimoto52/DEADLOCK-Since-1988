@@ -1,0 +1,97 @@
+{
+  "note": "Hand-written split definition for the knife attack pose1 image (read by Tools/pixelart/split_layers.py and make_skin_regions.py). Same rules and thresholds as the idle knife (Assets/Game/Art/Weapons/Knife/Layers/knife_layers.definition.json); only the hand area and the wrist-band seed are read from this image. The base is the displayed derivative; it is only read. Hand / arm skin only (the knife has no weapon skin). See docs/review/player-parts/knife/slash/integration/README.md.",
+  "base": "Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup_v3_gloves_opaque.png",
+  "outDir": "Assets/Game/Art/Weapons/Knife/Poses/Layers",
+  "layerFiles": {
+    "weapon": "knife_pose1_weapon.png",
+    "right": "knife_pose1_right_hand_arm.png"
+  },
+  "compositeOrder": [
+    "weapon",
+    "right"
+  ],
+  "maskDir": "Masks",
+  "maskFile": "knife_pose1_{hand}_{mask}.png",
+  "maskNames": [
+    "glove_body",
+    "glove_reinforcement",
+    "wrist_band",
+    "sleeve_base",
+    "sleeve_camo"
+  ],
+  "darkMax": 45,
+  "maskLineMax": 20,
+  "outlineWidth": 10,
+  "orphanMaxPixels": 60,
+  "colours": {
+    "gray": {
+      "satMax": 0.12
+    },
+    "sleeve": {
+      "hue": [
+        36,
+        54
+      ],
+      "satMin": 0.15,
+      "satMax": 0.34,
+      "lightMax": 0.46
+    },
+    "glove": {
+      "hue": [
+        16,
+        28
+      ],
+      "satMin": 0.4,
+      "lightMax": 0.46
+    }
+  },
+  "handColours": {
+    "glove": [
+      "glove"
+    ],
+    "sleeve": [
+      "sleeve"
+    ]
+  },
+  "hands": {
+    "right": {
+      "region": {
+        "rect": [
+          150,
+          590,
+          1003,
+          1568
+        ]
+      },
+      "why": "fist on the handle, wrist band and sleeve to the bottom edge; the blade, guard and the handle / pommel seen between the fingers are grey and stay with the knife"
+    }
+  },
+  "cellOverrides": [
+    {
+      "seed": [
+        417,
+        897
+      ],
+      "part": "right",
+      "tags": [
+        "wrist_band"
+      ],
+      "why": "grey wrist band between the glove cuff and the sleeve"
+    }
+  ],
+  "pixelOverrides": [],
+  "skinRegionsFile": "knife_pose1_skin_regions.png",
+  "sleeveCamo": {
+    "window": 30,
+    "sampleStep": 8,
+    "lightPercentile": 0.85,
+    "darkerBy": 0.05,
+    "speckleMaxPixels": 25,
+    "enclosedBaseMaxPixels": 2500
+  },
+  "wristBandGrow": {
+    "maxChannel": 90,
+    "satMax": 0.2,
+    "why": "the shadowed lower side of the band is painted as dark grey pieces that the cell rules give to the knife; they join the band (line black stops the growth)"
+  }
+}

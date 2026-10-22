@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Deadlock.Combat;
 using Deadlock.View;
 using UnityEditor;
 using UnityEngine;
@@ -174,6 +175,8 @@ namespace Deadlock.Editor
                 }
             }
             var meleePlaces = new Dictionary<MeleeArtDefinition, MeleePlacement>();
+            var posePlacements = new Dictionary<MeleeArtDefinition, List<MeleePlacement>>();
+            var poseTimelines = new Dictionary<MeleeArtDefinition, PoseTimeline>();
             for (int i = 0; i < meleeDefinitions.Count; i++)
             {
                 var d = meleeDefinitions[i];
@@ -212,6 +215,30 @@ namespace Deadlock.Editor
                         meleePlaces[d] = place;
                     }
                 }
+                var posePlaces = new List<MeleePlacement>();
+                var poses = d.poses ?? Array.Empty<WeaponArtDefinition.ViewArt>();
+                for (int p = 0; p < poses.Length; p++)
+                {
+                    if (CheckView(poses[p], $"poses[{p}]", label, problems) == null)
+                        continue;
+                    var place = Parse<MeleePlacement>(poses[p].placement, $"poses[{p}]", label, problems);
+                    if (place == null)
+                        continue;
+                    Require(place.grip, 2, $"poses[{p}].placement", "grip", label, problems);
+                    if (place.screenHeightPixels <= 0f)
+                        problems.Add($"{label}: poses[{p}].placement ({AssetDatabase.GetAssetPath(poses[p].placement)}) needs 'screenHeightPixels' > 0");
+                    posePlaces.Add(place);
+                }
+                if (poses.Length > 0)
+                {
+                    if (d.poseTimeline == null)
+                        problems.Add($"{label}: 'poseTimeline' is not set (needed with poses)");
+                    else
+                        poseTimelines[d] = ParseTimeline(d.poseTimeline, poses.Length, label, problems);
+                }
+                else if (d.poseTimeline != null)
+                    problems.Add($"{label}: 'poseTimeline' is set but there are no poses");
+                posePlacements[d] = posePlaces;
             }
             if (problems.Count > 0)
                 throw new WeaponArtException(problems);
@@ -258,6 +285,7 @@ namespace Deadlock.Editor
                 }
                 ApplyMelee(view, d.art.image, meleePlaces[d]);
                 view.skinRegions = ConfigureSkinRegions(d.art.skinRegions);
+                ApplyPoses(view, d, posePlacements[d], poseTimelines.TryGetValue(d, out var timeline) ? timeline : null);
                 EditorUtility.SetDirty(view);
                 d.melee.viewProfile = view;
                 EditorUtility.SetDirty(d.melee);
@@ -278,6 +306,114 @@ namespace Deadlock.Editor
             public float[] grip;                    // grip centre = pivot, pixels from the top-left
             public float screenHeightPixels;        // image pixels per full screen height (sets the size)
             public MotionOverride[] motionOverrides; // optional: presentation values tuned for this art
+        }
+
+        [Serializable]
+        class PoseKey
+        {
+            public string phase;        // Windup / Active / Recovery
+            public float from, to;      // phase progress
+            public int pose;            // index into the definition's poses; -1 = the rest image
+            public bool relativeToRest; // offsets added to the rest grip instead of 'grip'
+            public float[] grip;        // reference-aspect grip (units), when not relative to rest
+            public float[] offsetFrom, offsetTo;
+            public float rollFrom, rollTo;
+            public bool easeOut;
+        }
+
+        [Serializable]
+        class NarrowLayout
+        {
+            public float centreX;
+            public float scaleAt4x3 = 1f;
+        }
+
+        [Serializable]
+        class PoseTimeline
+        {
+            public PoseKey[] keys;
+            public NarrowLayout narrowLayout;
+        }
+
+        static PoseTimeline ParseTimeline(TextAsset file, int poseCount, string label, List<string> problems)
+        {
+            string where = $"{label}: poseTimeline ({AssetDatabase.GetAssetPath(file)})";
+            PoseTimeline t;
+            try
+            {
+                t = JsonUtility.FromJson<PoseTimeline>(file.text);
+            }
+            catch (Exception e)
+            {
+                problems.Add($"{where} is not valid JSON: {e.Message}");
+                return null;
+            }
+            if (t?.keys == null || t.keys.Length == 0)
+            {
+                problems.Add($"{where} has no keys");
+                return null;
+            }
+            for (int i = 0; i < t.keys.Length; i++)
+            {
+                PoseKey k = t.keys[i];
+                if (!Enum.TryParse(k.phase, out MeleePhase phase) || phase == MeleePhase.Idle)
+                    problems.Add($"{where}: keys[{i}].phase '{k.phase}' is not Windup / Active / Recovery");
+                if (k.pose < -1 || k.pose >= poseCount)
+                    problems.Add($"{where}: keys[{i}].pose {k.pose} is not -1 (rest) or a pose index below {poseCount}");
+                if (!(0f <= k.from && k.from <= k.to && k.to <= 1f))
+                    problems.Add($"{where}: keys[{i}] needs 0 <= from <= to <= 1");
+                if (!k.relativeToRest && (k.grip == null || k.grip.Length != 2))
+                    problems.Add($"{where}: keys[{i}] needs 'grip' (2 numbers) when not relative to rest");
+                if (k.offsetFrom == null || k.offsetFrom.Length != 2 || k.offsetTo == null || k.offsetTo.Length != 2)
+                    problems.Add($"{where}: keys[{i}] needs 'offsetFrom' and 'offsetTo' (2 numbers each)");
+            }
+            if (t.narrowLayout != null && !(t.narrowLayout.scaleAt4x3 > 0f && t.narrowLayout.scaleAt4x3 <= 1f))
+                problems.Add($"{where}: narrowLayout.scaleAt4x3 must be in (0, 1]");
+            return t;
+        }
+
+        /// <summary>
+        /// Attack poses: each image's import settings (pivot = grip, size from screenHeightPixels, like the rest image), its
+        /// region map, and the timeline, written into the view profile. No poses = the profile keeps none (moved rest image).
+        /// </summary>
+        static void ApplyPoses(MeleeViewProfile view, MeleeArtDefinition d, List<MeleePlacement> places, PoseTimeline timeline)
+        {
+            var poses = d.poses ?? Array.Empty<WeaponArtDefinition.ViewArt>();
+            view.poseSprites = new Sprite[poses.Length];
+            view.poseSkinRegions = new Texture2D[poses.Length];
+            for (int i = 0; i < poses.Length; i++)
+            {
+                MeleePlacement place = places[i];
+                string path = AssetDatabase.GetAssetPath(poses[i].image);
+                Size(poses[i].image, out int width, out int height);
+                Configure(path, new Vector2(place.grip[0] / width, 1f - place.grip[1] / height), place.screenHeightPixels / (2f * HalfHeight), MaxSize(width, height));
+                view.poseSprites[i] = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                view.poseSkinRegions[i] = ConfigureSkinRegions(poses[i].skinRegions);
+            }
+            view.poseTimeline = Array.Empty<MeleePoseKey>();
+            view.narrowCentreX = 0f;
+            view.narrowScaleAt4x3 = 1f;
+            if (timeline == null)
+                return;
+            view.poseTimeline = Array.ConvertAll(timeline.keys, k => new MeleePoseKey
+            {
+                phase = Enum.Parse<MeleePhase>(k.phase),
+                from = k.from,
+                to = k.to,
+                pose = k.pose,
+                relativeToRest = k.relativeToRest,
+                grip = k.relativeToRest ? Vector2.zero : new Vector2(k.grip[0], k.grip[1]),
+                offsetFrom = new Vector2(k.offsetFrom[0], k.offsetFrom[1]),
+                offsetTo = new Vector2(k.offsetTo[0], k.offsetTo[1]),
+                rollFrom = k.rollFrom,
+                rollTo = k.rollTo,
+                easeOut = k.easeOut,
+            });
+            if (timeline.narrowLayout != null)
+            {
+                view.narrowCentreX = timeline.narrowLayout.centreX;
+                view.narrowScaleAt4x3 = timeline.narrowLayout.scaleAt4x3;
+            }
         }
 
         /// <summary>Melee: pivot = grip; size from screenHeightPixels; optional motion overrides for this art (presentation only).</summary>

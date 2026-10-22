@@ -25,6 +25,8 @@ namespace Deadlock.Tests
             yield return ("rifle ads", rifle.ads.image, rifle.ads.skinRegions, rifle.viewProfile.adsSkinRegions);
             var knife = Registry.melee.Single(m => m.WeaponId == "proto_knife");
             yield return ("knife idle", knife.art.image, knife.art.skinRegions, knife.viewProfile.skinRegions);
+            for (int i = 0; i < knife.poses.Length; i++)
+                yield return ($"knife pose {i + 1}", knife.poses[i].image, knife.poses[i].skinRegions, knife.viewProfile.poseSkinRegions[i]);
         }
 
         static Color32[] Pixels(Texture2D asset, out int width, out int height)
@@ -83,6 +85,35 @@ namespace Deadlock.Tests
                 Assert.Greater(counts.GetValueOrDefault((int)SkinRegion.SleeveBase), 0, $"{name}: sleeve region");
                 bool rifle = name.StartsWith("rifle");
                 Assert.AreEqual(rifle, counts.GetValueOrDefault((int)SkinRegion.WeaponBody) > 0, $"{name}: weapon body region only where a weapon mask exists");
+            }
+        }
+
+        [Test]
+        public void KnifePoseRegionMaps_HandsArmsOnly_NeverOnTheKnife()
+        {
+            var knife = Registry.melee.Single(m => m.WeaponId == "proto_knife");
+            Assert.AreEqual(3, knife.poses.Length, "three attack poses");
+            for (int i = 0; i < knife.poses.Length; i++)
+            {
+                string name = $"knife pose {i + 1}";
+                var map = Pixels(knife.poses[i].skinRegions, out int w, out int h);
+                // The knife's own layer of the same image (Tools/pixelart/split_layers.py): steel, guard, handle, pommel.
+                var weaponLayer = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Game/Art/Weapons/Knife/Poses/Layers/knife_pose{i + 1}_weapon.png");
+                Assert.IsNotNull(weaponLayer, $"{name}: knife layer");
+                var steel = Pixels(weaponLayer, out int lw, out int lh);
+                Assert.AreEqual((w, h), (lw, lh), name);
+                var counts = new Dictionary<int, int>();
+                for (int p = 0; p < map.Length; p++)
+                {
+                    int region = map[p].r / 32;
+                    if (region == 0)
+                        continue;
+                    Assert.Less(steel[p].a, 128, $"{name}: skin region {(SkinRegion)region} on the knife (pixel {p})");
+                    counts[region] = counts.TryGetValue(region, out int c) ? c + 1 : 1;
+                }
+                Assert.IsFalse(counts.ContainsKey((int)SkinRegion.WeaponBody), $"{name}: no weapon skin region (the knife has no weapon skin)");
+                foreach (var region in new[] { SkinRegion.GloveBody, SkinRegion.WristBand, SkinRegion.SleeveBase, SkinRegion.SleeveCamo })
+                    Assert.Greater(counts.GetValueOrDefault((int)region), 0, $"{name}: {region} region");
             }
         }
 

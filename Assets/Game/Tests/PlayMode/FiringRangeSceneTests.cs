@@ -46,14 +46,27 @@ namespace Deadlock.Tests
                 if (r.name == "Knife")
                     knife = r;
             Assert.AreEqual("knife_candidate_opaque", knife.sprite.texture.name);
-            // The sleeve leaves the image along its bottom edge (x 806-1585) and the bottom of its right edge (y 956-991).
-            var sprite = knife.sprite;
-            float ppu = sprite.pixelsPerUnit, h = sprite.rect.height;
-            var cut = new System.Collections.Generic.List<Vector3>();
-            for (int x = 806; x <= 1585; x += 10)
-                cut.Add(new Vector3((x - sprite.pivot.x) / ppu, (0f - sprite.pivot.y) / ppu, 0f));
-            for (int y = 956; y <= 992; y += 4)
-                cut.Add(new Vector3((sprite.rect.width - sprite.pivot.x) / ppu, ((h - y) - sprite.pivot.y) / ppu, 0f));
+            // Where the sleeve leaves each image (opaque runs on the canvas border, pixels from the top-left): the rest image
+            // along its bottom edge (x 806-1585) and the bottom of its right edge (y 956-991); the attack poses likewise.
+            var cutEdges = new System.Collections.Generic.Dictionary<string, (int bottomX0, int rightY0)>
+            {
+                ["knife_candidate_opaque"] = (806, 956),
+                ["knife_pose1_windup_v3_gloves_opaque"] = (631, 1338),
+                ["knife_pose2_center_pass_extended_opaque"] = (1282, 1068),
+                ["knife_pose3_follow_through_gloves_opaque"] = (1102, 863),
+            };
+            System.Collections.Generic.List<Vector3> Cut(Sprite sprite)
+            {
+                var (bottomX0, rightY0) = cutEdges[sprite.texture.name];
+                float ppu = sprite.pixelsPerUnit, w = sprite.rect.width, h = sprite.rect.height;
+                var points = new System.Collections.Generic.List<Vector3>();
+                for (int x = bottomX0; x <= w; x += 10)
+                    points.Add(new Vector3((x - sprite.pivot.x) / ppu, (0f - sprite.pivot.y) / ppu, 0f));
+                for (int y = rightY0; y <= h; y += 4)
+                    points.Add(new Vector3((w - sprite.pivot.x) / ppu, ((h - y) - sprite.pivot.y) / ppu, 0f));
+                return points;
+            }
+            var shownImages = new System.Collections.Generic.HashSet<string>();
             foreach (var size in new[] { new Vector2Int(2622, 1206), new Vector2Int(1920, 1080), new Vector2Int(2048, 1536) })
             {
                 var rt = new RenderTexture(size.x, size.y, 16);
@@ -63,7 +76,8 @@ namespace Deadlock.Tests
                 System.Func<bool> visible = () =>
                 {
                     if (!knife.enabled) return false;
-                    foreach (var p in cut)
+                    shownImages.Add(knife.sprite.texture.name);
+                    foreach (var p in Cut(knife.sprite))
                     {
                         var v = vmCam.WorldToViewportPoint(knife.transform.TransformPoint(p));
                         if (v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f) return true;
@@ -86,6 +100,7 @@ namespace Deadlock.Tests
                 cam.targetTexture = null;
                 rt.Release();
             }
+            Assert.AreEqual(4, shownImages.Count, "the rest image and the three attack poses were all checked");
         }
 
         [UnityTest]

@@ -1,0 +1,8 @@
+{
+  "note": "Placement of the knife attack pose1 image knife_pose1_windup_v3_gloves_opaque.png (1003x1568) (read by PixelWeaponArt through Assets/Game/Data/WeaponArt/MeleeArt_ProtoKnife.asset). Pixel coordinates from the image's top-left. grip = centre of the fist on the handle (pivot, the point the timeline moves); tip (507, 92), wrist band centre (400, 930). Drawn about 1.14x the requested canvas; the knife and hand are the same size as the rest image, so the same screenHeightPixels. screenHeightPixels 1300 = the rest image (same on-screen dot size). Presentation only. Written by hand.",
+  "grip": [
+    302,
+    722
+  ],
+  "screenHeightPixels": 1300
+}

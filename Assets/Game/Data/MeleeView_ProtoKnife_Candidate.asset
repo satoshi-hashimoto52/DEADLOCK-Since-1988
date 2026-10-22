@@ -26,6 +26,83 @@ MonoBehaviour:
   strikeMidOffset: {x: 0, y: 0}
   strikeMidRoll: 0
   strikeEaseOutPower: 0
+  poseSprites:
+  - {fileID: 21300000, guid: aee470a3264d84656a1ae690350ddf40, type: 3}
+  - {fileID: 21300000, guid: bccd3207a8fe5443e938fbf08cb93109, type: 3}
+  - {fileID: 21300000, guid: 5b763a1b0fb07498f97f11a76a2c4e0c, type: 3}
+  poseSkinRegions:
+  - {fileID: 2800000, guid: 0a166339931884c169c46bde5e38f116, type: 3}
+  - {fileID: 2800000, guid: 21cb10da0d1384a8793b15443cc853a8, type: 3}
+  - {fileID: 2800000, guid: 91b7b44f405474e0baf63e458a26891b, type: 3}
+  poseTimeline:
+  - phase: 1
+    from: 0
+    to: 0.3
+    pose: -1
+    relativeToRest: 1
+    grip: {x: 0, y: 0}
+    offsetFrom: {x: 0, y: 0}
+    offsetTo: {x: 0.04, y: 0.03}
+    rollFrom: 0
+    rollTo: -4
+    easeOut: 0
+  - phase: 1
+    from: 0.3
+    to: 1
+    pose: 0
+    relativeToRest: 0
+    grip: {x: 0.58, y: -0.16}
+    offsetFrom: {x: -0.02, y: -0.02}
+    offsetTo: {x: 0.02, y: 0.02}
+    rollFrom: 4
+    rollTo: -2
+    easeOut: 0
+  - phase: 2
+    from: 0
+    to: 0.6
+    pose: 1
+    relativeToRest: 0
+    grip: {x: 0.2, y: -0.2}
+    offsetFrom: {x: 0.3, y: 0.03}
+    offsetTo: {x: -0.1, y: -0.01}
+    rollFrom: 6
+    rollTo: -4
+    easeOut: 1
+  - phase: 2
+    from: 0.6
+    to: 1
+    pose: 2
+    relativeToRest: 0
+    grip: {x: -0.38, y: -0.3}
+    offsetFrom: {x: 0.06, y: 0.03}
+    offsetTo: {x: -0.03, y: -0.01}
+    rollFrom: 4
+    rollTo: -2
+    easeOut: 1
+  - phase: 3
+    from: 0
+    to: 0.35
+    pose: 2
+    relativeToRest: 0
+    grip: {x: -0.38, y: -0.3}
+    offsetFrom: {x: -0.03, y: -0.01}
+    offsetTo: {x: 0, y: -0.3}
+    rollFrom: -2
+    rollTo: -8
+    easeOut: 0
+  - phase: 3
+    from: 0.35
+    to: 1
+    pose: -1
+    relativeToRest: 1
+    grip: {x: 0, y: 0}
+    offsetFrom: {x: 0, y: -0.3}
+    offsetTo: {x: 0, y: 0}
+    rollFrom: 0
+    rollTo: 0
+    easeOut: 0
+  narrowCentreX: 0.3
+  narrowScaleAt4x3: 0.67
   lowered: 0.35
   bobAmount: 0.008
   sprintBob: {x: 0.035, y: 0.016}

@@ -20,3 +20,17 @@ MonoBehaviour:
     image: {fileID: 2800000, guid: 45b57c85a951d4c2c82e78268ea42f93, type: 3}
     placement: {fileID: 4900000, guid: eea30b1f14bbd494d8ebacfa37c73210, type: 3}
     skinRegions: {fileID: 2800000, guid: 465244e947e84fd6b9e2016774608b7e, type: 3}
+  poses:
+  - source: {fileID: 2800000, guid: d02c5d07ddeeb418eb2806ca75969cfd, type: 3}
+    image: {fileID: 2800000, guid: aee470a3264d84656a1ae690350ddf40, type: 3}
+    placement: {fileID: 4900000, guid: 049b98cbdfb874397a030236851058f7, type: 3}
+    skinRegions: {fileID: 2800000, guid: 0a166339931884c169c46bde5e38f116, type: 3}
+  - source: {fileID: 2800000, guid: 7bf646b1240d0498a9543cdf59aaf68f, type: 3}
+    image: {fileID: 2800000, guid: bccd3207a8fe5443e938fbf08cb93109, type: 3}
+    placement: {fileID: 4900000, guid: 8cb41464630b1487b9d7a4d594c1211f, type: 3}
+    skinRegions: {fileID: 2800000, guid: 21cb10da0d1384a8793b15443cc853a8, type: 3}
+  - source: {fileID: 2800000, guid: 5fa9251e0f13d4833a927439959fab53, type: 3}
+    image: {fileID: 2800000, guid: 5b763a1b0fb07498f97f11a76a2c4e0c, type: 3}
+    placement: {fileID: 4900000, guid: 88834419538864441aba5b308c5758bc, type: 3}
+    skinRegions: {fileID: 2800000, guid: 91b7b44f405474e0baf63e458a26891b, type: 3}
+  poseTimeline: {fileID: 4900000, guid: 89b1ffb3a9c4e495e8e6f46f846f5b4d, type: 3}

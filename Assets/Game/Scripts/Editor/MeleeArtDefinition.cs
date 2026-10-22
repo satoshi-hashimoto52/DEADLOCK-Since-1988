@@ -20,6 +20,10 @@ namespace Deadlock.Editor
         public MeleeViewProfile viewProfile;
         [Tooltip("Source = the delivered original (only read), image = the displayed derivative, placement = hand-written grip / size / motion overrides.")]
         public WeaponArtDefinition.ViewArt art = new WeaponArtDefinition.ViewArt();
+        [Tooltip("Optional attack pose images (in timeline order: pose 0, 1, ...), each with its original, displayed image, placement (grip, screenHeightPixels) and skin region map.")]
+        public WeaponArtDefinition.ViewArt[] poses = System.Array.Empty<WeaponArtDefinition.ViewArt>();
+        [Tooltip("Hand-written JSON: when each pose is shown and where (keys), and the narrow-screen layout. Needed when poses are set.")]
+        public TextAsset poseTimeline;
 
         public string WeaponId => melee != null ? melee.weaponId : null;
     }

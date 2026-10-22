@@ -1,0 +1,141 @@
+{
+  "note": "Knife attack pose timeline (read by PixelWeaponArt through MeleeArt_ProtoKnife.asset into the view profile). Same values as the reviewed preview (Tools/pixelart/make_knife_pose_guide.py TIMELINE / POSES, docs/review/player-parts/knife/slash/finishing/README.md). The phases come from the weapon (Melee_ProtoKnife: windup 0.12 s, active 0.12 s, recovery 0.28 s); from / to are phase progress. pose: 0 = pose 1 windup, 1 = pose 2 centre pass, 2 = pose 3 follow-through, -1 = the rest image. grip / offsets: view units at z = 1 for 16:9 before the right-edge follow (screen half height = tan 25 deg); relativeToRest = offsets from the rest grip. roll in degrees. easeOut: active window fast start / slowing; otherwise smooth in / out. narrowLayout: on screens narrower than 16:9 the whole path's x is pulled toward centreX, by scaleAt4x3 at 4:3 (preview example values, checked on iPhone 16 Pro / 16:9 / 4:3). Presentation only: damage, range and timing are not here. Written by hand.",
+  "keys": [
+    {
+      "phase": "Windup",
+      "from": 0.0,
+      "to": 0.3,
+      "pose": -1,
+      "relativeToRest": true,
+      "grip": [
+        0,
+        0
+      ],
+      "offsetFrom": [
+        0,
+        0
+      ],
+      "offsetTo": [
+        0.04,
+        0.03
+      ],
+      "rollFrom": 0,
+      "rollTo": -4,
+      "easeOut": false
+    },
+    {
+      "phase": "Windup",
+      "from": 0.3,
+      "to": 1.0,
+      "pose": 0,
+      "relativeToRest": false,
+      "grip": [
+        0.58,
+        -0.16
+      ],
+      "offsetFrom": [
+        -0.02,
+        -0.02
+      ],
+      "offsetTo": [
+        0.02,
+        0.02
+      ],
+      "rollFrom": 4,
+      "rollTo": -2,
+      "easeOut": false
+    },
+    {
+      "phase": "Active",
+      "from": 0.0,
+      "to": 0.6,
+      "pose": 1,
+      "relativeToRest": false,
+      "grip": [
+        0.2,
+        -0.2
+      ],
+      "offsetFrom": [
+        0.3,
+        0.03
+      ],
+      "offsetTo": [
+        -0.1,
+        -0.01
+      ],
+      "rollFrom": 6,
+      "rollTo": -4,
+      "easeOut": true
+    },
+    {
+      "phase": "Active",
+      "from": 0.6,
+      "to": 1.0,
+      "pose": 2,
+      "relativeToRest": false,
+      "grip": [
+        -0.38,
+        -0.3
+      ],
+      "offsetFrom": [
+        0.06,
+        0.03
+      ],
+      "offsetTo": [
+        -0.03,
+        -0.01
+      ],
+      "rollFrom": 4,
+      "rollTo": -2,
+      "easeOut": true
+    },
+    {
+      "phase": "Recovery",
+      "from": 0.0,
+      "to": 0.35,
+      "pose": 2,
+      "relativeToRest": false,
+      "grip": [
+        -0.38,
+        -0.3
+      ],
+      "offsetFrom": [
+        -0.03,
+        -0.01
+      ],
+      "offsetTo": [
+        0.0,
+        -0.3
+      ],
+      "rollFrom": -2,
+      "rollTo": -8,
+      "easeOut": false
+    },
+    {
+      "phase": "Recovery",
+      "from": 0.35,
+      "to": 1.0,
+      "pose": -1,
+      "relativeToRest": true,
+      "grip": [
+        0,
+        0
+      ],
+      "offsetFrom": [
+        0.0,
+        -0.3
+      ],
+      "offsetTo": [
+        0,
+        0
+      ],
+      "rollFrom": 0,
+      "rollTo": 0,
+      "easeOut": false
+    }
+  ],
+  "narrowLayout": {
+    "centreX": 0.3,
+    "scaleAt4x3": 0.67
+  }
+}

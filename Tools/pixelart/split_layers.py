@@ -309,6 +309,35 @@ def split(definition):
                         masks[hand][owner[(u, v)]].add((X, Y))
                         dark_fill += 1
                         q.append((X, Y))
+    # Wrist band grow (optional, "wristBandGrow": {"maxChannel", "satMax"}): the shadowed side of a grey band can be
+    # painted as small grey cells / dark pixels that the cell rules give to the weapon (grey = knife steel), cut off from
+    # the band by nothing but shade. Unmasked grey pixels (maskLineMax <= max channel < maxChannel, saturation <= satMax)
+    # reachable from the band mask through such pixels join the band mask and its hand's layer. Line black stops the
+    # growth, so it cannot cross the outlines to the knife. Missing = off (the idle knife does not use it).
+    grow = definition.get("wristBandGrow")
+    band_grown = 0
+    if grow:
+        masked = {p_ for hand in hands for pts in masks[hand].values() for p_ in pts}
+        for hand in hands:
+            band = masks[hand]["wrist_band"]
+            q = collections.deque(band)
+            seen = set(band)
+            while q:
+                u, v = q.popleft()
+                for du, dv in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    X, Y = u + du, v + dv
+                    if not (0 <= X < W and 0 <= Y < H) or (X, Y) in seen or (X, Y) in masked:
+                        continue
+                    seen.add((X, Y))
+                    c = px[X, Y]
+                    if c[3] < 128 or not (line_max <= max(c[:3]) < grow["maxChannel"]):
+                        continue
+                    if colorsys.rgb_to_hls(c[0] / 255, c[1] / 255, c[2] / 255)[2] > grow["satMax"]:
+                        continue
+                    band.add((X, Y))
+                    part[Y][X] = hand
+                    band_grown += 1
+                    q.append((X, Y))
     # Sleeve speckles: a base / camo piece (4-connected) smaller than sleeveCamo.speckleMaxPixels is threshold noise,
     # not a painted camo shape (one art dot is about 4x4 pixels); it joins the other sleeve mask. Repeated until stable.
     speckle = sleeve_rule.get("speckleMaxPixels", 0)
@@ -384,7 +413,7 @@ def split(definition):
                     base_pts.discard(q_)
                     camo_pts.add(q_)
                 enclosed_moved += len(comp)
-    return img, part, masks, cells, {"cellOverrides": override_log, "pixelOverrides": pixel_log, "unreachedOutline": unreached, "orphanPiecesMoved": orphan_log, "darkFillPixelsAddedToMasks": dark_fill, "sleeveSpecklePixelsMoved": speckle_moved, "enclosedBasePixelsMovedToCamo": enclosed_moved}
+    return img, part, masks, cells, {"cellOverrides": override_log, "pixelOverrides": pixel_log, "unreachedOutline": unreached, "orphanPiecesMoved": orphan_log, "darkFillPixelsAddedToMasks": dark_fill, "wristBandGrownPixels": band_grown, "sleeveSpecklePixelsMoved": speckle_moved, "enclosedBasePixelsMovedToCamo": enclosed_moved}
 
 
 def write_outputs(definition, img, part, masks, force):

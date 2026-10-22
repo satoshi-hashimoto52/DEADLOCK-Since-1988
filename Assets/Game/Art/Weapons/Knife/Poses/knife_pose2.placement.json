@@ -1,0 +1,8 @@
+{
+  "note": "Placement of the knife attack pose2 image knife_pose2_center_pass_extended_opaque.png (1680x1400) (read by PixelWeaponArt through Assets/Game/Data/WeaponArt/MeleeArt_ProtoKnife.asset). Pixel coordinates from the image's top-left. grip = centre of the fist on the handle (pivot, the point the timeline moves); the left / top 1339x1174 is the delivered image unchanged; the sleeve was extended to the right / bottom (seam at x = 1339 / y = 1174, a known issue, not redrawn). screenHeightPixels 1300 = the rest image (same on-screen dot size). Presentation only. Written by hand.",
+  "grip": [
+    610,
+    638
+  ],
+  "screenHeightPixels": 1300
+}

@@ -94,6 +94,66 @@ namespace Deadlock.Tests
             StringAssert.Contains("'noSuchField' is not a field", e.Message);
         }
 
+        [Test]
+        public void Registry_Knife_ThreeAttackPoses_GripPivots_SameDotSize_TimelineAndNarrowLayout()
+        {
+            var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(PixelWeaponArt.RegistryPath);
+            var knife = registry.melee.Single(m => m.WeaponId == "proto_knife");
+            var view = knife.viewProfile;
+            var expected = new[]
+            {
+                ("knife_pose1_windup_v3_gloves_opaque.png", 302f, 722f, 1568f),
+                ("knife_pose2_center_pass_extended_opaque.png", 610f, 638f, 1400f),
+                ("knife_pose3_follow_through_gloves_opaque.png", 585f, 470f, 1116f),
+            };
+            Assert.AreEqual(expected.Length, view.poseSprites.Length);
+            Assert.AreEqual(expected.Length, view.poseSkinRegions.Length);
+            for (int i = 0; i < expected.Length; i++)
+            {
+                var (file, gx, gy, height) = expected[i];
+                var sprite = view.poseSprites[i];
+                Assert.AreEqual($"{Knife}/Poses/{file}", AssetDatabase.GetAssetPath(sprite), $"pose {i + 1}: the displayed derivative");
+                Assert.AreEqual(gx, sprite.pivot.x, 0.5f, $"pose {i + 1}: pivot = grip x");
+                Assert.AreEqual(height - gy, sprite.pivot.y, 0.5f, $"pose {i + 1}: pivot = grip y");
+                Assert.AreEqual(view.sprite.pixelsPerUnit, sprite.pixelsPerUnit, 1e-3f, $"pose {i + 1}: same dot size as the rest image");
+                var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(sprite));
+                Assert.AreEqual(FilterMode.Point, importer.filterMode);
+                Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
+                Assert.IsFalse(importer.mipmapEnabled);
+                Assert.GreaterOrEqual(importer.maxTextureSize, Mathf.Max(sprite.texture.width, sprite.texture.height), $"pose {i + 1}: never downscaled");
+                Assert.IsNotNull(view.poseSkinRegions[i], $"pose {i + 1}: region map");
+                Assert.AreEqual(AssetDatabase.GetAssetPath(knife.poses[i].skinRegions), AssetDatabase.GetAssetPath(view.poseSkinRegions[i]), $"pose {i + 1}: the definition's region map");
+            }
+            // The reviewed preview timeline (docs/review/player-parts/knife/slash/finishing).
+            var keys = view.poseTimeline;
+            CollectionAssert.AreEqual(new[] { -1, 0, 1, 2, 2, -1 }, keys.Select(k => k.pose).ToArray());
+            CollectionAssert.AreEqual(new[] { MeleePhase.Windup, MeleePhase.Windup, MeleePhase.Active, MeleePhase.Active, MeleePhase.Recovery, MeleePhase.Recovery }, keys.Select(k => k.phase).ToArray());
+            Assert.AreEqual(new Vector2(0.58f, -0.16f), keys[1].grip);
+            Assert.AreEqual(new Vector2(0.20f, -0.20f), keys[2].grip);
+            Assert.AreEqual(new Vector2(-0.38f, -0.30f), keys[3].grip);
+            Assert.AreEqual(0.30f, view.narrowCentreX, 1e-6f);
+            Assert.AreEqual(0.67f, view.narrowScaleAt4x3, 1e-6f);
+            // The base profile (shared with the provisional knife) has no poses.
+            Assert.AreEqual(0, knife.baseProfile.poseSprites.Length);
+            Assert.AreEqual(1f, knife.baseProfile.narrowScaleAt4x3);
+        }
+
+        [Test]
+        public void Melee_PosesWithoutTimeline_OrTimelineNamingAMissingPose_AreErrors()
+        {
+            var m = MakeMelee("test_melee_poses");
+            m.poses = new[] { m.art };
+            var e = Assert.Throws<WeaponArtException>(() => PixelWeaponArt.Import(new WeaponArtDefinition[0], new[] { m }, "test"));
+            StringAssert.Contains("'poseTimeline' is not set", e.Message);
+            string json = $"{Temp}/test_melee_poses.timeline.json";
+            File.WriteAllText(json, "{ \"keys\": [ { \"phase\": \"Active\", \"from\": 0, \"to\": 1, \"pose\": 3, \"relativeToRest\": true, \"offsetFrom\": [0, 0], \"offsetTo\": [0, 0] } ] }");
+            AssetDatabase.ImportAsset(json);
+            m.poseTimeline = AssetDatabase.LoadAssetAtPath<TextAsset>(json);
+            e = Assert.Throws<WeaponArtException>(() => PixelWeaponArt.Import(new WeaponArtDefinition[0], new[] { m }, "test"));
+            StringAssert.Contains("keys[0].pose 3", e.Message);
+            Assert.IsNull(m.viewProfile, "nothing imported");
+        }
+
         const string Knife = "Assets/Game/Art/Weapons/Knife";
 
         MeleeArtDefinition MakeMelee(string id, string placement = null)
@@ -127,6 +187,10 @@ namespace Deadlock.Tests
                 $"{Rifle}/rifle_hip_approved_opaque.png", $"{Rifle}/rifle_ads_approved_opaque.png",
                 $"{Rifle}/rifle_hip_approved.placement.json", $"{Rifle}/rifle_ads_approved.placement.json",
                 $"{Knife}/knife_candidate.png", $"{Knife}/knife_candidate_opaque.png", $"{Knife}/knife_candidate.placement.json",
+                $"{Knife}/Poses/knife_pose1_windup_v3.png", $"{Knife}/Poses/knife_pose1_windup_v3_gloves_opaque.png", $"{Knife}/Poses/knife_pose1.placement.json",
+                $"{Knife}/Poses/knife_pose2_center_pass_extended.png", $"{Knife}/Poses/knife_pose2_center_pass_extended_opaque.png", $"{Knife}/Poses/knife_pose2.placement.json",
+                $"{Knife}/Poses/knife_pose3_follow_through.png", $"{Knife}/Poses/knife_pose3_follow_through_gloves_opaque.png", $"{Knife}/Poses/knife_pose3.placement.json",
+                $"{Knife}/Poses/knife_poses.timeline.json",
             };
             var before = files.ToDictionary(f => f, Hash);
             PixelWeaponArt.ImportRegistered();
