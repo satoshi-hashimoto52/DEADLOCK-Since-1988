@@ -1,0 +1,7 @@
+{
+  "note": "REVIEW placement of the SMG ADS candidate smg_ads_front_sight_revised.png (not registered: the game does not use it). Image 1774x887 = the 2400x1200 guide at 0.739 (composition and margins kept, like the approved rifle ADS). aim = top of the centre front-sight post silhouette (post x 875-899, top row y 386), measured on the image = screen centre; it matches the guide's (1200, 522) x 0.739. screenHeightPixels 772 = the guide's 1044 x 0.739. muzzle = flash reference at the front-sight base (887, 430). hold = aim + 0.3 units (248 px), as the rifle ADS. Written by hand.",
+  "aim": [887, 386],
+  "muzzle": [887, 430],
+  "hold": [887, 634.3],
+  "screenHeightPixels": 772
+}
