@@ -15,17 +15,20 @@ namespace Deadlock.UI
     /// the atrium drop (hatched) and, outside the building, an opaque near-black background; the frame has a light
     /// blue edge. The colours keep clear of the enemy markers' red and amber.
     /// Enemies the <see cref="EnemyDetector"/> currently reports are shown at their detected positions:
-    /// seen = a red isosceles triangle whose sharp tip points where the enemy faced (so it reads whom / where it is
-    /// after), heard = an amber footprint whose toes point the same way; on another floor (seen only) an up / down
-    /// chevron beside it, so it never looks like an enemy on this floor. Markers fade out before they go.
+    /// only an enemy in sight now has a direction: a red isosceles triangle whose sharp tip points where it faces (so
+    /// it reads whom / where it is after). Anything that is not in sight shows no direction (a direction kept from the
+    /// past or a pointer toward a place read as "reversed" on the device, 2026-10-23): an enemy lost from sight is a
+    /// soft red glow around where it was last seen, a heard enemy a soft orange glow around the footstep. On another
+    /// floor (seen only) an up / down chevron beside it, so it never looks like an enemy on this floor. Markers fade
+    /// out before they go.
     /// An enemy on another floor that is not seen never shows at a position (not even straight above / below): its
     /// footsteps (<see cref="FootstepCue"/>) show for a moment as an amber footprint on the map's edge in a rough
     /// direction (8 ways), toes toward where the enemy faced (8 ways), with an up / down chevron, or on a dark plate
     /// below the floor label when straight above / below; no
     /// position, no distance, never following the enemy.
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
-    /// - beyond the map's range: a notched pointer held on the map's edge, aimed at the last detected position (filled =
-    ///   seen, hollow = heard), with a small up / down chevron beside it for another floor;
+    /// - beyond the map's range: the same soft glow (red = seen / lost, orange = heard) on the map's edge toward the
+    ///   last detected position, with a small up / down chevron beside it for another floor;
     /// - another floor, (nearly) straight above / below the player: a box with an up / down chevron in a slot beside
     ///   the player's arrow, instead of a marker hidden under the arrow.
     /// Place and size are part of Settings → Control layout (<see cref="TouchLayoutEditor"/>), saved on the device
@@ -74,6 +77,11 @@ namespace Deadlock.UI
 
         static readonly Color SeenColor = new Color(1f, 0.27f, 0.22f, 1f);
         static readonly Color HeardColor = new Color(1f, 0.78f, 0.25f, 1f);
+        /// <summary>Glow of a heard enemy (orange, apart from the amber footprints of another floor).</summary>
+        static readonly Color HeardGlowColor = new Color(1f, 0.55f, 0.15f, 1f);
+        /// <summary>Soft glow size (canvas units): about 4 m across, "around here", not a point.</summary>
+        const float GlowSize = 40f;
+        const float EdgeGlowSize = 34f;
         static readonly Color FrameColor = new Color(0.45f, 0.78f, 0.95f, 0.95f);
         static readonly Color32 OutsideColor = new Color32(6, 7, 11, 255);
 
@@ -98,7 +106,7 @@ namespace Deadlock.UI
         readonly List<Vector2> cueKeys = new List<Vector2>();
         int shownCues;
         float yaw;
-        Sprite triangle, facing, footprint, pointer, pointerHollow, box, chevron, plate;
+        Sprite triangle, facing, footprint, glow, box, chevron, plate;
         MiniMapPlacement placement;
         bool placed;
         Vector2 placedFor;
@@ -255,11 +263,10 @@ namespace Deadlock.UI
             var seen = UiBuild.Place(UiBuild.Rect("SampleSeen", root), new Vector2(0.5f, 0.5f), new Vector2(-46f, 26f), new Vector2(FacingSize, FacingSize));
             Graphic(seen, facing, SeenColor);
             seen.localRotation = Quaternion.Euler(0f, 0f, -45f);
-            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(FacingSize, FacingSize));
-            Graphic(heard, footprint, HeardColor);
-            heard.localRotation = Quaternion.Euler(0f, 0f, 60f);
-            var edge = UiBuild.Place(UiBuild.Rect("SampleEdge", root), new Vector2(0.5f, 1f), new Vector2(60f, -EdgeGap - Border), new Vector2(MarkerSize, MarkerSize));
-            Graphic(edge, pointer, SeenColor);
+            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(GlowSize, GlowSize));
+            Graphic(heard, glow, HeardGlowColor);
+            var edge = UiBuild.Place(UiBuild.Rect("SampleEdge", root), new Vector2(0.5f, 1f), new Vector2(60f, -EdgeGap - Border), new Vector2(EdgeGlowSize, EdgeGlowSize));
+            Graphic(edge, glow, SeenColor);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Label", root), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(BaseSize.x, 28f)),
                 "ミニマップ（プレビュー）", 20, TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.9f));
             editPreview.SetActive(false);
@@ -558,12 +565,15 @@ namespace Deadlock.UI
                     var image = Marker(shownMarkers);
                     var badge = badges[shownMarkers];
                     bool seen = c.Kind == ContactKind.Seen;
+                    bool inSight = detector.InSight(c);
                     int dFloor = c.Floor - DisplayedFloor;
-                    string kind = seen ? "seen" : "heard";
+                    string kind = inSight ? "seen" : seen ? "lost" : "heard";
                     string floor = dFloor > 0 ? "_up" : dFloor < 0 ? "_down" : "";
-                    var color = seen ? SeenColor : HeardColor;
+                    var color = seen ? SeenColor : HeardGlowColor;
                     float age = (Time.time - c.Time) / detector.DisplayTime(c.Kind);
                     color.a = 1f - Mathf.InverseLerp(0.6f, 1f, age);
+                    // Glows breathe slightly (a light, not a point); the triangle stays steady.
+                    float glowAlpha = color.a * (0.75f + 0.25f * Mathf.Sin(Time.time * 6f));
                     // Always from the stored (last detected) position, never from where the enemy is now.
                     Vector2 at = WorldToFrame(c.Position);
                     var rect = image.rectTransform;
@@ -571,12 +581,13 @@ namespace Deadlock.UI
                     badge.enabled = false;
                     if (BeyondEdge(at))
                     {
-                        // Beyond the range: a pointer on the edge, toward the last detected position.
+                        // Beyond the range: a glow on the edge toward the last detected position (no direction mark).
                         Vector2 edge = ToEdge(at.normalized);
-                        image.sprite = seen ? pointer : pointerHollow;
-                        rect.sizeDelta = new Vector2(MarkerSize, MarkerSize);
+                        image.sprite = glow;
+                        rect.sizeDelta = new Vector2(EdgeGlowSize, EdgeGlowSize);
                         rect.anchoredPosition = edge;
-                        rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(at.y, at.x) * Mathf.Rad2Deg - 90f);
+                        rect.localRotation = Quaternion.identity;
+                        color.a = glowAlpha;
                         shape = "edge_" + kind + floor;
                         if (dFloor != 0)
                             Badge(badge, edge - edge.normalized * 15f, dFloor, color);
@@ -592,13 +603,25 @@ namespace Deadlock.UI
                         Badge(badge, slot, dFloor, color);
                         shape = "self_" + kind + floor;
                     }
-                    else
+                    else if (inSight)
                     {
-                        // Seen: a triangle, heard: a footprint; the tip / toes point where the enemy faced then.
-                        image.sprite = seen ? facing : footprint;
+                        // In sight: a triangle whose tip points where the enemy faces now.
+                        image.sprite = facing;
                         rect.sizeDelta = new Vector2(FacingSize, FacingSize);
                         rect.anchoredPosition = at;
                         rect.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Facing));
+                        if (dFloor != 0)
+                            Badge(badge, at + new Vector2(17f, 9f), dFloor, color);
+                        shape = kind + floor;
+                    }
+                    else
+                    {
+                        // Lost from sight (red) or only heard (orange): a soft glow around the place, no direction.
+                        image.sprite = glow;
+                        rect.sizeDelta = new Vector2(GlowSize, GlowSize);
+                        rect.anchoredPosition = at;
+                        rect.localRotation = Quaternion.identity;
+                        color.a = glowAlpha;
                         if (dFloor != 0)
                             Badge(badge, at + new Vector2(17f, 9f), dFloor, color);
                         shape = kind + floor;
@@ -829,14 +852,20 @@ namespace Deadlock.UI
         {
             const int n = 32;
             Vector2 a = new Vector2(15.5f, 30f), b = new Vector2(1.5f, 3f), c = new Vector2(29.5f, 3f);
-            Vector2 centroid = (a + b + c) / 3f;
             // The player's arrow.
             triangle = MakeSprite("MarkerTriangle", (x, y) => Inside(new Vector2(x, y), a, b, c));
+            // Soft glow: bright in the middle, fading to nothing at the rim (no edge, no point).
+            glow = MakeSpriteColours("MarkerGlow", (x, y) =>
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f)) / 15.5f;
+                float t = Mathf.Clamp01(1f - d);
+                return new Color32(255, 255, 255, (byte)(255f * 0.85f * t * t * (3f - 2f * t)));
+            });
             // Seen enemy: a tall isosceles triangle (about 36 degrees at the tip), tip up before rotation, white inside a
             // black rim so the tip reads small and on any floor colour.
             Vector2 tip = new Vector2(15.5f, 29.5f), left = new Vector2(7f, 3f), right = new Vector2(24f, 3f);
             facing = MakeOutlined("MarkerFacing", (x, y) => Inside(new Vector2(x, y), tip, left, right));
-            // Heard enemy / footstep: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
+            // Footstep from another floor: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
             // left), white inside a black rim.
             footprint = MakeOutlined("MarkerFootprint", (x, y) =>
             {
@@ -844,17 +873,6 @@ namespace Deadlock.UI
                 bool Disc(float cx, float cy, float r) => (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
                 return Ellipse(15.5f, 15f, 6.2f, 6.5f) || Ellipse(15f, 5.5f, 4.3f, 3.6f)
                     || Disc(11.5f, 24.5f, 2.9f) || Disc(16f, 26.2f, 2.1f) || Disc(19.6f, 25.4f, 1.9f) || Disc(22.4f, 23.4f, 1.7f) || Disc(23.9f, 20.6f, 1.5f);
-            });
-            Vector2 Shrink(Vector2 v) => centroid + (v - centroid) * 0.45f;
-            // Edge pointer: an arrowhead with a notch at its base (not a plain triangle), pointing up before rotation.
-            Vector2 notch = new Vector2(15.5f, 13f), notchHollow = new Vector2(15.5f, 19f);
-            bool Arrowhead(Vector2 p, Vector2 tip) => Inside(p, a, b, c) && !Inside(p, b, tip, c);
-            pointer = MakeSprite("MarkerPointer", (x, y) => Arrowhead(new Vector2(x, y), notch));
-            pointerHollow = MakeSprite("MarkerPointerHollow", (x, y) =>
-            {
-                var p = new Vector2(x, y);
-                bool inner = Inside(p, Shrink(a), Shrink(b), Shrink(c)) && !Inside(p, Shrink(b), notchHollow, Shrink(c));
-                return Arrowhead(p, notch) && !inner;
             });
             // Up / down chevron (an open "^": not the enemy triangles).
             chevron = MakeSprite("MarkerChevron", (x, y) =>

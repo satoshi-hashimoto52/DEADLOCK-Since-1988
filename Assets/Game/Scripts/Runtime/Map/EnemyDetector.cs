@@ -112,6 +112,10 @@ namespace Deadlock.Map
         public float VisionInterval => visionInterval;
         public float DisplayTime(ContactKind kind) => kind == ContactKind.Seen ? seenDisplayTime : heardDisplayTime;
 
+        /// <summary>A seen contact still refreshed by the sight checks (in view now), not one kept after losing sight.</summary>
+        public bool InSight(MapContact contact) =>
+            contact.Kind == ContactKind.Seen && Time.time - contact.Time <= visionInterval * 1.5f;
+
         /// <summary>Raised for every detection (tests, later sound / UI cues).</summary>
         public event System.Action<MapContact> Detected;
         /// <summary>Raised for every footstep heard from another floor.</summary>
