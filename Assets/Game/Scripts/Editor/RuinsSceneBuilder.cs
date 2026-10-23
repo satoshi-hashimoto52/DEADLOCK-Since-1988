@@ -19,9 +19,7 @@ namespace Deadlock.Editor
     /// Ruins test field (prototype, for future dungeons): a closed two-storey stone building with a central atrium hall,
     /// an upper gallery with a parapet, a ring aisle, side wings with rooms, corridors that loop, and two walled and
     /// roofed stair tunnels. Same player rig, HUD, menu and zombies as the training; the round is a
-    /// <see cref="TrainingSession"/> with an escape point (test-only provisional rule, not a game mode: DECISIONS D-006):
-    /// standing on it and pressing "脱出する" = survived; defeating every zombie does not end the round; retry reloads
-    /// the scene.
+    /// <see cref="TrainingSession"/> (all zombies dead = cleared, retry reloads the scene).
     ///
     /// Plan (metres; x east, z north; ground floor y 0, upper floor y 5, roof 9): building x -HalfX..HalfX,
     /// z -HalfZ..HalfZ; atrium x, z -8..8 open to the roof; ring aisle / gallery to the ring walls at |x|, |z| = RingHalf;
@@ -67,15 +65,10 @@ namespace Deadlock.Editor
         /// <summary>Where the player starts in the ruins (south corridor, west end, facing east).</summary>
         public static Vector3 RuinsSpawn => new Vector3(-18f, 0.05f, -CorridorZ);
         public const float RuinsSpawnYaw = 90f;
-        /// <summary>
-        /// Escape point (test-only): upper floor, north corridor, just outside the gallery's north door. From the start
-        /// (ground floor, south-west) the player has to go up one of the stair tunnels and round to the north.
-        /// </summary>
-        public static Vector3 RuinsEscape => new Vector3(0f, UpperY, CorridorZ);
 
         sealed class RuinMaterials
         {
-            public Material Wall, Floor, Pillar, Frame, GlowPurple, GlowBlue, Lamp, Exit;
+            public Material Wall, Floor, Pillar, Frame, GlowPurple, GlowBlue, Lamp;
         }
 
         [MenuItem("DEADLOCK/Prototype/Rebuild Ruins Test Field")]
@@ -142,8 +135,6 @@ namespace Deadlock.Editor
             Set(session, "player", player.Health);
             Set(session, "input", player.Input);
             SetArray(session, "zombies", zombies);
-            var extraction = BuildEscapePoint(rm, player.Root.transform);
-            Set(session, "extraction", extraction);
             BuildPickups(mats, new Vector3(-18f, 0f, -(RingHalf + 1f)), new Vector3(15f, UpperY, -10.5f));
 
             var canvas = BuildUi(player, projectiles);
@@ -154,7 +145,6 @@ namespace Deadlock.Editor
             Set(menu, "session", session);
             var hud = canvas.AddComponent<TrainingHud>();
             Set(hud, "session", session);
-            Set(hud, "menu", menu);
 
             // Floor map (development prototype): detection on its own object, the display in the HUD canvas.
             var detector = new GameObject("MapDetection").AddComponent<EnemyDetector>();
@@ -171,8 +161,6 @@ namespace Deadlock.Editor
             Set(miniMap, "player", player.Root.transform);
             Set(miniMap, "hud", canvas.GetComponentInChildren<HudController>());
             Set(miniMap, "touchLayout", canvas.GetComponentInChildren<Deadlock.Input.TouchLayoutApplier>());
-            Set(miniMap, "extraction", extraction);
-            Set(hud, "miniMap", miniMap);
             var pause = new GameObject("OfflineSessionPause").AddComponent<OfflineSessionPause>();
             Set(pause, "menu", menu);
 
@@ -194,8 +182,6 @@ namespace Deadlock.Editor
                 GlowBlue = UnlitMaterial("Mat_RuinGlowBlue", null, new Color(0.3f, 0.5f, 0.82f)),
                 // Small dim lamps beside doors and stair openings (warm, low).
                 Lamp = UnlitMaterial("Mat_RuinLamp", null, new Color(0.86f, 0.62f, 0.36f)),
-                // Escape point (test-only): green, apart from the purple / blue glow and the warm lamps.
-                Exit = UnlitMaterial("Mat_RuinExit", null, new Color(0.3f, 0.95f, 0.45f)),
             };
         }
 
@@ -534,35 +520,6 @@ namespace Deadlock.Editor
             }
             OpeningFrame("Entrance", 0f, bottomZ - dir * 0.31f, -dir);
             OpeningFrame("Exit", UpperY, topZ + dir * 0.31f, dir);
-        }
-
-        /// <summary>
-        /// Escape point (test-only): a green pad with four thin knee-high corner posts and a green light, visual only (no collider:
-        /// shots, sight and footsteps pass as before). Whether the player is on it is <see cref="ExtractionPoint"/>.
-        /// </summary>
-        static ExtractionPoint BuildEscapePoint(RuinMaterials m, Transform player)
-        {
-            var root = new GameObject("EscapePoint");
-            root.transform.position = RuinsEscape;
-            var point = root.AddComponent<ExtractionPoint>();
-            Set(point, "player", player);
-            const float half = 1.6f;
-            Trim(root.transform, "Pad", RuinsEscape + Vector3.up * 0.02f, new Vector3(2f * half, 0.04f, 2f * half), m.Exit);
-            Trim(root.transform, "PadInner", RuinsEscape + Vector3.up * 0.03f, new Vector3(2f * half - 0.5f, 0.04f, 2f * half - 0.5f), m.Floor);
-            int i = 0;
-            foreach (float sx in new[] { -1f, 1f })
-                foreach (float sz in new[] { -1f, 1f })
-                    // Knee-high: seen down the corridor, but not walls across the view while standing on the point.
-                    Trim(root.transform, $"Post_{++i}", RuinsEscape + new Vector3(sx * half, 0.45f, sz * half), new Vector3(0.12f, 0.9f, 0.12f), m.Exit);
-            var light = new GameObject("EscapeLight").AddComponent<Light>();
-            light.transform.SetParent(root.transform, false);
-            light.transform.position = RuinsEscape + Vector3.up * 2.6f;
-            light.type = LightType.Point;
-            light.color = new Color(0.4f, 1f, 0.5f);
-            light.range = 6f;
-            light.intensity = 1.6f;
-            light.shadows = LightShadows.None;
-            return point;
         }
 
         static Zombie[] BuildRuinZombies(PlayerParts player, int viewModelLayer, int enemyLayer)

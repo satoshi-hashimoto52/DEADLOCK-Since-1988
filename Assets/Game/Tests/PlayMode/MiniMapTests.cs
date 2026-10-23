@@ -492,25 +492,24 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
-        public IEnumerator Cues_GoAtEscapeDeathAndRetry()
+        public IEnumerator Cues_GoAtDeathClearAndRetry()
         {
             yield return LoadRuins();
             var session = Object.FindAnyObjectByType<TrainingSession>();
-            var point = Object.FindAnyObjectByType<ExtractionPoint>();
-            // Escape with a cue showing (a zombie walking downstairs, below the point).
-            Look(point.Position + new Vector3(0.3f, 0.05f, 0f), 90f);
-            Walk(zombies[0], point.Position + new Vector3(-2f, -Upper, 0f), point.Position + new Vector3(2f, -Upper, 0f));
+            // Death with a cue showing (a zombie walking upstairs, above the player).
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Walk(zombies[0], new Vector3(-1f, Upper, -CorridorZ), new Vector3(2f, Upper, -CorridorZ));
             yield return Wait(1.2f);
             Assert.Greater(view.ShownCues, 0);
-            Assert.IsTrue(session.RequestEscape());
+            player.GetComponent<Deadlock.Player.PlayerHealth>().TakeDamage(10000f, player.transform.position);
             yield return null;
             yield return null;
-            Assert.AreEqual(TrainingResult.Escaped, session.Result);
+            Assert.AreEqual(TrainingResult.Failed, session.Result);
             Assert.AreEqual(0, detector.Cues.Count);
-            Assert.AreEqual(0, view.ShownCues, "no cue stays after the escape");
+            Assert.AreEqual(0, view.ShownCues, "no cue stays after death");
             Assert.AreEqual(0, view.ShownMarkers);
 
-            // Death with a cue showing.
+            // Retry: none carried over. Cleared (every zombie defeated) with a cue showing: none stays either.
             session.Retry();
             yield return null;
             yield return null;
@@ -521,11 +520,13 @@ namespace Deadlock.Tests
             Walk(zombies[0], new Vector3(-1f, Upper, -CorridorZ), new Vector3(2f, Upper, -CorridorZ));
             yield return Wait(1.2f);
             Assert.Greater(view.ShownCues, 0);
-            player.GetComponent<Deadlock.Player.PlayerHealth>().TakeDamage(10000f, player.transform.position);
+            foreach (var z in zombies.Skip(1))
+                z.ApplyDamage(z.MaxHealth, z.transform.position, Vector3.forward);
+            zombies[0].ApplyDamage(zombies[0].MaxHealth, zombies[0].transform.position, Vector3.forward);
             yield return null;
             yield return null;
-            Assert.AreEqual(TrainingResult.Failed, session.Result);
-            Assert.AreEqual(0, view.ShownCues, "no cue stays after death");
+            Assert.AreEqual(TrainingResult.Cleared, session.Result, "the ruins end as before: every zombie defeated");
+            Assert.AreEqual(0, view.ShownCues, "no cue stays after the result");
         }
 
         // ------------------------------------------------------------------ death, retry, setting
