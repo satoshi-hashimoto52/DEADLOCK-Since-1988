@@ -23,9 +23,9 @@ namespace Deadlock.UI
     /// An enemy beyond the map's range that has a clear sight line to the player (it is watching you) turns a part of
     /// the frame red toward where it is, whether or not the player sees it.
     /// An enemy on another floor that is not seen never shows at a position (not even straight above / below): its
-    /// footsteps (<see cref="FootstepCue"/>) show for a moment as an orange arrow on the map's edge in a rough
-    /// direction (8 ways), pointing where the enemy faced (8 ways), with an up / down chevron, or on a dark plate
-    /// below the floor label when straight above / below; no
+    /// footsteps (<see cref="FootstepCue"/>) show for a moment as a yellow footprint (orange is this floor) on the
+    /// map's edge in a rough direction (8 ways), toes where the enemy faced (8 ways), with an up / down chevron, or on a
+    /// dark plate below the floor label when straight above / below; no
     /// position, no distance, never following the enemy.
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
     /// - beyond the map's range: a soft glow (red = lost, orange = heard) on the map's edge toward the last detected
@@ -79,8 +79,10 @@ namespace Deadlock.UI
 
         static readonly Color SeenColor = new Color(1f, 0.27f, 0.22f, 1f);
         static readonly Color HeardColor = new Color(1f, 0.78f, 0.25f, 1f);
-        /// <summary>Heard enemies and footsteps (orange).</summary>
+        /// <summary>Heard enemies and footsteps on this floor (orange).</summary>
         static readonly Color HeardGlowColor = new Color(1f, 0.55f, 0.15f, 1f);
+        /// <summary>Footsteps from another floor (yellow: apart from this floor's orange).</summary>
+        static readonly Color OtherFloorStepColor = new Color(1f, 0.9f, 0.2f, 1f);
         /// <summary>Red part of the frame toward an enemy beyond the range that watches the player (canvas units).</summary>
         const float WatchBarLength = 46f;
         const float WatchBarWidth = 6f;
@@ -113,7 +115,7 @@ namespace Deadlock.UI
         readonly List<Vector2> cueKeys = new List<Vector2>();
         int shownCues;
         float yaw;
-        Sprite triangle, facing, footprint, arrow, glow, box, chevron, plate;
+        Sprite triangle, facing, footprint, glow, box, chevron, plate;
         readonly List<Image> watchBars = new List<Image>();
         int shownWatchBars;
         MiniMapPlacement placement;
@@ -685,7 +687,7 @@ namespace Deadlock.UI
                     if (cueKeys.Contains(key))
                         continue; // one footprint per direction: the number of enemies is not told either
                     cueKeys.Add(key);
-                    var color = HeardGlowColor;
+                    var color = OtherFloorStepColor;
                     color.a = 1f - Mathf.InverseLerp(0.6f, 1f, (Time.time - c.Time) / detector.CueDisplayTime);
                     var waveImage = Cue(shownCues);
                     var chevronImage = cueChevrons[shownCues];
@@ -711,7 +713,7 @@ namespace Deadlock.UI
                         w.anchoredPosition = edge;
                         chevronImage.rectTransform.anchoredPosition = edge - dir.normalized * 18f;
                     }
-                    // The arrow points where the enemy faced at the step (8 ways), not toward the player.
+                    // Toes toward where the enemy faced at the step (8 ways), not toward the player.
                     w.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Heading));
                     chevronImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, c.Vertical < 0 ? 180f : 0f);
                     waveImage.color = chevronImage.color = color;
@@ -733,7 +735,7 @@ namespace Deadlock.UI
                 b.enabled = false;
                 cueBacks.Add(b);
                 var wr = UiBuild.Place(UiBuild.Rect($"Cue_{cueWaves.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FacingSize, FacingSize));
-                cueWaves.Add(Graphic(wr, arrow, HeardGlowColor));
+                cueWaves.Add(Graphic(wr, footprint, OtherFloorStepColor));
                 var cr = UiBuild.Place(UiBuild.Rect($"CueChevron_{cueChevrons.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f));
                 cueChevrons.Add(Graphic(cr, chevron, HeardColor));
                 cueShapes.Add(null);
@@ -747,7 +749,7 @@ namespace Deadlock.UI
         /// <summary>Test / capture access: where cue i is shown (map frame, centre = player).</summary>
         public Vector2 CueFramePosition(int index) => cueWaves[index].rectTransform.anchoredPosition;
 
-        /// <summary>Test / capture access: cue i's arrow rotation (degrees, counter-clockwise; 0 = pointing up).</summary>
+        /// <summary>Test / capture access: cue i's footprint rotation (degrees, counter-clockwise; 0 = toes up).</summary>
         public float CueAngle(int index) => cueWaves[index].rectTransform.localEulerAngles.z;
 
         /// <summary>
@@ -953,7 +955,7 @@ namespace Deadlock.UI
             // black rim so the tip reads small and on any floor colour.
             Vector2 tip = new Vector2(15.5f, 29.5f), left = new Vector2(7f, 3f), right = new Vector2(24f, 3f);
             facing = MakeOutlined("MarkerFacing", (x, y) => Inside(new Vector2(x, y), tip, left, right));
-            // Heard on this floor: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
+            // Footsteps (orange: this floor, yellow: another floor): one footprint, toes up before rotation (sole, heel and five toes, big toe on the
             // left), white inside a black rim.
             footprint = MakeOutlined("MarkerFootprint", (x, y) =>
             {
@@ -962,10 +964,6 @@ namespace Deadlock.UI
                 return Ellipse(15.5f, 15f, 6.2f, 6.5f) || Ellipse(15f, 5.5f, 4.3f, 3.6f)
                     || Disc(11.5f, 24.5f, 2.9f) || Disc(16f, 26.2f, 2.1f) || Disc(19.6f, 25.4f, 1.9f) || Disc(22.4f, 23.4f, 1.7f) || Disc(23.9f, 20.6f, 1.5f);
             });
-            // Footstep from another floor: an arrow (head and shaft), pointing up before rotation, black rim.
-            arrow = MakeOutlined("MarkerArrow", (x, y) =>
-                Inside(new Vector2(x, y), new Vector2(15.5f, 29f), new Vector2(6f, 17f), new Vector2(25f, 17f))
-                || (Mathf.Abs(x - 15.5f) <= 2.6f && y >= 3f && y <= 18f));
             // Up / down chevron (an open "^": not the enemy triangles).
             chevron = MakeSprite("MarkerChevron", (x, y) =>
             {

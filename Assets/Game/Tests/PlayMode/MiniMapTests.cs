@@ -463,7 +463,11 @@ namespace Deadlock.Tests
             Assert.AreEqual(1f, cue.Heading.x, 1e-3f, "facing east as it walks east (rounded to 8 ways)");
             AssertAngle(view.FrameAngle(cue.Heading), view.CueAngle(0), "the footprint's toes point where it faced");
             AssertAngle(0f, view.CueAngle(0), "east is ahead of the player: toes up");
-            Assert.AreEqual("MarkerArrow", view.Frame.Find("Background/Viewport/Markers/Cue_0").GetComponent<Image>().sprite.texture.name);
+            var cueImage = view.Frame.Find("Background/Viewport/Markers/Cue_0").GetComponent<Image>();
+            Assert.AreEqual("MarkerFootprint", cueImage.sprite.texture.name, "a footprint, no arrow");
+            Assert.Greater(cueImage.color.g, 0.8f, "yellow (another floor), not this floor's orange");
+            Assert.Greater(cueImage.color.r, 0.9f);
+            Assert.Less(cueImage.color.b, 0.4f);
             Vector2 shownAt = view.CueFramePosition(0);
             Assert.AreEqual(MiniMapView.EdgeHalf.y, shownAt.y, 1f, "on the map's edge (no distance), ahead");
             Assert.AreEqual(0f, shownAt.x, 1f);
