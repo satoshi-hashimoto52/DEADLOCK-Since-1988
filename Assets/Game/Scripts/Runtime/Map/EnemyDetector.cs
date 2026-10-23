@@ -20,11 +20,14 @@ namespace Deadlock.Map
         public float Time;
         /// <summary>Floor index of the detected position.</summary>
         public int Floor;
+        /// <summary>Where the enemy faced when detected (world x, z, unit length); never updated while it is hidden.</summary>
+        public Vector2 Facing;
     }
 
     /// <summary>
     /// A footstep heard from another floor: only a rough direction (one of 8, in the world; none when nearly straight
-    /// above / below) and whether it is above or below, never the step's position or distance. Fixed at the step.
+    /// above / below), whether it is above or below, and which way the enemy faced (one of 8), never the step's
+    /// position or distance. Fixed at the step.
     /// </summary>
     public struct FootstepCue
     {
@@ -34,6 +37,8 @@ namespace Deadlock.Map
         public Vector2 Direction;
         /// <summary>+1 = above, -1 = below.</summary>
         public int Vertical;
+        /// <summary>Where the enemy faced at the step (world x, z), rounded to 45 degrees like <see cref="Direction"/>.</summary>
+        public Vector2 Heading;
     }
 
     /// <summary>
@@ -227,6 +232,7 @@ namespace Deadlock.Map
                 Position = position,
                 Time = Time.time,
                 Floor = map != null ? map.NearestFloor(position.y + 0.1f) : 0,
+                Facing = enemy.Facing,
             };
             int i = IndexOf(enemy);
             if (i >= 0)
@@ -240,13 +246,8 @@ namespace Deadlock.Map
         {
             Vector3 d = step - ListenerFeet;
             var flat = new Vector2(d.x, d.z);
-            Vector2 direction = Vector2.zero;
-            if (flat.magnitude >= overheadRadius)
-            {
-                float a = Mathf.Round(Mathf.Atan2(flat.y, flat.x) / (Mathf.PI / 4f)) * (Mathf.PI / 4f);
-                direction = new Vector2(Mathf.Round(Mathf.Cos(a) * 1e4f) / 1e4f, Mathf.Round(Mathf.Sin(a) * 1e4f) / 1e4f);
-            }
-            var cue = new FootstepCue { Enemy = enemy, Time = Time.time, Direction = direction, Vertical = vertical };
+            Vector2 direction = flat.magnitude >= overheadRadius ? Round8(flat) : Vector2.zero;
+            var cue = new FootstepCue { Enemy = enemy, Time = Time.time, Direction = direction, Vertical = vertical, Heading = Round8(enemy.Facing) };
             int i = cues.FindIndex(c => c.Enemy == enemy);
             if (i >= 0)
                 cues[i] = cue;
@@ -257,6 +258,13 @@ namespace Deadlock.Map
             if (m >= 0 && contacts[m].Kind == ContactKind.Heard)
                 contacts.RemoveAt(m);
             CueHeard?.Invoke(cue);
+        }
+
+        /// <summary>A direction rounded to one of 8 (45 degrees), unit length.</summary>
+        public static Vector2 Round8(Vector2 v)
+        {
+            float a = Mathf.Round(Mathf.Atan2(v.y, v.x) / (Mathf.PI / 4f)) * (Mathf.PI / 4f);
+            return new Vector2(Mathf.Round(Mathf.Cos(a) * 1e4f) / 1e4f, Mathf.Round(Mathf.Sin(a) * 1e4f) / 1e4f);
         }
 
         int IndexOf(MapEnemy enemy)

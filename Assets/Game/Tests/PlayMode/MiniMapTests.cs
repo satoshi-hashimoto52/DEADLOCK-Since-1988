@@ -409,6 +409,7 @@ namespace Deadlock.Tests
 
             // Walking upstairs 5 m ahead: a cue (above, about east), never a marker; the cue does not follow the zombie.
             Walk(walker, new Vector3(4f, Upper, -CorridorZ), new Vector3(6f, Upper, -CorridorZ));
+            Face(walker, 90f); // already turned the way it walks (east)
             for (float end = Time.time + 1.2f; Time.time < end;)
             {
                 yield return null;
@@ -420,6 +421,10 @@ namespace Deadlock.Tests
             Assert.AreEqual(1f, cue.Direction.x, 1e-3f, "rounded to one of 8 directions (east)");
             Assert.AreEqual(0f, cue.Direction.y, 1e-3f);
             CollectionAssert.Contains(view.CueShapesShown(), "step_up");
+            Assert.AreEqual(1f, cue.Heading.x, 1e-3f, "facing east as it walks east (rounded to 8 ways)");
+            AssertAngle(view.FrameAngle(cue.Heading), view.CueAngle(0), "the footprint's toes point where it faced");
+            AssertAngle(0f, view.CueAngle(0), "east is ahead of the player: toes up");
+            Assert.AreEqual("MarkerFootprint", view.Frame.Find("Background/Viewport/Markers/Cue_0").GetComponent<Image>().sprite.texture.name);
             Vector2 shownAt = view.CueFramePosition(0);
             Assert.AreEqual(MiniMapView.EdgeHalf.y, shownAt.y, 1f, "on the map's edge (no distance), ahead");
             Assert.AreEqual(0f, shownAt.x, 1f);
@@ -441,6 +446,76 @@ namespace Deadlock.Tests
             Assert.AreEqual(0, view.ShownCues);
             Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _));
             Park(walker, new Vector3(-16f, Upper, 15f));
+        }
+
+        static void AssertAngle(float expected, float actual, string why) =>
+            Assert.AreEqual(0f, Mathf.DeltaAngle(expected, actual), 1f, $"{why}: {actual:0.#} (expected {expected:0.#})");
+
+        static void Face(Zombie z, float yaw)
+        {
+            z.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            Physics.SyncTransforms();
+        }
+
+        [UnityTest]
+        public IEnumerator Markers_RedTriangleTipAndFootprintToes_PointWhereEachEnemyFaced_KeptWhileHidden()
+        {
+            yield return LoadRuins();
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f); // south corridor, looking east (east = up on the map)
+            // Three seen zombies ahead, each facing another way.
+            var faces = new[] { 0f, 270f, 135f }; // north, west (toward the player), south-east
+            for (int i = 0; i < 3; i++)
+            {
+                Park(zombies[i], new Vector3(3f + 2f * i, 0f, -CorridorZ + (i - 1) * 0.8f)); // within the map's range
+                Face(zombies[i], faces[i]);
+            }
+            yield return Wait(0.4f);
+            var angles = new List<float>();
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.IsTrue(view.TryGetMarker(enemies[i], out string shape, out _), $"{zombies[i].name} seen");
+                Assert.AreEqual("seen", shape);
+                Assert.IsTrue(view.TryGetMarkerAngle(enemies[i], out float angle));
+                Vector2 facing = new Vector2(Mathf.Sin(faces[i] * Mathf.Deg2Rad), Mathf.Cos(faces[i] * Mathf.Deg2Rad));
+                AssertAngle(view.FrameAngle(facing), angle, $"{zombies[i].name}: the tip points where it faces");
+                angles.Add(angle);
+            }
+            // On this heading-up map (east up): north = left, west = down (toward the player), south-east = up-right.
+            AssertAngle(90f, angles[0], "north: tip left");
+            AssertAngle(180f, angles[1], "west: tip down, toward the player's arrow");
+            AssertAngle(-45f, angles[2], "south-east: tip up-right");
+            var marker = view.Frame.GetComponentsInChildren<Image>().First(m => m.enabled && m.name.StartsWith("Marker_"));
+            Assert.AreEqual("MarkerFacing", marker.sprite.texture.name, "a triangle (not a dot)");
+            Assert.Greater(marker.color.r, 0.9f, "red");
+            Assert.Less(marker.color.g, 0.4f);
+
+            // While seen, the tip follows its turn; once hidden, it keeps the last seen facing.
+            Face(zombies[0], 90f);
+            yield return Wait(0.3f);
+            Assert.IsTrue(view.TryGetMarkerAngle(enemies[0], out float turned));
+            AssertAngle(0f, turned, "turned east (away from the player): tip up");
+            Park(zombies[0], new Vector3(8f, 0f, -10.5f)); // behind the ring wall
+            Face(zombies[0], 180f);
+            yield return Wait(0.3f);
+            Assert.IsTrue(view.TryGetMarkerAngle(enemies[0], out float held));
+            AssertAngle(0f, held, "hidden: the last seen facing, not where it turned");
+
+            // Heard behind the wall: a footprint whose toes point the way it walks.
+            for (int i = 0; i < 3; i++)
+                Park(zombies[i], new Vector3(-16f + i * 1.5f, Upper, 15.15f));
+            yield return Wait(detector.DisplayTime(ContactKind.Seen) + 0.2f);
+            Walk(zombies[1], new Vector3(4f, 0f, -10.5f), new Vector3(9f, 0f, -10.5f));
+            Face(zombies[1], 90f); // already turned the way it walks
+            yield return Wait(1.4f);
+            Assert.IsTrue(detector.TryGetContact(enemies[1], out var heard));
+            Assert.AreEqual(ContactKind.Heard, heard.Kind);
+            Assert.Less(Vector2.Angle(Vector2.right, heard.Facing), 25f, "faced east, the way it walked");
+            Assert.IsTrue(view.TryGetMarker(enemies[1], out string heardShape, out _));
+            Assert.AreEqual("heard", heardShape);
+            Assert.IsTrue(view.TryGetMarkerAngle(enemies[1], out float toes));
+            AssertAngle(view.FrameAngle(heard.Facing), toes, "toes where it faced at the step");
+            var foot = view.Frame.GetComponentsInChildren<Image>().First(m => m.enabled && m.name.StartsWith("Marker_"));
+            Assert.AreEqual("MarkerFootprint", foot.sprite.texture.name);
         }
 
         [UnityTest]

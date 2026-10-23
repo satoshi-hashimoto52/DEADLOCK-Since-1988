@@ -15,17 +15,19 @@ namespace Deadlock.UI
     /// the atrium drop (hatched) and, outside the building, an opaque near-black background; the frame has a light
     /// blue edge. The colours keep clear of the enemy markers' red and amber.
     /// Enemies the <see cref="EnemyDetector"/> currently reports are shown at their detected positions:
-    /// seen = filled circle (red), heard = ring (amber); on another floor (seen only) = an up / down triangle instead,
-    /// so it never looks like an enemy on this floor. Markers fade out before they go.
+    /// seen = a red isosceles triangle whose sharp tip points where the enemy faced (so it reads whom / where it is
+    /// after), heard = an amber footprint whose toes point the same way; on another floor (seen only) an up / down
+    /// chevron beside it, so it never looks like an enemy on this floor. Markers fade out before they go.
     /// An enemy on another floor that is not seen never shows at a position (not even straight above / below): its
-    /// footsteps (<see cref="FootstepCue"/>) show for a moment as amber sound waves on the map's edge in a rough
-    /// direction (8 ways) with an up / down chevron, or beside the floor label when straight above / below; no
+    /// footsteps (<see cref="FootstepCue"/>) show for a moment as an amber footprint on the map's edge in a rough
+    /// direction (8 ways), toes toward where the enemy faced (8 ways), with an up / down chevron, or on a dark plate
+    /// below the floor label when straight above / below; no
     /// position, no distance, never following the enemy.
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
     /// - beyond the map's range: a notched pointer held on the map's edge, aimed at the last detected position (filled =
-    ///   seen, hollow = heard), with a small up / down triangle beside it for another floor;
-    /// - another floor, (nearly) straight above / below the player: a boxed up / down triangle in a slot beside the
-    ///   player's arrow, instead of a triangle hidden under the arrow.
+    ///   seen, hollow = heard), with a small up / down chevron beside it for another floor;
+    /// - another floor, (nearly) straight above / below the player: a box with an up / down chevron in a slot beside
+    ///   the player's arrow, instead of a marker hidden under the arrow.
     /// Place and size are part of Settings → Control layout (<see cref="TouchLayoutEditor"/>), saved on the device
     /// (<see cref="MapSettings.SavePlacement"/>) only when the player applies them. Until the player places it, it goes
     /// once to the top-left corner, or along the top edge to the first place clear of the controls
@@ -63,6 +65,8 @@ namespace Deadlock.UI
         const float ReferenceSide = 188f;
         const float Border = 3f;
         const float MarkerSize = 20f;
+        /// <summary>Facing triangle and footprint size (canvas units): larger than the round marker was, so the direction reads.</summary>
+        const float FacingSize = 24f;
         /// <summary>Edge markers sit this far inside the map's edge (canvas units).</summary>
         const float EdgeGap = 12f;
         /// <summary>Another floor's marker closer than this to the centre would hide under the player's arrow.</summary>
@@ -94,7 +98,7 @@ namespace Deadlock.UI
         readonly List<Vector2> cueKeys = new List<Vector2>();
         int shownCues;
         float yaw;
-        Sprite circle, ring, triangle, triangleHollow, pointer, pointerHollow, box, wave, chevron, plate;
+        Sprite triangle, facing, footprint, pointer, pointerHollow, box, chevron, plate;
         MiniMapPlacement placement;
         bool placed;
         Vector2 placedFor;
@@ -248,10 +252,12 @@ namespace Deadlock.UI
         {
             var root = UiBuild.Stretch(UiBuild.Rect("EditPreview", frame));
             editPreview = root.gameObject;
-            var seen = UiBuild.Place(UiBuild.Rect("SampleSeen", root), new Vector2(0.5f, 0.5f), new Vector2(-46f, 26f), new Vector2(MarkerSize, MarkerSize));
-            Graphic(seen, circle, SeenColor);
-            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(MarkerSize, MarkerSize));
-            Graphic(heard, ring, HeardColor);
+            var seen = UiBuild.Place(UiBuild.Rect("SampleSeen", root), new Vector2(0.5f, 0.5f), new Vector2(-46f, 26f), new Vector2(FacingSize, FacingSize));
+            Graphic(seen, facing, SeenColor);
+            seen.localRotation = Quaternion.Euler(0f, 0f, -45f);
+            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(FacingSize, FacingSize));
+            Graphic(heard, footprint, HeardColor);
+            heard.localRotation = Quaternion.Euler(0f, 0f, 60f);
             var edge = UiBuild.Place(UiBuild.Rect("SampleEdge", root), new Vector2(0.5f, 1f), new Vector2(60f, -EdgeGap - Border), new Vector2(MarkerSize, MarkerSize));
             Graphic(edge, pointer, SeenColor);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Label", root), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(BaseSize.x, 28f)),
@@ -573,26 +579,28 @@ namespace Deadlock.UI
                         rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(at.y, at.x) * Mathf.Rad2Deg - 90f);
                         shape = "edge_" + kind + floor;
                         if (dFloor != 0)
-                            Badge(badge, edge - edge.normalized * 15f, dFloor, seen, color);
+                            Badge(badge, edge - edge.normalized * 15f, dFloor, color);
                     }
                     else if (dFloor != 0 && at.magnitude < SelfRadius)
                     {
-                        // Straight above / below: a boxed triangle in a slot beside the arrow (not the enemy's place).
+                        // Straight above / below: a box with a chevron in a slot beside the arrow (not the enemy's place).
                         Vector2 slot = new Vector2(30f, 8f - 24f * selfSlots++);
                         image.sprite = box;
                         rect.sizeDelta = new Vector2(MarkerSize, MarkerSize) * 1.15f;
                         rect.anchoredPosition = slot;
                         rect.localRotation = Quaternion.identity;
-                        Badge(badge, slot, dFloor, seen, color);
+                        Badge(badge, slot, dFloor, color);
                         shape = "self_" + kind + floor;
                     }
                     else
                     {
-                        image.sprite = dFloor == 0 ? (seen ? circle : ring) : (seen ? triangle : triangleHollow);
-                        rect.sizeDelta = dFloor == 0 ? new Vector2(MarkerSize, MarkerSize) : new Vector2(MarkerSize, MarkerSize) * 1.1f;
+                        // Seen: a triangle, heard: a footprint; the tip / toes point where the enemy faced then.
+                        image.sprite = seen ? facing : footprint;
+                        rect.sizeDelta = new Vector2(FacingSize, FacingSize);
                         rect.anchoredPosition = at;
-                        // Triangles stay upright: up = above, down = below.
-                        rect.localRotation = Quaternion.Euler(0f, 0f, dFloor < 0 ? 180f : 0f);
+                        rect.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Facing));
+                        if (dFloor != 0)
+                            Badge(badge, at + new Vector2(17f, 9f), dFloor, color);
                         shape = kind + floor;
                     }
                     image.color = color;
@@ -610,7 +618,7 @@ namespace Deadlock.UI
             }
         }
 
-        /// <summary>Footsteps from another floor: one wave per rough direction and above / below, fading like the markers.</summary>
+        /// <summary>Footsteps from another floor: one footprint per rough direction and above / below, fading like the markers.</summary>
         void UpdateCues()
         {
             shownCues = 0;
@@ -625,7 +633,7 @@ namespace Deadlock.UI
                         continue;
                     var key = c.Direction * 10f + Vector2.one * (c.Vertical * 100f);
                     if (cueKeys.Contains(key))
-                        continue; // one wave per direction: the number of enemies is not told either
+                        continue; // one footprint per direction: the number of enemies is not told either
                     cueKeys.Add(key);
                     var color = HeardColor;
                     color.a = 1f - Mathf.InverseLerp(0.6f, 1f, (Time.time - c.Time) / detector.CueDisplayTime);
@@ -639,7 +647,6 @@ namespace Deadlock.UI
                         // Straight above / below: beside the floor label, not on the map.
                         Vector2 slot = new Vector2(-EdgeHalf.x + 12f, EdgeHalf.y - 34f);
                         w.anchoredPosition = slot;
-                        w.localRotation = Quaternion.identity;
                         chevronImage.rectTransform.anchoredPosition = slot + new Vector2(20f, 0f);
                         // On a dark plate: an indicator, not a place on the map.
                         back.rectTransform.anchoredPosition = slot + new Vector2(10f, 0f);
@@ -652,9 +659,10 @@ namespace Deadlock.UI
                         Vector2 dir = Quaternion.Euler(0f, 0f, yaw) * c.Direction;
                         Vector2 edge = ToEdge(dir.normalized);
                         w.anchoredPosition = edge;
-                        w.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
                         chevronImage.rectTransform.anchoredPosition = edge - dir.normalized * 18f;
                     }
+                    // Toes toward where the enemy faced at the step (8 ways), not toward the player.
+                    w.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Heading));
                     chevronImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, c.Vertical < 0 ? 180f : 0f);
                     waveImage.color = chevronImage.color = color;
                     waveImage.enabled = chevronImage.enabled = true;
@@ -674,8 +682,8 @@ namespace Deadlock.UI
                 var b = Graphic(br, plate, new Color(0f, 0f, 0f, 0.8f));
                 b.enabled = false;
                 cueBacks.Add(b);
-                var wr = UiBuild.Place(UiBuild.Rect($"Cue_{cueWaves.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
-                cueWaves.Add(Graphic(wr, wave, HeardColor));
+                var wr = UiBuild.Place(UiBuild.Rect($"Cue_{cueWaves.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FacingSize, FacingSize));
+                cueWaves.Add(Graphic(wr, footprint, HeardColor));
                 var cr = UiBuild.Place(UiBuild.Rect($"CueChevron_{cueChevrons.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f));
                 cueChevrons.Add(Graphic(cr, chevron, HeardColor));
                 cueShapes.Add(null);
@@ -689,9 +697,23 @@ namespace Deadlock.UI
         /// <summary>Test / capture access: where cue i is shown (map frame, centre = player).</summary>
         public Vector2 CueFramePosition(int index) => cueWaves[index].rectTransform.anchoredPosition;
 
-        void Badge(Image badge, Vector2 position, int dFloor, bool seen, Color color)
+        /// <summary>Test / capture access: cue i's footprint rotation (degrees, counter-clockwise; 0 = toes up).</summary>
+        public float CueAngle(int index) => cueWaves[index].rectTransform.localEulerAngles.z;
+
+        /// <summary>
+        /// Rotation (degrees, counter-clockwise from up) of a mark pointing along a world direction (x, z) on this
+        /// heading-up map.
+        /// </summary>
+        public float FrameAngle(Vector2 worldDirection)
         {
-            badge.sprite = seen ? triangle : triangleHollow;
+            Vector2 v = Quaternion.Euler(0f, 0f, yaw) * worldDirection;
+            return Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg - 90f;
+        }
+
+        /// <summary>Up / down chevron beside a marker on another floor (not a triangle: triangles are enemies).</summary>
+        void Badge(Image badge, Vector2 position, int dFloor, Color color)
+        {
+            badge.sprite = chevron;
             badge.rectTransform.anchoredPosition = position;
             badge.rectTransform.localRotation = Quaternion.Euler(0f, 0f, dFloor < 0 ? 180f : 0f);
             badge.color = color;
@@ -703,11 +725,11 @@ namespace Deadlock.UI
             while (markers.Count <= index)
             {
                 var rect = UiBuild.Place(UiBuild.Rect($"Marker_{markers.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MarkerSize, MarkerSize));
-                var image = Graphic(rect, circle, SeenColor);
+                var image = Graphic(rect, facing, SeenColor);
                 image.enabled = false;
                 markers.Add(image);
                 var badgeRect = UiBuild.Place(UiBuild.Rect($"Badge_{badges.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f));
-                var badge = Graphic(badgeRect, triangle, SeenColor);
+                var badge = Graphic(badgeRect, chevron, SeenColor);
                 badge.enabled = false;
                 badges.Add(badge);
                 markerEnemies.Add(null);
@@ -728,6 +750,19 @@ namespace Deadlock.UI
                 }
             shape = null;
             framePosition = default;
+            return false;
+        }
+
+        /// <summary>Test / capture access: an enemy marker's rotation (degrees, counter-clockwise; 0 = tip / toes up).</summary>
+        public bool TryGetMarkerAngle(MapEnemy enemy, out float angle)
+        {
+            for (int i = 0; i < shownMarkers; i++)
+                if (markerEnemies[i] == enemy)
+                {
+                    angle = markers[i].rectTransform.localEulerAngles.z;
+                    return true;
+                }
+            angle = 0f;
             return false;
         }
 
@@ -793,17 +828,23 @@ namespace Deadlock.UI
         void BuildSprites()
         {
             const int n = 32;
-            circle = MakeSprite("MarkerCircle", (x, y) => Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f)) < 13f);
-            ring = MakeSprite("MarkerRing", (x, y) =>
-            {
-                float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f));
-                return d < 14.5f && d > 9f;
-            });
             Vector2 a = new Vector2(15.5f, 30f), b = new Vector2(1.5f, 3f), c = new Vector2(29.5f, 3f);
             Vector2 centroid = (a + b + c) / 3f;
+            // The player's arrow.
             triangle = MakeSprite("MarkerTriangle", (x, y) => Inside(new Vector2(x, y), a, b, c));
-            triangleHollow = MakeSprite("MarkerTriangleHollow", (x, y) =>
-                Inside(new Vector2(x, y), a, b, c) && !Inside(new Vector2(x, y), Shrink(a), Shrink(b), Shrink(c)));
+            // Seen enemy: a tall isosceles triangle (about 36 degrees at the tip), tip up before rotation, white inside a
+            // black rim so the tip reads small and on any floor colour.
+            Vector2 tip = new Vector2(15.5f, 29.5f), left = new Vector2(7f, 3f), right = new Vector2(24f, 3f);
+            facing = MakeOutlined("MarkerFacing", (x, y) => Inside(new Vector2(x, y), tip, left, right));
+            // Heard enemy / footstep: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
+            // left), white inside a black rim.
+            footprint = MakeOutlined("MarkerFootprint", (x, y) =>
+            {
+                bool Ellipse(float cx, float cy, float rx, float ry) => (x - cx) * (x - cx) / (rx * rx) + (y - cy) * (y - cy) / (ry * ry) <= 1f;
+                bool Disc(float cx, float cy, float r) => (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+                return Ellipse(15.5f, 15f, 6.2f, 6.5f) || Ellipse(15f, 5.5f, 4.3f, 3.6f)
+                    || Disc(11.5f, 24.5f, 2.9f) || Disc(16f, 26.2f, 2.1f) || Disc(19.6f, 25.4f, 1.9f) || Disc(22.4f, 23.4f, 1.7f) || Disc(23.9f, 20.6f, 1.5f);
+            });
             Vector2 Shrink(Vector2 v) => centroid + (v - centroid) * 0.45f;
             // Edge pointer: an arrowhead with a notch at its base (not a plain triangle), pointing up before rotation.
             Vector2 notch = new Vector2(15.5f, 13f), notchHollow = new Vector2(15.5f, 19f);
@@ -815,13 +856,6 @@ namespace Deadlock.UI
                 bool inner = Inside(p, Shrink(a), Shrink(b), Shrink(c)) && !Inside(p, Shrink(b), notchHollow, Shrink(c));
                 return Arrowhead(p, notch) && !inner;
             });
-            // Footstep cue: two sound-wave arcs, opening upward before rotation (never a dot or a triangle).
-            wave = MakeSprite("MarkerWave", (x, y) =>
-            {
-                float dx = x - 15.5f, dy = y - 4f, d = Mathf.Sqrt(dx * dx + dy * dy);
-                bool arc = (d > 9f && d < 13f) || (d > 18f && d < 22f);
-                return arc && dy > 0f && Mathf.Abs(dx) < dy * 1.2f;
-            });
             // Up / down chevron (an open "^": not the enemy triangles).
             chevron = MakeSprite("MarkerChevron", (x, y) =>
             {
@@ -830,16 +864,34 @@ namespace Deadlock.UI
             });
             // Dark plate under the straight-above / below cue (an indicator, not a place on the map).
             plate = MakeSprite("MarkerPlate", (x, y) => x > 0 && x < 31 && y > 0 && y < 31);
-            // Box around the triangle in the slot beside the arrow (an indicator, not a place on the map).
+            // Box around the chevron in the slot beside the arrow (an indicator, not a place on the map).
             box = MakeSprite("MarkerBox", (x, y) => (x < 3 || x > 28 || y < 3 || y > 28) && x > 0 && x < 31 && y > 0 && y < 31);
 
-            Sprite MakeSprite(string name, System.Func<int, int, bool> on)
+            // White inside, a black rim about 1.5 texels wide outside, transparent elsewhere (the colour tints the inside).
+            Sprite MakeOutlined(string name, System.Func<int, int, bool> inside)
+            {
+                return MakeSpriteColours(name, (x, y) =>
+                {
+                    if (inside(x, y))
+                        return new Color32(255, 255, 255, 255);
+                    for (int dy = -2; dy <= 2; dy++)
+                        for (int dx = -2; dx <= 2; dx++)
+                            if (dx * dx + dy * dy <= 4 && x + dx >= 0 && y + dy >= 0 && x + dx < n && y + dy < n && inside(x + dx, y + dy))
+                                return new Color32(0, 0, 0, 255);
+                    return new Color32(0, 0, 0, 0);
+                });
+            }
+
+            Sprite MakeSprite(string name, System.Func<int, int, bool> on) =>
+                MakeSpriteColours(name, (x, y) => on(x, y) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0));
+
+            Sprite MakeSpriteColours(string name, System.Func<int, int, Color32> colour)
             {
                 var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, name = name };
                 var px = new Color32[n * n];
                 for (int y = 0; y < n; y++)
                     for (int x = 0; x < n; x++)
-                        px[y * n + x] = on(x, y) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+                        px[y * n + x] = colour(x, y);
                 tex.SetPixels32(px);
                 tex.Apply(false, true);
                 return Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f);

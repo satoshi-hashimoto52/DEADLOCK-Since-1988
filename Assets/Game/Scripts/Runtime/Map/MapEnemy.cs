@@ -30,6 +30,15 @@ namespace Deadlock.Map
         public static event Action<MapEnemy> Gone;
 
         public Vector3 Position => transform.position;
+        /// <summary>Where the enemy faces (world x, z, unit length): it turns toward where it walks and whom it attacks.</summary>
+        public Vector2 Facing
+        {
+            get
+            {
+                var f = new Vector2(transform.forward.x, transform.forward.z);
+                return f.sqrMagnitude > 1e-6f ? f.normalized : Vector2.up;
+            }
+        }
         public float Height => height;
         public bool IsDead => zombie == null || zombie.IsDead;
 
