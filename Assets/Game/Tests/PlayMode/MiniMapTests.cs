@@ -260,10 +260,10 @@ namespace Deadlock.Tests
             Assert.AreEqual(ContactKind.Seen, below.Kind);
             Assert.AreEqual(0, below.Floor);
             Assert.AreEqual(1, view.DisplayedFloor);
-            // Within the map's range a triangle with a chevron down; beyond it, no marker (only the red frame part
+            // Within the map's range a triangle (no up / down mark); beyond it, no marker (only the red frame part
             // while it watches the player).
             if (view.TryGetMarker(enemies[3], out shape, out _))
-                Assert.AreEqual("seen_down", shape, "a triangle with a chevron down");
+                Assert.AreEqual("seen_down", shape, "a triangle (on the floor below)");
         }
 
         // ------------------------------------------------------------------ footsteps
@@ -468,6 +468,8 @@ namespace Deadlock.Tests
             Assert.Greater(cueImage.color.g, 0.8f, "yellow (another floor), not this floor's orange");
             Assert.Greater(cueImage.color.r, 0.9f);
             Assert.Less(cueImage.color.b, 0.4f);
+            Assert.IsFalse(view.Frame.GetComponentsInChildren<Image>().Any(i => i.enabled && i.sprite != null && i.sprite.texture.name == "MarkerChevron"),
+                "no up / down mark anywhere");
             Vector2 shownAt = view.CueFramePosition(0);
             Assert.AreEqual(MiniMapView.EdgeHalf.y, shownAt.y, 1f, "on the map's edge (no distance), ahead");
             Assert.AreEqual(0f, shownAt.x, 1f);
