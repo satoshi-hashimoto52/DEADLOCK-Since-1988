@@ -311,16 +311,19 @@ namespace Deadlock.Tests
             Assert.AreEqual(0, heard.Count, "about 10 m behind a wall: muffled below hearing range");
             Park(walker, new Vector3(-12f, 0f, -10.5f));
 
-            // Upstairs, above the player: heard through the floor, shown as an arrow up.
+            // Upstairs, above the player: heard through the floor as a footstep cue only (no position on the map).
             heard.Clear();
+            var cues = new List<FootstepCue>();
+            detector.CueHeard += cues.Add;
             Walk(walker, new Vector3(-2f, Upper, -CorridorZ), new Vector3(2f, Upper, -CorridorZ));
             yield return Wait(1.2f);
-            Assert.Greater(heard.Count, 0, "heard through the floor slab");
-            Assert.IsTrue(detector.TryGetContact(enemies[0], out var up));
-            Assert.AreEqual(1, up.Floor);
+            Assert.Greater(cues.Count, 0, "heard through the floor slab");
+            Assert.AreEqual(0, heard.Count, "not a heard marker");
+            Assert.IsTrue(cues.All(c => c.Vertical == 1), "above");
+            Assert.IsFalse(detector.TryGetContact(enemies[0], out _));
             yield return null;
-            Assert.IsTrue(view.TryGetMarker(enemies[0], out shape, out _));
-            Assert.That(shape, Is.EqualTo("heard_up").Or.EqualTo("self_heard_up"), "an arrow up (beside the player's arrow when straight above)");
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _), "no marker for an unseen enemy on another floor");
+            Assert.Greater(view.ShownCues, 0);
         }
 
         [UnityTest]
@@ -357,25 +360,23 @@ namespace Deadlock.Tests
             Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _), "gone after the display time");
             Assert.AreEqual(0, view.ShownMarkers);
 
-            // Straight above (heard through the floor): a boxed arrow up beside the player's arrow, not under it.
+            // Straight above (heard through the floor): no marker at all, only an "above" footstep cue beside the label.
             Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
             Walk(zombies[1], new Vector3(-0.9f, Upper, -CorridorZ), new Vector3(0.9f, Upper, -CorridorZ));
             yield return Wait(1.2f);
             Park(zombies[1], zombies[1].transform.position);
             yield return null;
-            Assert.IsTrue(view.TryGetMarker(enemies[1], out shape, out at));
-            Assert.AreEqual("self_heard_up", shape);
-            Assert.Greater(at.magnitude, 20f, "beside the player's arrow, not on it");
-            Assert.AreEqual(30f, at.x, 0.5f);
+            Assert.IsFalse(view.TryGetMarker(enemies[1], out _, out _), "straight above: no marker");
+            CollectionAssert.Contains(view.CueShapesShown(), "step_up_overhead");
 
-            // Straight below, seen from upstairs is impossible through the slab: heard walking below.
+            // Straight below (from upstairs): likewise, a "below" cue.
             Park(zombies[1], new Vector3(-16f, Upper, 15f));
             Look(new Vector3(0f, Upper + 0.05f, -CorridorZ), 90f);
             Walk(zombies[2], new Vector3(-0.9f, 0f, -CorridorZ), new Vector3(0.9f, 0f, -CorridorZ));
             yield return Wait(1.2f);
             yield return null;
-            Assert.IsTrue(view.TryGetMarker(enemies[2], out shape, out at));
-            Assert.AreEqual("self_heard_down", shape);
+            Assert.IsFalse(view.TryGetMarker(enemies[2], out _, out _), "straight below: no marker");
+            CollectionAssert.Contains(view.CueShapesShown(), "step_down_overhead");
             Park(zombies[2], new Vector3(-14f, Upper, 15f));
 
             // Another floor and beyond the range: the edge pointer with an arrow down beside it.
@@ -385,6 +386,146 @@ namespace Deadlock.Tests
             Assert.IsTrue(view.TryGetMarker(enemies[3], out shape, out at));
             Assert.AreEqual("edge_seen_down", shape);
             Assert.AreEqual(edge, at.y, 1f);
+        }
+
+        // ------------------------------------------------------------------ another floor: footstep cues only
+
+        [UnityTest]
+        public IEnumerator OtherFloor_Unseen_NoMarkerAtAnyDistance_FootstepCueOnlyWhileWalking_RoughDirection_GoesAfterTheDisplayTime()
+        {
+            yield return LoadRuins();
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f); // ground floor, south corridor, facing east
+            var walker = zombies[0];
+            var cues = new List<FootstepCue>();
+            detector.CueHeard += cues.Add;
+
+            // Standing upstairs, straight above: nothing at all.
+            Park(walker, new Vector3(0.3f, Upper, -CorridorZ));
+            yield return Wait(1f);
+            Assert.AreEqual(0, cues.Count, "a standing zombie makes no footsteps");
+            Assert.IsFalse(detector.TryGetContact(enemies[0], out _));
+            Assert.AreEqual(0, view.ShownMarkers);
+            Assert.AreEqual(0, view.ShownCues);
+
+            // Walking upstairs 5 m ahead: a cue (above, about east), never a marker; the cue does not follow the zombie.
+            Walk(walker, new Vector3(4f, Upper, -CorridorZ), new Vector3(6f, Upper, -CorridorZ));
+            for (float end = Time.time + 1.2f; Time.time < end;)
+            {
+                yield return null;
+                Assert.IsFalse(view.TryGetMarker(enemies[0], out string s, out _), $"no marker for an unseen enemy upstairs ({s})");
+            }
+            Assert.Greater(cues.Count, 0, "heard through the floor nearby");
+            var cue = cues.Last();
+            Assert.AreEqual(1, cue.Vertical);
+            Assert.AreEqual(1f, cue.Direction.x, 1e-3f, "rounded to one of 8 directions (east)");
+            Assert.AreEqual(0f, cue.Direction.y, 1e-3f);
+            CollectionAssert.Contains(view.CueShapesShown(), "step_up");
+            Vector2 shownAt = view.CueFramePosition(0);
+            Assert.AreEqual(MiniMapView.EdgeHalf.y, shownAt.y, 1f, "on the map's edge (no distance), ahead");
+            Assert.AreEqual(0f, shownAt.x, 1f);
+
+            // Stops: no new cue; the shown one goes after the display time.
+            Park(walker, walker.transform.position);
+            yield return Wait(0.3f);
+            int count = cues.Count;
+            yield return Wait(detector.CueDisplayTime + 0.2f);
+            Assert.AreEqual(count, cues.Count, "no footsteps while standing");
+            Assert.AreEqual(0, detector.Cues.Count);
+            Assert.AreEqual(0, view.ShownCues, "gone after the display time");
+
+            // Out of range: walking upstairs about 14 m away (through the floor): nothing.
+            cues.Clear();
+            Walk(walker, new Vector3(13f, Upper, -CorridorZ), new Vector3(15f, Upper, -CorridorZ));
+            yield return Wait(1.2f);
+            Assert.AreEqual(0, cues.Count, "beyond the hearing range through the floor");
+            Assert.AreEqual(0, view.ShownCues);
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _));
+            Park(walker, new Vector3(-16f, Upper, 15f));
+        }
+
+        [UnityTest]
+        public IEnumerator FloorChange_AndStairs_NeverFlashAnUnseenEnemysPlace()
+        {
+            yield return LoadRuins();
+            // Heard behind the ring wall on the ground floor: a ring at its place.
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Walk(zombies[0], new Vector3(4f, 0f, -10.5f), new Vector3(9f, 0f, -10.5f));
+            yield return Wait(1.2f);
+            Park(zombies[0], zombies[0].transform.position);
+            yield return null;
+            Assert.IsTrue(view.TryGetMarker(enemies[0], out string shape, out _));
+            Assert.AreEqual("heard", shape);
+            // The player goes upstairs: on the first frame the map shows the upper floor, the ring is gone.
+            Look(new Vector3(0f, Upper + 0.05f, -CorridorZ), 90f);
+            yield return null;
+            Assert.AreEqual(1, view.DisplayedFloor);
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out shape, out _), $"not shown on the other floor's map ({shape})");
+            Park(zombies[0], new Vector3(-16f, Upper, 15f));
+            yield return Wait(detector.DisplayTime(ContactKind.Heard) + 0.2f);
+
+            // Up the east stair tunnel (walked by moving the player) while one zombie walks on the ground floor beside
+            // the stair and one on the upper floor ahead: every frame, any marker of an enemy that is not seen is a
+            // same-floor marker of the floor shown (never an up / down marker).
+            Look(new Vector3(19.35f, 0.05f, -9.2f), 0f);
+            Walk(zombies[1], new Vector3(15f, 0f, -5f), new Vector3(15f, 0f, 2f));
+            Walk(zombies[2], new Vector3(15f, Upper, 6f), new Vector3(15f, Upper, -2f));
+            float run = Upper / Mathf.Tan(30f * Mathf.Deg2Rad);
+            int frames = 0;
+            for (float t = 0f; t <= 1f; t += 0.02f)
+            {
+                float z = -7f + run * t;
+                Look(new Vector3(19.35f, Upper * t + 0.05f, z), 0f);
+                yield return null;
+                frames++;
+                for (int i = 1; i <= 2; i++)
+                {
+                    if (!view.TryGetMarker(enemies[i], out shape, out _))
+                        continue;
+                    bool seen = detector.TryGetContact(enemies[i], out var c) && c.Kind == ContactKind.Seen;
+                    if (!seen)
+                    {
+                        Assert.That(shape, Is.EqualTo("heard").Or.EqualTo("edge_heard"), $"frame {frames}: an unseen enemy shows only as a same-floor ring");
+                        Assert.AreEqual(view.DisplayedFloor, c.Floor, $"frame {frames}: on the floor shown");
+                    }
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Cues_GoAtEscapeDeathAndRetry()
+        {
+            yield return LoadRuins();
+            var session = Object.FindAnyObjectByType<TrainingSession>();
+            var point = Object.FindAnyObjectByType<ExtractionPoint>();
+            // Escape with a cue showing (a zombie walking downstairs, below the point).
+            Look(point.Position + new Vector3(0.3f, 0.05f, 0f), 90f);
+            Walk(zombies[0], point.Position + new Vector3(-2f, -Upper, 0f), point.Position + new Vector3(2f, -Upper, 0f));
+            yield return Wait(1.2f);
+            Assert.Greater(view.ShownCues, 0);
+            Assert.IsTrue(session.RequestEscape());
+            yield return null;
+            yield return null;
+            Assert.AreEqual(TrainingResult.Escaped, session.Result);
+            Assert.AreEqual(0, detector.Cues.Count);
+            Assert.AreEqual(0, view.ShownCues, "no cue stays after the escape");
+            Assert.AreEqual(0, view.ShownMarkers);
+
+            // Death with a cue showing.
+            session.Retry();
+            yield return null;
+            yield return null;
+            yield return LoadRuins();
+            session = Object.FindAnyObjectByType<TrainingSession>();
+            Assert.AreEqual(0, view.ShownCues, "none carried over the retry");
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Walk(zombies[0], new Vector3(-1f, Upper, -CorridorZ), new Vector3(2f, Upper, -CorridorZ));
+            yield return Wait(1.2f);
+            Assert.Greater(view.ShownCues, 0);
+            player.GetComponent<Deadlock.Player.PlayerHealth>().TakeDamage(10000f, player.transform.position);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(TrainingResult.Failed, session.Result);
+            Assert.AreEqual(0, view.ShownCues, "no cue stays after death");
         }
 
         // ------------------------------------------------------------------ death, retry, setting

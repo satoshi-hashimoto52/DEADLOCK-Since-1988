@@ -18,7 +18,8 @@ namespace Deadlock.Tests
     /// Ruins test field (prototype): a closed two-storey building about twice the firing range's walkable area; both
     /// stair tunnels can be walked up and down in every posture without leaving the structure; the gallery parapet stops
     /// falls; floors and walls stop shots and zombie attacks; zombies follow the player up and down the stairs; the start
-    /// is safe; the round can be cleared and retried; the menu leads in and out.
+    /// is safe; defeating every zombie does not end the round (the escape point does, RuinsEscapeTests); retry starts
+    /// over; the menu leads in and out.
     /// </summary>
     public class RuinsTests : FiringRangeTestBase
     {
@@ -398,7 +399,7 @@ namespace Deadlock.Tests
         // ------------------------------------------------------------------ round, retry, menu
 
         [UnityTest]
-        public IEnumerator Start_IsSafe_ClearAndRetry_ResetsPlayerAndZombies()
+        public IEnumerator Start_IsSafe_AllDefeatedDoesNotEnd_RetryResetsPlayerAndZombies()
         {
             yield return LoadRuins(true);
             var health = player.GetComponent<PlayerHealth>();
@@ -411,14 +412,15 @@ namespace Deadlock.Tests
             yield return Wait(8f);
             Assert.AreEqual(health.MaxHealth, health.Health, "not attacked right after the start");
 
-            // Damage the player, kill every zombie: cleared.
+            // Damage the player, kill every zombie: the round goes on (the ruins end by the escape point or death).
             health.TakeDamage(30f, player.transform.position + Vector3.forward);
             foreach (var z in zombies)
                 z.ApplyDamage(z.MaxHealth, z.transform.position, Vector3.forward);
             yield return null;
             yield return null;
-            Assert.AreEqual(TrainingResult.Cleared, session.Result);
-            Assert.IsTrue(Object.FindAnyObjectByType<TrainingHud>().ResultPanel.activeSelf, "result shown");
+            Assert.AreEqual(TrainingResult.Playing, session.Result);
+            Assert.AreEqual(0, session.Remaining);
+            Assert.IsFalse(Object.FindAnyObjectByType<TrainingHud>().ResultPanel.activeSelf, "no result for defeating every zombie");
 
             // Retry: a fresh round.
             session.Retry();

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Deadlock.Game;
 using Deadlock.Input;
 using Deadlock.Map;
 using UnityEngine;
@@ -15,8 +16,14 @@ namespace Deadlock.UI
     /// the atrium drop (hatched) and, outside the building, an opaque near-black background; the frame has a light
     /// blue edge. The colours keep clear of the enemy markers' red and amber.
     /// Enemies the <see cref="EnemyDetector"/> currently reports are shown at their detected positions:
-    /// seen = filled circle (red), heard = ring (amber); on another floor = an up / down triangle (filled = seen,
-    /// hollow = heard) instead, so it never looks like an enemy on this floor. Markers fade out before they go.
+    /// seen = filled circle (red), heard = ring (amber); on another floor (seen only) = an up / down triangle instead,
+    /// so it never looks like an enemy on this floor. Markers fade out before they go.
+    /// An enemy on another floor that is not seen never shows at a position (not even straight above / below): its
+    /// footsteps (<see cref="FootstepCue"/>) show for a moment as amber sound waves on the map's edge in a rough
+    /// direction (8 ways) with an up / down chevron, or beside the floor label when straight above / below; no
+    /// position, no distance, never following the enemy.
+    /// The escape point (ruins test field) is a green doorway icon at its place, held on the edge beyond the range,
+    /// with an up / down chevron on another floor (beside the arrow when straight above / below).
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
     /// - beyond the map's range: a notched pointer held on the map's edge, aimed at the last detected position (filled =
     ///   seen, hollow = heard), with a small up / down triangle beside it for another floor;
@@ -44,6 +51,8 @@ namespace Deadlock.UI
         [SerializeField] HudController hud;
         [Tooltip("Optional: the touch layout, whose controls the first automatic placement keeps clear of.")]
         [SerializeField] TouchLayoutApplier touchLayout;
+        [Tooltip("Optional (ruins test field): the escape point, shown on the map.")]
+        [SerializeField] ExtractionPoint extraction;
         [Tooltip("Metres shown across 188 canvas units (the scale of the first, square map; unchanged).")]
         [SerializeField, Min(4f)] float metresAcross = 22f;
 
@@ -66,6 +75,7 @@ namespace Deadlock.UI
 
         static readonly Color SeenColor = new Color(1f, 0.27f, 0.22f, 1f);
         static readonly Color HeardColor = new Color(1f, 0.78f, 0.25f, 1f);
+        static readonly Color ExitColor = new Color(0.3f, 1f, 0.45f, 1f);
         static readonly Color FrameColor = new Color(0.45f, 0.78f, 0.95f, 0.95f);
         static readonly Color32 OutsideColor = new Color32(6, 7, 11, 255);
 
@@ -83,8 +93,15 @@ namespace Deadlock.UI
         readonly List<MapEnemy> markerEnemies = new List<MapEnemy>();
         readonly List<string> markerShapes = new List<string>();
         int shownMarkers;
+        readonly List<Image> cueWaves = new List<Image>();
+        readonly List<Image> cueChevrons = new List<Image>();
+        readonly List<Image> cueBacks = new List<Image>();
+        readonly List<string> cueShapes = new List<string>();
+        readonly List<Vector2> cueKeys = new List<Vector2>();
+        int shownCues;
+        Image exitBack, exitIcon, exitChevron;
         float yaw;
-        Sprite circle, ring, triangle, triangleHollow, pointer, pointerHollow, box;
+        Sprite circle, ring, triangle, triangleHollow, pointer, pointerHollow, box, wave, chevron, door, doorBack;
         MiniMapPlacement placement;
         bool placed;
         Vector2 placedFor;
@@ -103,6 +120,13 @@ namespace Deadlock.UI
         /// <summary>Rotation of the map (degrees, counter-clockwise on screen) = the player's heading.</summary>
         public float MapRotation => yaw;
         public int ShownMarkers => shownMarkers;
+        /// <summary>Footstep cues (another floor) shown now.</summary>
+        public int ShownCues => shownCues;
+        /// <summary>Shape of the escape point's icon ("exit", "exit_edge", with "_up" / "_down"; "exit_self_up"), null = not shown.</summary>
+        public string ExitShape { get; private set; }
+        public Vector2 ExitFramePosition => exitIcon != null ? exitIcon.rectTransform.anchoredPosition : default;
+        /// <summary>Counts every new placement (the escape button keeps clear of the map when it changes).</summary>
+        public int PlacementVersion { get; private set; }
         /// <summary>The place / size asked for (saved, or being edited), kept inside the Safe Area.</summary>
         public MiniMapPlacement Placement => placement;
         /// <summary>Where the map is actually shown (Safe Area canvas units, origin bottom-left), after keeping clear of the HUD.</summary>
@@ -210,6 +234,11 @@ namespace Deadlock.UI
             mapRect.pivot = Vector2.zero;
             // Markers do not turn with the map: their places are computed in the frame (so triangles stay upright).
             markerLayer = UiBuild.Place(UiBuild.Rect("Markers", viewport), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            // Escape point first: the enemy markers (made later) draw over it.
+            exitBack = Graphic(UiBuild.Place(UiBuild.Rect("ExitBack", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(28f, 28f)), doorBack, Color.black);
+            exitIcon = Graphic(UiBuild.Place(UiBuild.Rect("Exit", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24f, 24f)), door, ExitColor);
+            exitChevron = Graphic(UiBuild.Place(UiBuild.Rect("ExitChevron", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f)), chevron, ExitColor);
+            exitBack.enabled = exitIcon.enabled = exitChevron.enabled = false;
 
             // The player: an arrow in the middle, always pointing up (heading-up map). (Not named "Player": that is
             // the player object's name, looked up by name elsewhere.)
@@ -354,6 +383,7 @@ namespace Deadlock.UI
                 Debug.LogWarning($"[DEADLOCK][minimap] no clear place for the map ({size.x:0}x{size.y:0} in a {safe.x:0}x{safe.y:0} Safe Area): shown at the asked place");
             AvoidanceFailed = !found;
             placedForLayout = LayoutVersion;
+            PlacementVersion++;
             frame.anchoredPosition = shownCentre;
             frame.localScale = Vector3.one * placement.scale;
             ReserveHelp();
@@ -504,6 +534,8 @@ namespace Deadlock.UI
             float a = yaw * Mathf.Deg2Rad;
             north.anchoredPosition = ToEdge(new Vector2(-Mathf.Sin(a), Mathf.Cos(a)), 2f);
             UpdateMarkers(p);
+            UpdateCues();
+            UpdateExit();
         }
 
         /// <summary>Half size of the area inside the frame where edge markers sit (rectangle, before the frame's scale).</summary>
@@ -532,6 +564,9 @@ namespace Deadlock.UI
                 {
                     var c = contacts[i];
                     if (c.Enemy == null || c.Enemy.IsDead)
+                        continue;
+                    // Heard on another floor (also after the player changed floor): never a position on the map.
+                    if (c.Kind == ContactKind.Heard && c.Floor != DisplayedFloor)
                         continue;
                     var image = Marker(shownMarkers);
                     var badge = badges[shownMarkers];
@@ -592,6 +627,119 @@ namespace Deadlock.UI
                 badges[i].enabled = false;
                 markerEnemies[i] = null;
             }
+        }
+
+        /// <summary>Footsteps from another floor: one wave per rough direction and above / below, fading like the markers.</summary>
+        void UpdateCues()
+        {
+            shownCues = 0;
+            cueKeys.Clear();
+            if (detector != null && !editing)
+            {
+                var cues = detector.Cues;
+                for (int i = 0; i < cues.Count; i++)
+                {
+                    var c = cues[i];
+                    if (c.Enemy == null || c.Enemy.IsDead)
+                        continue;
+                    var key = c.Direction * 10f + Vector2.one * (c.Vertical * 100f);
+                    if (cueKeys.Contains(key))
+                        continue; // one wave per direction: the number of enemies is not told either
+                    cueKeys.Add(key);
+                    var color = HeardColor;
+                    color.a = 1f - Mathf.InverseLerp(0.6f, 1f, (Time.time - c.Time) / detector.CueDisplayTime);
+                    var waveImage = Cue(shownCues);
+                    var chevronImage = cueChevrons[shownCues];
+                    var back = cueBacks[shownCues];
+                    var w = waveImage.rectTransform;
+                    string shape = c.Vertical > 0 ? "step_up" : "step_down";
+                    if (c.Direction == Vector2.zero)
+                    {
+                        // Straight above / below: beside the floor label, not on the map.
+                        Vector2 slot = new Vector2(-EdgeHalf.x + 12f, EdgeHalf.y - 34f);
+                        w.anchoredPosition = slot;
+                        w.localRotation = Quaternion.identity;
+                        chevronImage.rectTransform.anchoredPosition = slot + new Vector2(20f, 0f);
+                        // On a dark plate: an indicator, not a place on the map.
+                        back.rectTransform.anchoredPosition = slot + new Vector2(10f, 0f);
+                        back.enabled = true;
+                        shape += "_overhead";
+                    }
+                    else
+                    {
+                        back.enabled = false;
+                        Vector2 dir = Quaternion.Euler(0f, 0f, yaw) * c.Direction;
+                        Vector2 edge = ToEdge(dir.normalized);
+                        w.anchoredPosition = edge;
+                        w.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
+                        chevronImage.rectTransform.anchoredPosition = edge - dir.normalized * 18f;
+                    }
+                    chevronImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, c.Vertical < 0 ? 180f : 0f);
+                    waveImage.color = chevronImage.color = color;
+                    waveImage.enabled = chevronImage.enabled = true;
+                    cueShapes[shownCues] = shape;
+                    shownCues++;
+                }
+            }
+            for (int i = shownCues; i < cueWaves.Count; i++)
+                cueWaves[i].enabled = cueChevrons[i].enabled = cueBacks[i].enabled = false;
+        }
+
+        Image Cue(int index)
+        {
+            while (cueWaves.Count <= index)
+            {
+                var br = UiBuild.Place(UiBuild.Rect($"CueBack_{cueBacks.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(52f, 30f));
+                var b = Graphic(br, doorBack, new Color(0f, 0f, 0f, 0.8f));
+                b.enabled = false;
+                cueBacks.Add(b);
+                var wr = UiBuild.Place(UiBuild.Rect($"Cue_{cueWaves.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
+                cueWaves.Add(Graphic(wr, wave, HeardColor));
+                var cr = UiBuild.Place(UiBuild.Rect($"CueChevron_{cueChevrons.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f));
+                cueChevrons.Add(Graphic(cr, chevron, HeardColor));
+                cueShapes.Add(null);
+            }
+            return cueWaves[index];
+        }
+
+        /// <summary>Test / capture access: the shapes of the footstep cues shown now ("step_up", "step_down_overhead").</summary>
+        public List<string> CueShapesShown() => cueShapes.GetRange(0, shownCues);
+
+        /// <summary>Test / capture access: where cue i is shown (map frame, centre = player).</summary>
+        public Vector2 CueFramePosition(int index) => cueWaves[index].rectTransform.anchoredPosition;
+
+        /// <summary>The escape point: at its place, on the edge beyond the range, an up / down chevron on another floor.</summary>
+        void UpdateExit()
+        {
+            ExitShape = null;
+            bool show = extraction != null && !editing;
+            exitBack.enabled = exitIcon.enabled = exitChevron.enabled = show;
+            if (!show)
+                return;
+            Vector3 e = extraction.Position;
+            int dFloor = map.NearestFloor(e.y + 0.1f) - DisplayedFloor;
+            string floor = dFloor > 0 ? "_up" : dFloor < 0 ? "_down" : "";
+            Vector2 at = WorldToFrame(e);
+            string shape = "exit";
+            if (BeyondEdge(at))
+            {
+                at = ToEdge(at.normalized, 16f); // inside the north letter and the enemies' edge pointers
+                shape = "exit_edge";
+            }
+            else if (dFloor != 0 && at.magnitude < SelfRadius)
+            {
+                at = new Vector2(-30f, 8f); // beside the arrow (left: the enemies' slots are on the right)
+                shape = "exit_self";
+            }
+            exitIcon.rectTransform.anchoredPosition = exitBack.rectTransform.anchoredPosition = at;
+            exitChevron.enabled = dFloor != 0;
+            if (dFloor != 0)
+            {
+                Vector2 side = at.x > 0f ? new Vector2(-18f, 0f) : new Vector2(18f, 0f);
+                exitChevron.rectTransform.anchoredPosition = at + side;
+                exitChevron.rectTransform.localRotation = Quaternion.Euler(0f, 0f, dFloor < 0 ? 180f : 0f);
+            }
+            ExitShape = shape + floor;
         }
 
         void Badge(Image badge, Vector2 position, int dFloor, bool seen, Color color)
@@ -720,6 +868,22 @@ namespace Deadlock.UI
                 bool inner = Inside(p, Shrink(a), Shrink(b), Shrink(c)) && !Inside(p, Shrink(b), notchHollow, Shrink(c));
                 return Arrowhead(p, notch) && !inner;
             });
+            // Footstep cue: two sound-wave arcs, opening upward before rotation (never a dot or a triangle).
+            wave = MakeSprite("MarkerWave", (x, y) =>
+            {
+                float dx = x - 15.5f, dy = y - 4f, d = Mathf.Sqrt(dx * dx + dy * dy);
+                bool arc = (d > 9f && d < 13f) || (d > 18f && d < 22f);
+                return arc && dy > 0f && Mathf.Abs(dx) < dy * 1.2f;
+            });
+            // Up / down chevron (an open "^": not the enemy triangles).
+            chevron = MakeSprite("MarkerChevron", (x, y) =>
+            {
+                float dx = Mathf.Abs(x - 15.5f), top = 26f - dx * 1.1f;
+                return y <= top && y >= top - 7f && dx < 14f;
+            });
+            // Escape point: a doorway (a square with an open door in it), on a black backing.
+            door = MakeSprite("MarkerDoor", (x, y) => x > 2 && x < 29 && y > 2 && y < 29 && !(x > 10 && x < 21 && y > 2 && y < 21));
+            doorBack = MakeSprite("MarkerDoorBack", (x, y) => x > 0 && x < 31 && y > 0 && y < 31);
             // Box around the triangle in the slot beside the arrow (an indicator, not a place on the map).
             box = MakeSprite("MarkerBox", (x, y) => (x < 3 || x > 28 || y < 3 || y > 28) && x > 0 && x < 31 && y > 0 && y < 31);
 
