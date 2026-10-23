@@ -300,6 +300,9 @@ namespace Deadlock.Combat
         }
 
         /// <summary>Clear line from the zombie's head to the target's body (walls and cover block attacks).</summary>
+        /// <summary>A clear sight line to this living target now (the same check as for its attacks).</summary>
+        public bool HasSightOf(IZombieTarget t) => t != null && t.IsAlive && State != ZombieState.Dead && CanSee(t);
+
         bool CanSee(IZombieTarget t)
         {
             Vector3 from = transform.position + Vector3.up * 1.5f;

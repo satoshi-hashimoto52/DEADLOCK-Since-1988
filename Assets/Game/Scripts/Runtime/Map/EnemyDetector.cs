@@ -41,6 +41,14 @@ namespace Deadlock.Map
         public Vector2 Heading;
     }
 
+    /// <summary>An enemy that has a clear sight line to the player (where it is, refreshed with the sight checks).</summary>
+    public struct Watcher
+    {
+        public MapEnemy Enemy;
+        public Vector3 Position;
+        public float Time;
+    }
+
     /// <summary>
     /// Later perks / skills (wider hearing, scouting): scales the ranges. None exist yet; nothing registers one.
     /// The enemy side (quiet steps) is <see cref="MapEnemy.FootstepLoudness"/>.
@@ -94,12 +102,18 @@ namespace Deadlock.Map
 
         readonly List<MapContact> contacts = new List<MapContact>();
         readonly List<FootstepCue> cues = new List<FootstepCue>();
+        readonly List<Watcher> watchers = new List<Watcher>();
         int listenerFloor = -1;
         readonly List<IDetectionModifier> modifiers = new List<IDetectionModifier>();
         readonly RaycastHit[] hits = new RaycastHit[16];
         float nextVision;
 
         public IReadOnlyList<MapContact> Contacts => contacts;
+        /// <summary>
+        /// Enemies that see the player now (the floor map marks the frame toward those beyond its range: "you are being
+        /// watched from there"). Refreshed every sight check; one not refreshed for a moment is gone.
+        /// </summary>
+        public IReadOnlyList<Watcher> Watchers => watchers;
         /// <summary>Footsteps heard from another floor (direction and above / below only).</summary>
         public IReadOnlyList<FootstepCue> Cues => cues;
         public float CueDisplayTime => heardDisplayTime;
@@ -144,6 +158,7 @@ namespace Deadlock.Map
             MapEnemy.Gone -= Remove;
             contacts.Clear();
             cues.Clear();
+            watchers.Clear();
         }
 
         void UpdateListenerFloor()
@@ -161,9 +176,16 @@ namespace Deadlock.Map
             {
                 nextVision = Time.time + visionInterval;
                 var enemies = MapEnemy.All;
+                watchers.Clear();
                 for (int i = 0; i < enemies.Count; i++)
-                    if (!enemies[i].IsDead && CanSee(enemies[i]))
+                {
+                    if (enemies[i].IsDead)
+                        continue;
+                    if (CanSee(enemies[i]))
                         Record(enemies[i], ContactKind.Seen, enemies[i].Position);
+                    if (enemies[i].WatchingItsTarget)
+                        watchers.Add(new Watcher { Enemy = enemies[i], Position = enemies[i].Position, Time = Time.time });
+                }
             }
             for (int i = contacts.Count - 1; i >= 0; i--)
             {
@@ -285,6 +307,7 @@ namespace Deadlock.Map
             if (i >= 0)
                 contacts.RemoveAt(i);
             cues.RemoveAll(c => c.Enemy == enemy);
+            watchers.RemoveAll(w => w.Enemy == enemy);
         }
 
         public bool TryGetContact(MapEnemy enemy, out MapContact contact)

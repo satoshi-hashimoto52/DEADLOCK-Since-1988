@@ -15,20 +15,22 @@ namespace Deadlock.UI
     /// the atrium drop (hatched) and, outside the building, an opaque near-black background; the frame has a light
     /// blue edge. The colours keep clear of the enemy markers' red and amber.
     /// Enemies the <see cref="EnemyDetector"/> currently reports are shown at their detected positions:
-    /// only an enemy in sight now has a direction: a red isosceles triangle whose sharp tip points where it faces (so
-    /// it reads whom / where it is after). Anything that is not in sight shows no direction (a direction kept from the
-    /// past or a pointer toward a place read as "reversed" on the device, 2026-10-23): an enemy lost from sight is a
-    /// soft red glow around where it was last seen, a heard enemy a soft orange glow around the footstep. On another
-    /// floor (seen only) an up / down chevron beside it, so it never looks like an enemy on this floor. Markers fade
-    /// out before they go.
+    /// an enemy in sight within the map's range is a red isosceles triangle whose sharp tip points where it faces now
+    /// (so it reads whom / where it is after); an enemy lost from sight is a soft red glow around where it was last
+    /// seen (no kept direction: it read as "reversed" on the device, 2026-10-23); a heard enemy on this floor is an
+    /// orange footprint at the step, toes where it faced. On another floor (seen only) an up / down chevron beside it,
+    /// so it never looks like an enemy on this floor. Markers fade out before they go.
+    /// An enemy beyond the map's range that has a clear sight line to the player (it is watching you) turns a part of
+    /// the frame red toward where it is, whether or not the player sees it.
     /// An enemy on another floor that is not seen never shows at a position (not even straight above / below): its
-    /// footsteps (<see cref="FootstepCue"/>) show for a moment as an amber footprint on the map's edge in a rough
-    /// direction (8 ways), toes toward where the enemy faced (8 ways), with an up / down chevron, or on a dark plate
+    /// footsteps (<see cref="FootstepCue"/>) show for a moment as an orange arrow on the map's edge in a rough
+    /// direction (8 ways), pointing where the enemy faced (8 ways), with an up / down chevron, or on a dark plate
     /// below the floor label when straight above / below; no
     /// position, no distance, never following the enemy.
     /// Two kinds of markers are not at the enemy's exact place, and look different so they are not read as one:
-    /// - beyond the map's range: the same soft glow (red = seen / lost, orange = heard) on the map's edge toward the
-    ///   last detected position, with a small up / down chevron beside it for another floor;
+    /// - beyond the map's range: a soft glow (red = lost, orange = heard) on the map's edge toward the last detected
+    ///   position, with a small up / down chevron beside it for another floor (an enemy in sight there shows only as
+    ///   the red frame part while it watches the player);
     /// - another floor, (nearly) straight above / below the player: a box with an up / down chevron in a slot beside
     ///   the player's arrow, instead of a marker hidden under the arrow.
     /// Place and size are part of Settings → Control layout (<see cref="TouchLayoutEditor"/>), saved on the device
@@ -77,8 +79,13 @@ namespace Deadlock.UI
 
         static readonly Color SeenColor = new Color(1f, 0.27f, 0.22f, 1f);
         static readonly Color HeardColor = new Color(1f, 0.78f, 0.25f, 1f);
-        /// <summary>Glow of a heard enemy (orange, apart from the amber footprints of another floor).</summary>
+        /// <summary>Heard enemies and footsteps (orange).</summary>
         static readonly Color HeardGlowColor = new Color(1f, 0.55f, 0.15f, 1f);
+        /// <summary>Red part of the frame toward an enemy beyond the range that watches the player (canvas units).</summary>
+        const float WatchBarLength = 46f;
+        const float WatchBarWidth = 6f;
+        /// <summary>The frame part stays this long after the enemy stopped watching (s).</summary>
+        const float WatchHold = 0.4f;
         /// <summary>Soft glow size (canvas units): about 4 m across, "around here", not a point.</summary>
         const float GlowSize = 40f;
         const float EdgeGlowSize = 34f;
@@ -106,7 +113,9 @@ namespace Deadlock.UI
         readonly List<Vector2> cueKeys = new List<Vector2>();
         int shownCues;
         float yaw;
-        Sprite triangle, facing, footprint, glow, box, chevron, plate;
+        Sprite triangle, facing, footprint, arrow, glow, box, chevron, plate;
+        readonly List<Image> watchBars = new List<Image>();
+        int shownWatchBars;
         MiniMapPlacement placement;
         bool placed;
         Vector2 placedFor;
@@ -127,6 +136,10 @@ namespace Deadlock.UI
         public int ShownMarkers => shownMarkers;
         /// <summary>Footstep cues (another floor) shown now.</summary>
         public int ShownCues => shownCues;
+        /// <summary>Red frame parts shown now (enemies beyond the range watching the player).</summary>
+        public int ShownWatchBars => shownWatchBars;
+        /// <summary>Test / capture access: where frame part i is (frame units from the centre, before the frame's scale).</summary>
+        public Vector2 WatchBarPosition(int index) => watchBars[index].rectTransform.anchoredPosition;
         /// <summary>The place / size asked for (saved, or being edited), kept inside the Safe Area.</summary>
         public MiniMapPlacement Placement => placement;
         /// <summary>Where the map is actually shown (Safe Area canvas units, origin bottom-left), after keeping clear of the HUD.</summary>
@@ -263,10 +276,11 @@ namespace Deadlock.UI
             var seen = UiBuild.Place(UiBuild.Rect("SampleSeen", root), new Vector2(0.5f, 0.5f), new Vector2(-46f, 26f), new Vector2(FacingSize, FacingSize));
             Graphic(seen, facing, SeenColor);
             seen.localRotation = Quaternion.Euler(0f, 0f, -45f);
-            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(GlowSize, GlowSize));
-            Graphic(heard, glow, HeardGlowColor);
-            var edge = UiBuild.Place(UiBuild.Rect("SampleEdge", root), new Vector2(0.5f, 1f), new Vector2(60f, -EdgeGap - Border), new Vector2(EdgeGlowSize, EdgeGlowSize));
-            Graphic(edge, glow, SeenColor);
+            var heard = UiBuild.Place(UiBuild.Rect("SampleHeard", root), new Vector2(0.5f, 0.5f), new Vector2(44f, -24f), new Vector2(FacingSize, FacingSize));
+            Graphic(heard, footprint, HeardGlowColor);
+            heard.localRotation = Quaternion.Euler(0f, 0f, 60f);
+            var edge = UiBuild.Place(UiBuild.Rect("SampleWatch", root), new Vector2(0.5f, 1f), new Vector2(60f, -Border * 0.5f), new Vector2(WatchBarLength, WatchBarWidth));
+            UiBuild.Image(edge, SeenColor, false);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Label", root), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(BaseSize.x, 28f)),
                 "ミニマップ（プレビュー）", 20, TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.9f));
             editPreview.SetActive(false);
@@ -530,6 +544,7 @@ namespace Deadlock.UI
             north.anchoredPosition = ToEdge(new Vector2(-Mathf.Sin(a), Mathf.Cos(a)), 2f);
             UpdateMarkers(p);
             UpdateCues();
+            UpdateWatchBars();
         }
 
         /// <summary>Half size of the area inside the frame where edge markers sit (rectangle, before the frame's scale).</summary>
@@ -562,10 +577,13 @@ namespace Deadlock.UI
                     // Heard on another floor (also after the player changed floor): never a position on the map.
                     if (c.Kind == ContactKind.Heard && c.Floor != DisplayedFloor)
                         continue;
-                    var image = Marker(shownMarkers);
-                    var badge = badges[shownMarkers];
                     bool seen = c.Kind == ContactKind.Seen;
                     bool inSight = detector.InSight(c);
+                    // In sight beyond the range: only the red frame part, while it watches the player (UpdateWatchBars).
+                    if (inSight && BeyondEdge(WorldToFrame(c.Position)))
+                        continue;
+                    var image = Marker(shownMarkers);
+                    var badge = badges[shownMarkers];
                     int dFloor = c.Floor - DisplayedFloor;
                     string kind = inSight ? "seen" : seen ? "lost" : "heard";
                     string floor = dFloor > 0 ? "_up" : dFloor < 0 ? "_down" : "";
@@ -614,9 +632,18 @@ namespace Deadlock.UI
                             Badge(badge, at + new Vector2(17f, 9f), dFloor, color);
                         shape = kind + floor;
                     }
+                    else if (!seen)
+                    {
+                        // Heard on this floor: an orange footprint at the step, toes where the enemy faced then.
+                        image.sprite = footprint;
+                        rect.sizeDelta = new Vector2(FacingSize, FacingSize);
+                        rect.anchoredPosition = at;
+                        rect.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Facing));
+                        shape = kind + floor;
+                    }
                     else
                     {
-                        // Lost from sight (red) or only heard (orange): a soft glow around the place, no direction.
+                        // Lost from sight: a soft red glow around where it was last seen, no direction.
                         image.sprite = glow;
                         rect.sizeDelta = new Vector2(GlowSize, GlowSize);
                         rect.anchoredPosition = at;
@@ -658,7 +685,7 @@ namespace Deadlock.UI
                     if (cueKeys.Contains(key))
                         continue; // one footprint per direction: the number of enemies is not told either
                     cueKeys.Add(key);
-                    var color = HeardColor;
+                    var color = HeardGlowColor;
                     color.a = 1f - Mathf.InverseLerp(0.6f, 1f, (Time.time - c.Time) / detector.CueDisplayTime);
                     var waveImage = Cue(shownCues);
                     var chevronImage = cueChevrons[shownCues];
@@ -684,7 +711,7 @@ namespace Deadlock.UI
                         w.anchoredPosition = edge;
                         chevronImage.rectTransform.anchoredPosition = edge - dir.normalized * 18f;
                     }
-                    // Toes toward where the enemy faced at the step (8 ways), not toward the player.
+                    // The arrow points where the enemy faced at the step (8 ways), not toward the player.
                     w.localRotation = Quaternion.Euler(0f, 0f, FrameAngle(c.Heading));
                     chevronImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, c.Vertical < 0 ? 180f : 0f);
                     waveImage.color = chevronImage.color = color;
@@ -706,7 +733,7 @@ namespace Deadlock.UI
                 b.enabled = false;
                 cueBacks.Add(b);
                 var wr = UiBuild.Place(UiBuild.Rect($"Cue_{cueWaves.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FacingSize, FacingSize));
-                cueWaves.Add(Graphic(wr, footprint, HeardColor));
+                cueWaves.Add(Graphic(wr, arrow, HeardGlowColor));
                 var cr = UiBuild.Place(UiBuild.Rect($"CueChevron_{cueChevrons.Count}", markerLayer), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f));
                 cueChevrons.Add(Graphic(cr, chevron, HeardColor));
                 cueShapes.Add(null);
@@ -720,8 +747,69 @@ namespace Deadlock.UI
         /// <summary>Test / capture access: where cue i is shown (map frame, centre = player).</summary>
         public Vector2 CueFramePosition(int index) => cueWaves[index].rectTransform.anchoredPosition;
 
-        /// <summary>Test / capture access: cue i's footprint rotation (degrees, counter-clockwise; 0 = toes up).</summary>
+        /// <summary>Test / capture access: cue i's arrow rotation (degrees, counter-clockwise; 0 = pointing up).</summary>
         public float CueAngle(int index) => cueWaves[index].rectTransform.localEulerAngles.z;
+
+        /// <summary>
+        /// Enemies beyond the range that watch the player: the frame turns red over a short part toward each one (on
+        /// the side the direction meets), breathing slightly; gone shortly after it stops watching.
+        /// </summary>
+        void UpdateWatchBars()
+        {
+            shownWatchBars = 0;
+            if (detector != null && !editing)
+            {
+                Vector2 half = BaseSize * 0.5f - Vector2.one * (Border * 0.5f);
+                var watchers = detector.Watchers;
+                for (int i = 0; i < watchers.Count; i++)
+                {
+                    var w = watchers[i];
+                    float age = Time.time - w.Time;
+                    if (w.Enemy == null || w.Enemy.IsDead || age > detector.VisionInterval * 1.5f + WatchHold)
+                        continue;
+                    Vector2 at = WorldToFrame(w.Position);
+                    if (!BeyondEdge(at))
+                        continue; // within the range: the map shows it (or it is hidden: no place given away here)
+                    Vector2 d = at.normalized;
+                    float tx = Mathf.Abs(d.x) > 1e-5f ? half.x / Mathf.Abs(d.x) : float.MaxValue;
+                    float ty = Mathf.Abs(d.y) > 1e-5f ? half.y / Mathf.Abs(d.y) : float.MaxValue;
+                    bool topOrBottom = ty <= tx;
+                    Vector2 p = d * Mathf.Min(tx, ty);
+                    var bar = WatchBar(shownWatchBars++);
+                    var r = bar.rectTransform;
+                    if (topOrBottom)
+                    {
+                        p.x = Mathf.Clamp(p.x, -half.x + WatchBarLength * 0.5f, half.x - WatchBarLength * 0.5f);
+                        r.sizeDelta = new Vector2(WatchBarLength, WatchBarWidth);
+                    }
+                    else
+                    {
+                        p.y = Mathf.Clamp(p.y, -half.y + WatchBarLength * 0.5f, half.y - WatchBarLength * 0.5f);
+                        r.sizeDelta = new Vector2(WatchBarWidth, WatchBarLength);
+                    }
+                    r.anchoredPosition = p;
+                    var color = SeenColor;
+                    color.a = (0.8f + 0.2f * Mathf.Sin(Time.time * 6f)) * (1f - Mathf.InverseLerp(detector.VisionInterval * 1.5f, detector.VisionInterval * 1.5f + WatchHold, age));
+                    bar.color = color;
+                    bar.enabled = true;
+                }
+            }
+            for (int i = shownWatchBars; i < watchBars.Count; i++)
+                watchBars[i].enabled = false;
+        }
+
+        Image WatchBar(int index)
+        {
+            while (watchBars.Count <= index)
+            {
+                // On the frame itself (not inside the masked map), over its light blue edge.
+                var rect = UiBuild.Place(UiBuild.Rect($"WatchBar_{watchBars.Count}", frame), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(WatchBarLength, WatchBarWidth));
+                var image = UiBuild.Image(rect, SeenColor, false);
+                image.enabled = false;
+                watchBars.Add(image);
+            }
+            return watchBars[index];
+        }
 
         /// <summary>
         /// Rotation (degrees, counter-clockwise from up) of a mark pointing along a world direction (x, z) on this
@@ -865,7 +953,7 @@ namespace Deadlock.UI
             // black rim so the tip reads small and on any floor colour.
             Vector2 tip = new Vector2(15.5f, 29.5f), left = new Vector2(7f, 3f), right = new Vector2(24f, 3f);
             facing = MakeOutlined("MarkerFacing", (x, y) => Inside(new Vector2(x, y), tip, left, right));
-            // Footstep from another floor: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
+            // Heard on this floor: one footprint, toes up before rotation (sole, heel and five toes, big toe on the
             // left), white inside a black rim.
             footprint = MakeOutlined("MarkerFootprint", (x, y) =>
             {
@@ -874,6 +962,10 @@ namespace Deadlock.UI
                 return Ellipse(15.5f, 15f, 6.2f, 6.5f) || Ellipse(15f, 5.5f, 4.3f, 3.6f)
                     || Disc(11.5f, 24.5f, 2.9f) || Disc(16f, 26.2f, 2.1f) || Disc(19.6f, 25.4f, 1.9f) || Disc(22.4f, 23.4f, 1.7f) || Disc(23.9f, 20.6f, 1.5f);
             });
+            // Footstep from another floor: an arrow (head and shaft), pointing up before rotation, black rim.
+            arrow = MakeOutlined("MarkerArrow", (x, y) =>
+                Inside(new Vector2(x, y), new Vector2(15.5f, 29f), new Vector2(6f, 17f), new Vector2(25f, 17f))
+                || (Mathf.Abs(x - 15.5f) <= 2.6f && y >= 3f && y <= 18f));
             // Up / down chevron (an open "^": not the enemy triangles).
             chevron = MakeSprite("MarkerChevron", (x, y) =>
             {

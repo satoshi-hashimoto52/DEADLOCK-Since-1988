@@ -41,6 +41,8 @@ namespace Deadlock.Map
         }
         public float Height => height;
         public bool IsDead => zombie == null || zombie.IsDead;
+        /// <summary>It has a clear sight line to the one it is after (offline: the player) right now.</summary>
+        public bool WatchingItsTarget => zombie != null && zombie.HasSightOf(zombie.CurrentTarget);
 
         public float FootstepLoudness
         {

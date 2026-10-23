@@ -260,8 +260,10 @@ namespace Deadlock.Tests
             Assert.AreEqual(ContactKind.Seen, below.Kind);
             Assert.AreEqual(0, below.Floor);
             Assert.AreEqual(1, view.DisplayedFloor);
-            Assert.IsTrue(view.TryGetMarker(enemies[3], out shape, out _));
-            Assert.That(shape, Does.EndWith("seen_down"), "an arrow down (on the edge when beyond the map's range)");
+            // Within the map's range a triangle with a chevron down; beyond it, no marker (only the red frame part
+            // while it watches the player).
+            if (view.TryGetMarker(enemies[3], out shape, out _))
+                Assert.AreEqual("seen_down", shape, "a triangle with a chevron down");
         }
 
         // ------------------------------------------------------------------ footsteps
@@ -332,19 +334,17 @@ namespace Deadlock.Tests
             yield return LoadRuins();
             Vector2 edgeHalf = MiniMapView.EdgeHalf;
             float edge = edgeHalf.y;
-            // Seen 18 m ahead (beyond the 11 m range): a red glow on the edge, straight up (ahead); no direction mark
-            // (a pointer toward the place read as the enemy's facing, "reversed", on the device).
+            // Seen 18 m ahead (beyond the 11 m range) and watching the player: no marker, the top of the frame (ahead)
+            // turns red (no pointer: it read as the enemy's facing, "reversed", on the device).
             Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
             Park(zombies[0], new Vector3(18f, 0f, -CorridorZ));
             yield return Wait(0.3f);
             yield return null;
-            Assert.IsTrue(view.TryGetMarker(enemies[0], out string shape, out Vector2 at));
-            Assert.AreEqual("edge_seen", shape);
-            Assert.AreEqual(0f, at.x, 1f);
-            Assert.AreEqual(edge, at.y, 1f, "held on the edge, toward the enemy");
-            var edgeGlow = MarkerImage(enemies[0]);
-            Assert.AreEqual("MarkerGlow", edgeGlow.sprite.texture.name);
-            Assert.AreEqual(0f, Mathf.DeltaAngle(0f, edgeGlow.rectTransform.localEulerAngles.z), 1f, "not turned");
+            Assert.IsTrue(detector.TryGetContact(enemies[0], out var inSight) && detector.InSight(inSight));
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out string shape, out Vector2 at), "in sight beyond the range: no marker");
+            Assert.AreEqual(1, view.ShownWatchBars);
+            Assert.AreEqual(0f, view.WatchBarPosition(0).x, 1f);
+            Assert.AreEqual(MiniMapView.BaseSize.y * 0.5f, view.WatchBarPosition(0).y, 3f, "on the top of the frame, toward it");
 
             // Hidden and moved elsewhere: the glow stays toward the last detected position. Facing north,
             // that position (east) is to the right; the zombie's current place (front-right, in range) is not used.
@@ -381,13 +381,50 @@ namespace Deadlock.Tests
             CollectionAssert.Contains(view.CueShapesShown(), "step_down_overhead");
             Park(zombies[2], new Vector3(-14f, Upper, 15f));
 
-            // Another floor and beyond the range: the edge pointer with an arrow down beside it.
+            // Another floor and beyond the range, seen: no marker (its sight line to the player is under the parapet).
             Look(new Vector3(2f, Upper + 0.05f, 8.7f), 180f, -19f);
             Park(zombies[3], new Vector3(2f, 0f, -6f));
             yield return Wait(0.4f);
-            Assert.IsTrue(view.TryGetMarker(enemies[3], out shape, out at));
-            Assert.AreEqual("edge_seen_down", shape);
-            Assert.AreEqual(edge, at.y, 1f);
+            Assert.IsTrue(detector.TryGetContact(enemies[3], out var seenBelow) && detector.InSight(seenBelow));
+            Assert.AreEqual(0, seenBelow.Floor);
+            Assert.IsFalse(view.TryGetMarker(enemies[3], out _, out _));
+        }
+
+        [UnityTest]
+        public IEnumerator Watching_FromBeyondTheRange_TurnsThatPartOfTheFrameRed_EvenUnseen_GoesWhenBlocked()
+        {
+            yield return LoadRuins();
+            // Facing east in the south corridor; a zombie 16 m behind (west) in the open: it sees the player, the
+            // player does not see it. The bottom of the frame (behind) turns red; no marker gives its place away.
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 90f);
+            Park(zombies[0], new Vector3(-16f, 0f, -CorridorZ));
+            yield return Wait(0.4f);
+            Assert.IsFalse(detector.CanSee(enemies[0]), "behind the player");
+            Assert.IsTrue(enemies[0].WatchingItsTarget);
+            Assert.IsFalse(view.TryGetMarker(enemies[0], out _, out _));
+            Assert.AreEqual(1, view.ShownWatchBars);
+            Assert.AreEqual(-MiniMapView.BaseSize.y * 0.5f, view.WatchBarPosition(0).y, 3f, "bottom: behind the player");
+            Assert.AreEqual(0f, view.WatchBarPosition(0).x, 1f);
+            var bar = view.Frame.Find("WatchBar_0").GetComponent<Image>();
+            Assert.Greater(bar.color.r, 0.9f, "red");
+            Assert.Less(bar.color.g, 0.4f);
+            // Turning: the red part moves with the map (west is now to the left when facing north).
+            Look(new Vector3(0f, 0.05f, -CorridorZ), 0f);
+            yield return Wait(0.2f);
+            Assert.AreEqual(1, view.ShownWatchBars);
+            Assert.AreEqual(-(MiniMapView.BaseSize.x * 0.5f), view.WatchBarPosition(0).x, 3f, "left side");
+
+            // Behind the ring wall: its sight line is blocked, the red part goes.
+            Park(zombies[0], new Vector3(-16f, 0f, -10.5f));
+            yield return Wait(0.8f);
+            Assert.IsFalse(enemies[0].WatchingItsTarget);
+            Assert.AreEqual(0, view.ShownWatchBars, "gone shortly after it stops watching");
+
+            // Watching from within the range: the map shows it, no red part.
+            Park(zombies[0], new Vector3(-4f, 0f, -CorridorZ));
+            yield return Wait(0.4f);
+            Assert.IsTrue(enemies[0].WatchingItsTarget);
+            Assert.AreEqual(0, view.ShownWatchBars);
         }
 
         // ------------------------------------------------------------------ another floor: footstep cues only
@@ -426,7 +463,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(1f, cue.Heading.x, 1e-3f, "facing east as it walks east (rounded to 8 ways)");
             AssertAngle(view.FrameAngle(cue.Heading), view.CueAngle(0), "the footprint's toes point where it faced");
             AssertAngle(0f, view.CueAngle(0), "east is ahead of the player: toes up");
-            Assert.AreEqual("MarkerFootprint", view.Frame.Find("Background/Viewport/Markers/Cue_0").GetComponent<Image>().sprite.texture.name);
+            Assert.AreEqual("MarkerArrow", view.Frame.Find("Background/Viewport/Markers/Cue_0").GetComponent<Image>().sprite.texture.name);
             Vector2 shownAt = view.CueFramePosition(0);
             Assert.AreEqual(MiniMapView.EdgeHalf.y, shownAt.y, 1f, "on the map's edge (no distance), ahead");
             Assert.AreEqual(0f, shownAt.x, 1f);
@@ -460,7 +497,7 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
-        public IEnumerator Markers_RedTriangleTipPointsWhereEachSeenEnemyFaces_LostAndHeardAreGlowsWithoutDirection()
+        public IEnumerator Markers_RedTriangleForSeen_RedGlowForLost_OrangeFootprintForHeard()
         {
             yield return LoadRuins();
             Look(new Vector3(0f, 0.05f, -CorridorZ), 90f); // south corridor, looking east (east = up on the map)
@@ -511,7 +548,7 @@ namespace Deadlock.Tests
             Assert.Greater(lost.color.r, 0.9f, "red");
             Assert.Less(lost.color.g, 0.4f);
 
-            // Heard behind the wall: a soft orange glow around the footstep, no direction.
+            // Heard behind the wall: an orange footprint at the step, toes the way it walks.
             for (int i = 0; i < 3; i++)
                 Park(zombies[i], new Vector3(-16f + i * 1.5f, Upper, 15.15f));
             yield return Wait(detector.DisplayTime(ContactKind.Seen) + 0.2f);
@@ -523,15 +560,15 @@ namespace Deadlock.Tests
             Assert.Less(Vector2.Angle(Vector2.right, heard.Facing), 25f, "faced east, the way it walked");
             Assert.IsTrue(view.TryGetMarker(enemies[1], out string heardShape, out Vector2 heardAt));
             Assert.AreEqual("heard", heardShape);
-            Assert.AreEqual(view.WorldToFrame(heard.Position).x, heardAt.x, 1f, "around the footstep");
+            Assert.AreEqual(view.WorldToFrame(heard.Position).x, heardAt.x, 1f, "at the footstep");
             Assert.AreEqual(view.WorldToFrame(heard.Position).y, heardAt.y, 1f);
-            Assert.IsTrue(view.TryGetMarkerAngle(enemies[1], out float heardAngle));
-            AssertAngle(0f, heardAngle, "no direction");
-            var glow = MarkerImage(enemies[1]);
-            Assert.AreEqual("MarkerGlow", glow.sprite.texture.name);
-            Assert.Greater(glow.color.r, 0.9f, "orange");
-            Assert.That(glow.color.g, Is.InRange(0.4f, 0.7f));
-            Assert.Less(glow.color.b, 0.3f);
+            Assert.IsTrue(view.TryGetMarkerAngle(enemies[1], out float toes));
+            AssertAngle(view.FrameAngle(heard.Facing), toes, "toes where it faced at the step");
+            var foot = MarkerImage(enemies[1]);
+            Assert.AreEqual("MarkerFootprint", foot.sprite.texture.name);
+            Assert.Greater(foot.color.r, 0.9f, "orange");
+            Assert.That(foot.color.g, Is.InRange(0.4f, 0.7f));
+            Assert.Less(foot.color.b, 0.3f);
         }
 
         Image MarkerImage(MapEnemy enemy)
