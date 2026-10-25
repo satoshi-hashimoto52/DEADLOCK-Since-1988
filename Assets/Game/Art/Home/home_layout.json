@@ -1,0 +1,25 @@
+{
+  "_note": "Home screen layout (docs/HOME_BACKGROUND_ASSET_SPEC.md §4). Reference screen 1672x941, origin top left, x right, y down; position = top-left corner of the image (pivot [0,0]); displaySize = image size (no scaling). Adopted 2026-10-25. Read by Deadlock.Editor.HomeSceneBuilder; the Unity Y flip is done there.",
+  "reference": [1672, 941],
+  "layers": [
+    { "id": "home.background.window_night", "path": "Assets/Game/Art/Home/Backgrounds/window_night.png", "sourceSize": [1672, 941], "pivot": [0, 0], "position": [0, 0], "displaySize": [1672, 941], "parent": null, "sortingOrder": 0, "filter": "point" },
+    { "id": "home.background.doorway", "path": "Assets/Game/Art/Home/Backgrounds/doorway_corridor.png", "sourceSize": [1672, 941], "pivot": [0, 0], "position": [0, 0], "displaySize": [1672, 941], "parent": null, "sortingOrder": 1, "filter": "point" },
+    { "id": "home.base.room", "path": "Assets/Game/Art/Home/Base/room_base.png", "sourceSize": [1672, 941], "pivot": [0, 0], "position": [0, 0], "displaySize": [1672, 941], "parent": null, "sortingOrder": 10, "filter": "point" },
+    { "id": "home.furniture.bed_shadow", "path": "Assets/Game/Art/Home/Furniture/Bed/bed_shadow.png", "sourceSize": [693, 112], "pivot": [0, 0], "position": [885, 632], "displaySize": [693, 112], "parent": "home.furniture.bed", "sortingOrder": 20, "filter": "bilinear" },
+    { "id": "home.furniture.table_shadow", "path": "Assets/Game/Art/Home/Furniture/Table/table_shadow.png", "sourceSize": [315, 85], "pivot": [0, 0], "position": [1338, 727], "displaySize": [315, 85], "parent": "home.furniture.table", "sortingOrder": 21, "filter": "bilinear" },
+    { "id": "home.furniture.bed", "path": "Assets/Game/Art/Home/Furniture/Bed/bed.png", "sourceSize": [726, 414], "pivot": [0, 0], "position": [879, 341], "displaySize": [726, 414], "parent": null, "sortingOrder": 30, "filter": "point" },
+    { "id": "home.furniture.table", "path": "Assets/Game/Art/Home/Furniture/Table/table.png", "sourceSize": [334, 214], "pivot": [0, 0], "position": [1330, 590], "displaySize": [334, 214], "parent": null, "sortingOrder": 31, "filter": "point" },
+    { "id": "home.prop.candle", "path": "Assets/Game/Art/Home/Props/Candle/candle_body.png", "sourceSize": [88, 93], "pivot": [0, 0], "position": [1466, 539], "displaySize": [88, 93], "parent": "home.furniture.table", "sortingOrder": 60, "filter": "point" },
+    { "id": "home.lighting.candle_light", "frames": ["Assets/Game/Art/Home/Lighting/Candle/candle_light_00.png", "Assets/Game/Art/Home/Lighting/Candle/candle_light_01.png", "Assets/Game/Art/Home/Lighting/Candle/candle_light_02.png", "Assets/Game/Art/Home/Lighting/Candle/candle_light_03.png"], "sourceSize": [806, 636], "pivot": [0, 0], "position": [860, 245], "displaySize": [806, 636], "parent": "home.prop.candle", "sortingOrder": 70, "filter": "bilinear", "role": "light" },
+    { "id": "home.lighting.candle_glow", "frames": ["Assets/Game/Art/Home/Lighting/Candle/candle_glow_00.png", "Assets/Game/Art/Home/Lighting/Candle/candle_glow_01.png", "Assets/Game/Art/Home/Lighting/Candle/candle_glow_02.png", "Assets/Game/Art/Home/Lighting/Candle/candle_glow_03.png"], "sourceSize": [132, 132], "pivot": [0, 0], "position": [1448, 457], "displaySize": [132, 132], "parent": "home.prop.candle", "sortingOrder": 80, "filter": "bilinear", "role": "glow" },
+    { "id": "home.lighting.candle_flame", "frames": ["Assets/Game/Art/Home/Lighting/Candle/candle_flame_00.png", "Assets/Game/Art/Home/Lighting/Candle/candle_flame_01.png", "Assets/Game/Art/Home/Lighting/Candle/candle_flame_02.png", "Assets/Game/Art/Home/Lighting/Candle/candle_flame_03.png"], "sourceSize": [40, 44], "pivot": [0, 0], "position": [1494, 498], "displaySize": [40, 44], "parent": "home.prop.candle", "sortingOrder": 90, "filter": "point", "role": "flame" }
+  ],
+  "candle": {
+    "frameIntervalSeconds": 0.15,
+    "flame": [0, 1, 2, 3],
+    "glow": [1, 1, 2, 3],
+    "light": [0, 1, 2, 3],
+    "lightAlpha": 0.65,
+    "_note": "Runtime values live in Assets/Game/Data/HomeLighting.asset (adjustable); the sequences are fixed in Deadlock.Home.HomeCandleAnimator."
+  }
+}

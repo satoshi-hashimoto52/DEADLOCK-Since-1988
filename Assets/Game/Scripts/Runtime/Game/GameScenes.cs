@@ -6,6 +6,8 @@ namespace Deadlock.Game
     /// <summary>Prototype scenes and switching between them.</summary>
     public static class GameScenes
     {
+        /// <summary>Home screen (first scene of the build): background and candle; the menu UI comes later.</summary>
+        public const string Home = "Home";
         public const string FiringRange = "Proto_FiringRange";
         public const string Training = "Proto_Training";
         /// <summary>LAN two-player test scene (host + one client).</summary>

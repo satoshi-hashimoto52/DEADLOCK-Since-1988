@@ -226,6 +226,8 @@ namespace Deadlock.Editor
                 new EditorBuildSettingsScene(OnlineScenePath, true),
                 new EditorBuildSettingsScene(RuinsScenePath, true),
             };
+            if (File.Exists(HomeSceneBuilder.ScenePath))
+                HomeSceneBuilder.ListFirstInBuild(); // the home screen stays the first scene
 
             // The template sample scene is replaced by the prototype scene.
             // (Assets/Settings/SampleSceneProfile.asset stays: PC_RPAsset uses it as its volume profile.)

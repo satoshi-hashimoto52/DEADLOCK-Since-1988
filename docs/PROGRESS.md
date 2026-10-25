@@ -1,6 +1,6 @@
 # 実装状況
 
-最終更新：2026-10-20（オンライン試作・ADS設定を追加）
+最終更新：2026-10-25（ホーム画面の背景・蝋燭を追加、12-51）
 
 ゲーム仕様の変更は GAME_SPEC.md／DECISIONS.md で扱う。本書は実装状況・試作条件・課題のみを記録する。
 
@@ -1398,6 +1398,26 @@ GAME_SPEC・DECISIONSに記録のみ。サイト装備システム・倍率の�
 - 項目ごとの細目と実機のスクリーンショットは未取得。遺跡の3分連続の計測は残件。
 - 資料：`docs/review/dungeon-test-field/minimap/README.md` の17〜22章。
 
+## 12-51. ホーム画面の背景・蝋燭の正式実装（2026-10-25、統合ブランチ、D-045）
+
+- 起動の最初のシーンを `Assets/Game/Scenes/Home.unity` にした（ビルド一覧の先頭。射撃場・トレーニング・オンライン・遺跡は順番どおり残る）。
+- 素材：AssetPipeline で受け付け・承認した20枚（`docs/review/home-background/ASSET_MANIFEST.md`）。画像はSHA-256が同じまま `Assets/Game/Art/Home/` に置き、実装と同じコミットに入れた。AssetPipeline の `register` は、このコミットのあとに実行して登録を記録する（追加のコミットは作らない）。
+- コード（`Assets/Game/Scripts/Runtime/Home/`）：
+  - `HomeFraming`：画面の縦横比で Cover／Fit を選び、カメラの大きさを計算する。
+  - `HomeBackgroundView`：カメラに適用し、画面サイズが変わると再計算する。
+  - `HomeCandleAnimator`：共通のフレーム番号で炎・発光（01→01→02→03）・照り返しの画像を差し替える。位置は動かさない。
+  - `HomeLightingSettings`（`Assets/Game/Data/HomeLighting.asset`）：照り返しのアルファ0.65、間隔0.15秒。
+  - `HomeSafeAreaPanel`：Safe Area に合わせる UI の親（`MenuRoot` は空。メニューは次工程）。
+  - `HomeScreen`：**暫定の導線**。画面のタップ（PCはクリック・Enter・Space）で射撃場へ進む。画面下に「画面をタップして射撃場へ」と表示する。
+- シーンの生成：`Deadlock.Editor.HomeSceneBuilder`（`home_layout.json` を読む）。`PrototypeSceneBuilder` でシーンを作り直してもホームが先頭に残るようにした。
+- ホームへ戻る導線はまだない（アプリの再起動で戻る）。射撃場から先は、従来どおりゲーム内メニューでトレーニング・遺跡・オンライン検証へ進める。
+- テスト：EditMode 75件・PlayMode 127件すべて合格（追加：`HomeScreenTests` 21件、`HomeSceneTests` 4件）。
+- Unity（batchmode）：iPhone 16 Pro の画面サイズでのホームの描画は、承認時の Cover 検証画像と画素単位で一致。iPad 4:3 と 16:10 は Fit。
+- 実機（iPhone 16 Pro、開発ビルド、上書きインストール）：通常起動でホームが表示され、Cover、照り返し0.65、0.150秒ごとの同期、発光00を使わないことを、アプリ内の記録と撮影で確認した。タップの代わりに同じ処理を呼んで射撃場へ進めた。エラーなし、60fps、保存設定は変わらず。
+  - 未確認：ユーザーによる実機画面の目視、指でのタップ。
+- 既知のWARN：床の光だまりの左端が縦に直線状に見える（照り返し素材の形による。素材は加工していない）。
+- 資料：`AssetPipeline/reports/home_official_20261025/`。
+
 ## 13. 未実装（今後の対象）
 
 - オンライン：マッチメイキング・インターネット越しの接続・ホスト移行・途中参加の復元・遅延補償・移動と照準の検証（本格的な不正対策）・本番サーバー構成（LAN 2人の試作は 9.、PvPvE検証は 12.）
@@ -1414,4 +1434,5 @@ GAME_SPEC・DECISIONSに記録のみ。サイト装備システム・倍率の�
 - 姿勢の他者表示・同期・被弾判定
 - イベント・ボス
 - 本格マップ・完成版アセット
+- ホーム画面のメニューUI（ゲームモード選択・装備・スキル・ガチャ・ポイント表示・設定）とホームへ戻る導線（背景・蝋燭は 12-51）
 - プレイヤーの回復・リスポーン、HPの正式値
