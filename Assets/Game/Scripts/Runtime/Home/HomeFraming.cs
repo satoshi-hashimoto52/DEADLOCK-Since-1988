@@ -14,20 +14,21 @@ namespace Deadlock.Home
     /// Screen framing of the home background (docs/HOME_BACKGROUND_ASSET_SPEC.md). Every home layer is placed in the
     /// same 1672x941 reference space (1 unit = 1 reference px, origin top left, y down = -y) and one camera shows it,
     /// so the framing only changes the camera's orthographic size: all layers share one scale and keep their
-    /// relative positions. The mode is chosen from the screen aspect, not from the device name:
-    /// screens at least as wide as the reference (iPhone landscape) use Cover, which crops only the top and bottom;
-    /// narrower screens (iPad 4:3, 16:10) use Fit, because Cover would crop the sides and push the candle off screen
-    /// (Fit there is provisional).
+    /// relative positions. The home always uses Fit (2026-10-25): nothing of the reference is cropped. On screens
+    /// wider than the reference (iPhone landscape) Fit matches the screen height and leaves black margins left and
+    /// right (the image is never stretched or extended); on narrower screens (iPad 4:3, 16:10) it matches the width
+    /// with margins above and below (provisional). Cover (fill the screen, crop the overflowing side) was used for
+    /// iPhone from 2026-10-25 (D-045) until this change (D-046); it is kept here for comparison only.
     /// </summary>
     public static class HomeFraming
     {
         public const float RefWidth = 1672f, RefHeight = 941f;
         public const float RefAspect = RefWidth / RefHeight;
-        /// <summary>Tolerance so a 16:9 screen (1.7778 vs 1.7768) counts as "as wide as the reference".</summary>
-        const float AspectTolerance = 0.002f;
+        /// <summary>Framing used by the home screen for a screen size: Fit on every aspect (D-046).</summary>
+        public static HomeFramingMode Choose(float width, float height) => HomeFramingMode.Fit;
 
-        public static HomeFramingMode Choose(float width, float height) =>
-            width / height >= RefAspect - AspectTolerance ? HomeFramingMode.Cover : HomeFramingMode.Fit;
+        /// <summary>True when Fit matches the screen height (screen at least as wide as the reference).</summary>
+        public static bool FitsHeight(float width, float height) => width / height >= RefAspect;
 
         /// <summary>Camera orthographic size (half the visible height, reference px) for a screen aspect.</summary>
         public static float OrthoSize(HomeFramingMode mode, float aspect)

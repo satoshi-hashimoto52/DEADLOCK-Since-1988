@@ -4,7 +4,8 @@ namespace Deadlock.Home
 {
     /// <summary>
     /// Shows the home background on screen: keeps the home camera on the reference centre and applies the framing
-    /// (<see cref="HomeFraming"/>) for the current screen, again whenever the screen size changes (rotation,
+    /// (<see cref="HomeFraming"/>: the whole reference, height-matched on iPhone) for the current screen, again
+    /// whenever the screen size changes (rotation,
     /// resolution, window resize). The background is never limited to the safe area; only the menu root
     /// (<see cref="HomeSafeAreaPanel"/>) is.
     /// </summary>

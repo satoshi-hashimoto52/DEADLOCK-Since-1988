@@ -27,13 +27,13 @@ namespace Deadlock.Tests
         }
 
         [UnityTest]
-        public IEnumerator Framing_FollowsScreen_CoverOnIPhone_FitOnIPad()
+        public IEnumerator Framing_FollowsScreen_HeightMatchedOnIPhone_FitOnIPad()
         {
             yield return LoadHome();
             Assert.AreEqual(HomeFraming.Choose(Screen.width, Screen.height), view.Mode);
             view.Apply(2622, 1206);
-            Assert.AreEqual(HomeFramingMode.Cover, view.Mode);
-            Assert.AreEqual(384.522f, cam.orthographicSize, 1e-3f);
+            Assert.AreEqual(HomeFramingMode.Fit, view.Mode);
+            Assert.AreEqual(470.5f, cam.orthographicSize, 1e-3f, "half of the 941 px reference height = screen height");
             view.Apply(2048, 1536);
             Assert.AreEqual(HomeFramingMode.Fit, view.Mode);
             Assert.AreEqual(627f, cam.orthographicSize, 1e-3f);

@@ -8,23 +8,37 @@ using UnityEngine;
 
 namespace Deadlock.Tests
 {
-    /// <summary>Home background framing (Fit / Cover from the screen aspect), candle frame sequences, home scene wiring.</summary>
+    /// <summary>Home background framing (Fit on every aspect, height-matched on iPhone), candle frame sequences, home scene wiring.</summary>
     public class HomeScreenTests
     {
         // candle body and flame in the 1672x941 reference (home_layout.json)
         static readonly Rect CandleBody = new Rect(1466, 539, 88, 93);
         static readonly Rect Flame = new Rect(1494, 498, 40, 44);
 
-        [TestCase(2622, 1206, HomeFramingMode.Cover)] // iPhone 16 Pro
-        [TestCase(2556, 1179, HomeFramingMode.Cover)] // iPhone 15 / 16
-        [TestCase(2400, 1080, HomeFramingMode.Cover)] // 20:9
-        [TestCase(1920, 1080, HomeFramingMode.Cover)] // 16:9 (same as the reference within rounding)
-        [TestCase(1672, 941, HomeFramingMode.Cover)]
-        [TestCase(1920, 1200, HomeFramingMode.Fit)]   // 16:10
-        [TestCase(2048, 1536, HomeFramingMode.Fit)]   // iPad 4:3
-        [TestCase(2732, 2048, HomeFramingMode.Fit)]
-        public void Mode_IsChosenFromAspect(int w, int h, HomeFramingMode expected) => Assert.AreEqual(expected, HomeFraming.Choose(w, h));
+        [TestCase(2622, 1206)] // iPhone 16 Pro
+        [TestCase(2556, 1179)] // iPhone 15 / 16
+        [TestCase(2400, 1080)] // 20:9
+        [TestCase(1920, 1080)] // 16:9
+        [TestCase(1672, 941)]
+        [TestCase(1920, 1200)] // 16:10
+        [TestCase(2048, 1536)] // iPad 4:3
+        [TestCase(2732, 2048)]
+        public void Mode_IsFitOnEveryAspect(int w, int h) => Assert.AreEqual(HomeFramingMode.Fit, HomeFraming.Choose(w, h));
 
+        [Test]
+        public void Fit_iPhone16Pro_MatchesScreenHeight_NoCrop_SideMarginsEqual()
+        {
+            Assert.IsTrue(HomeFraming.FitsHeight(2622, 1206));
+            var v = HomeFraming.Visible(HomeFramingMode.Fit, 2622, 1206);
+            float s = HomeFraming.Scale(HomeFramingMode.Fit, 2622, 1206);
+            Assert.AreEqual(1206f / 941f, s, 1e-5f, "reference height = screen height");
+            Assert.AreEqual(0f, v.y, 1e-3f);
+            Assert.AreEqual(941f, v.height, 1e-2f, "no top / bottom crop");
+            Assert.AreEqual(-v.x, v.xMax - 1672f, 1e-3f, "left and right margins are equal");
+            Assert.AreEqual(239.6f, -v.x * s, 0.1f, "margin in screen px");
+        }
+
+        /// <summary>Cover (D-045, replaced by D-046) stays computable for comparison.</summary>
         [Test]
         public void Cover_iPhone16Pro_FillsWidth_CropsTopBottomEqually()
         {
@@ -65,6 +79,7 @@ namespace Deadlock.Tests
             var v = HomeFraming.Visible(HomeFramingMode.Cover, 2048, 1536);
             Assert.Less(v.xMax, CandleBody.xMax);
             Assert.AreEqual(HomeFramingMode.Fit, HomeFraming.Choose(2048, 1536));
+            Assert.IsFalse(HomeFraming.FitsHeight(2048, 1536), "iPad: width-matched Fit");
         }
 
         [Test]
