@@ -2,10 +2,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Deadlock.Home;
-using Deadlock.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Deadlock.Editor
@@ -65,7 +66,7 @@ namespace Deadlock.Editor
             }
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var home = new GameObject("Home").AddComponent<HomeScreen>();
+            new GameObject("Home").AddComponent<HomeScreen>();
 
             var camGo = new GameObject("HomeCamera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
@@ -111,19 +112,16 @@ namespace Deadlock.Editor
                 }
             }
 
-            // Screen-space UI: only the safe-area root for the future home menu, and the interim hint.
-            var canvasGo = new GameObject("HomeUI", typeof(Canvas), typeof(CanvasScaler));
+            // Screen-space UI over the whole screen (not limited to the background or the safe area): the home menu
+            // builds its freely placed entries, panels and layout editor at runtime (HomeMenu).
+            var canvasGo = new GameObject("HomeUI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(HomeFraming.RefWidth, HomeFraming.RefHeight);
             scaler.matchWidthOrHeight = 1f;
-            var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", canvasGo.transform));
-            safe.gameObject.AddComponent<HomeSafeAreaPanel>();
-            UiBuild.Stretch(UiBuild.Rect("MenuRoot", safe)); // home menu UI goes here (next step)
-            var hint = UiBuild.Text(UiBuild.Place(UiBuild.Rect("InterimContinueHint", safe), new Vector2(0.5f, 0f), new Vector2(0f, 36f), new Vector2(700f, 40f)),
-                "画面をタップして射撃場へ", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.55f));
-            hint.raycastTarget = false;
+            canvasGo.AddComponent<HomeMenu>();
+            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             ListFirstInBuild();

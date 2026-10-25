@@ -18,7 +18,7 @@ namespace Deadlock.UI
 
     /// <summary>
     /// In-game menu: a menu button that is always on screen (top centre, never covered by movable touch widgets),
-    /// and a panel with Resume / Retry (training) / scene switch / Settings → Control layout / Equipment & skins (test).
+    /// and a panel with Home (asks first) / Resume / Retry (training) / scene switch / Settings → Control layout / Equipment & skins (test).
     /// Opening it blocks the local player's input. Pausing the game is a separate, offline-only concern
     /// (<see cref="OfflineSessionPause"/>). Built at runtime; Tab opens / closes it on desktop.
     /// </summary>
@@ -56,6 +56,10 @@ namespace Deadlock.UI
         public bool IsSkinSettingsOpen => skinPanel != null && skinPanel.activeSelf;
         public bool IsEditingLayout => layoutEditor != null && layoutEditor.IsOpen;
         public Button MenuButton { get; private set; }
+        /// <summary>Menu → Home (null in the online scene).</summary>
+        public Button HomeButton { get; private set; }
+        public bool IsHomeConfirmOpen => homeConfirm != null && homeConfirm.activeSelf;
+        GameObject homeConfirm;
 
         public event Action Opened;
         public event Action Closed;
@@ -101,6 +105,8 @@ namespace Deadlock.UI
             IsOpen = false;
             panel.SetActive(false);
             controlsPanel.SetActive(false);
+            if (homeConfirm != null)
+                homeConfirm.SetActive(false);
             bool skinOpen = IsSkinSettingsOpen;
             if (skinPanel != null)
                 skinPanel.SetActive(false);
@@ -108,6 +114,46 @@ namespace Deadlock.UI
             if (skinOpen)
                 SkinSettingsClosed?.Invoke();
             Closed?.Invoke();
+        }
+
+        /// <summary>
+        /// Menu → Home asks first (the current round is not kept). The menu stays open (and an offline scene paused)
+        /// until the player confirms or goes back; loading the home resets the clock (<see cref="GameScenes.Load"/>).
+        /// </summary>
+        public void OpenHomeConfirm()
+        {
+            if (homeConfirm == null)
+                return;
+            if (!IsOpen)
+                Open();
+            panel.SetActive(false);
+            homeConfirm.SetActive(true);
+        }
+
+        public void CloseHomeConfirm()
+        {
+            if (homeConfirm == null)
+                return;
+            homeConfirm.SetActive(false);
+            if (IsOpen)
+                panel.SetActive(true);
+        }
+
+        public void ConfirmGoHome() => GameScenes.Load(GameScenes.Home);
+
+        void BuildHomeConfirm()
+        {
+            homeConfirm = UiBuild.Stretch(UiBuild.Rect("HomeConfirmPanel", layer)).gameObject;
+            UiBuild.Image((RectTransform)homeConfirm.transform, new Color(0f, 0f, 0f, 0.6f), true);
+            var window = UiBuild.Place(UiBuild.Rect("Window", homeConfirm.transform), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 330f));
+            UiBuild.Image(window, new Color(0.08f, 0.09f, 0.12f, 0.97f), true);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(700f, 50f)),
+                "ホームへ戻りますか？", 36, TextAnchor.MiddleCenter);
+            UiBuild.Text(UiBuild.Place(UiBuild.Rect("Body", window), new Vector2(0.5f, 1f), new Vector2(0f, -90f), new Vector2(700f, 40f)),
+                "今の射撃・トレーニングの進行は保存されません", 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.7f));
+            UiBuild.Button(window, "ConfirmHomeButton", "ホームへ戻る", new Vector2(0.5f, 0f), new Vector2(-170f, 30f), new Vector2(300f, 80f), ConfirmGoHome, 28);
+            UiBuild.Button(window, "CancelHomeButton", "キャンセル", new Vector2(0.5f, 0f), new Vector2(170f, 30f), new Vector2(300f, 80f), CloseHomeConfirm, 28);
+            homeConfirm.SetActive(false);
         }
 
         public void OpenLayoutEditor()
@@ -397,6 +443,15 @@ namespace Deadlock.UI
             else
                 UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 60f)),
                     "メニュー", 44, TextAnchor.MiddleCenter);
+
+            // Home: top left of the window (the button list below is already full in some scenes). Not offered in
+            // the online scene, which has its own leave flow (the session is shut down first).
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != GameScenes.Online)
+            {
+                HomeButton = UiBuild.Button(window, "HomeButton", "ホームへ", new Vector2(0f, 1f), new Vector2(14f, -14f), new Vector2(140f, 60f), OpenHomeConfirm, 24);
+                ((RectTransform)HomeButton.transform).pivot = new Vector2(0f, 1f);
+                BuildHomeConfirm();
+            }
 
             float y = -120f;
             Vector2 size = new Vector2(480f, 76f);

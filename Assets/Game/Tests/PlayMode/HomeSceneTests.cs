@@ -4,14 +4,23 @@ using Deadlock.Game;
 using Deadlock.Home;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace Deadlock.Tests
 {
     /// <summary>Home scene at play: framing follows the screen size, candle frames stay in sync, continue to the firing range.</summary>
-    public class HomeSceneTests
+    public class HomeSceneTests : InputTestFixture
     {
+        // Input runs on the test fixture (the home's UI input module must not touch the real input state).
+        public override void Setup()
+        {
+            base.Setup();
+            InputSystem.AddDevice<Keyboard>();
+            InputSystem.AddDevice<Mouse>();
+        }
+
         HomeBackgroundView view;
         HomeCandleAnimator candle;
         Camera cam;
@@ -73,7 +82,7 @@ namespace Deadlock.Tests
         public IEnumerator SafeAreaPanel_FitsAGivenSafeArea()
         {
             yield return LoadHome();
-            var panel = Object.FindAnyObjectByType<HomeSafeAreaPanel>();
+            var panel = GameObject.Find("FixedSafeArea").GetComponent<HomeSafeAreaPanel>();
             panel.enabled = false; // keep the test values (the real safe area is re-applied while enabled)
             panel.Fit(new Rect(186, 63, 2250, 1143), 2622, 1206);
             var rt = (RectTransform)panel.transform;
@@ -81,18 +90,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(63f / 1206f, rt.anchorMin.y, 1e-5f);
             Assert.AreEqual(2436f / 2622f, rt.anchorMax.x, 1e-5f);
             Assert.AreEqual(1f, rt.anchorMax.y, 1e-5f);
-            Assert.IsNotNull(rt.Find("MenuRoot"), "root for the future home menu");
-        }
-
-        [UnityTest]
-        public IEnumerator Continue_GoesToTheFiringRange()
-        {
-            yield return LoadHome();
-            Object.FindAnyObjectByType<HomeScreen>().Continue();
-            float t0 = Time.realtimeSinceStartup;
-            while (SceneManager.GetActiveScene().name != GameScenes.FiringRange && Time.realtimeSinceStartup - t0 < 20f)
-                yield return null;
-            Assert.AreEqual(GameScenes.FiringRange, SceneManager.GetActiveScene().name);
+            Assert.IsNotNull(rt.Find("LayoutEditButton"), "fixed way into the layout editor");
         }
     }
 }
