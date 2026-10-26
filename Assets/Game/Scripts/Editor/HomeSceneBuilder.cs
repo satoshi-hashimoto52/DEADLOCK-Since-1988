@@ -26,6 +26,8 @@ namespace Deadlock.Editor
         public const string LayoutPath = "Assets/Game/Art/Home/home_layout.json";
         public const string LightingPath = "Assets/Game/Data/HomeLighting.asset";
         const string MaterialPath = "Assets/Game/Materials/HomeSpriteUnlit.mat";
+        /// <summary>Approved home menu art (HOME_MENU_UI_ASSET_SPEC §2–3; AssetPipeline APPROVED, same SHA-256).</summary>
+        public const string UiArtFolder = "Assets/Game/Art/Home/UI/";
 
         [System.Serializable]
         class Layout
@@ -120,13 +122,51 @@ namespace Deadlock.Editor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(HomeFraming.RefWidth, HomeFraming.RefHeight);
             scaler.matchWidthOrHeight = 1f;
-            canvasGo.AddComponent<HomeMenu>();
+            var menu = canvasGo.AddComponent<HomeMenu>();
+            menu.icons = AssetDatabase.LoadAssetAtPath<Deadlock.UI.ControlIconSet>(UiArtSetup.IconSetPath); // fallback only
+            menu.survivalIcon = UiSprite("Icons/home_icon_survival.png");
+            menu.trainingIcon = UiSprite("Icons/home_icon_training.png");
+            menu.eventIcon = UiSprite("Icons/home_icon_event.png");
+            menu.gearIcon = UiSprite("Icons/home_icon_gear.png");
+            menu.settingsIcon = UiSprite("Icons/home_icon_settings.png");
+            menu.arrowSprite = UiSprite("Icons/home_menu_arrow.png");
+            menu.homeLogo = UiSprite("Branding/home_title_logo.png");
+            // crateIcon and the panel PNG: candidates, not approved (Crate stays empty, the panels stay drawn in Unity UI).
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             ListFirstInBuild();
             AssetDatabase.SaveAssets();
             Debug.Log($"[DEADLOCK] Home scene built: {ScenePath}");
+        }
+
+        /// <summary>
+        /// Imports one approved home menu image as a UI sprite (§0.5: 100 px per unit, centre pivot, full rect, bilinear,
+        /// no mipmaps, uncompressed, clamp) and returns it. The image itself is not changed.
+        /// </summary>
+        static Sprite UiSprite(string relativePath)
+        {
+            string path = UiArtFolder + relativePath;
+            var ti = (TextureImporter)AssetImporter.GetAtPath(path);
+            if (ti == null)
+                throw new FileNotFoundException("home menu image missing (approved in AssetPipeline, copied with the same SHA-256)", path);
+            ti.textureType = TextureImporterType.Sprite;
+            ti.spriteImportMode = SpriteImportMode.Single;
+            ti.spritePixelsPerUnit = 100f;
+            var settings = new TextureImporterSettings();
+            ti.ReadTextureSettings(settings);
+            settings.spriteAlignment = (int)SpriteAlignment.Center;
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            ti.SetTextureSettings(settings);
+            ti.mipmapEnabled = false;
+            ti.textureCompression = TextureImporterCompression.Uncompressed;
+            ti.maxTextureSize = 2048;
+            ti.alphaIsTransparency = true;
+            ti.sRGBTexture = true;
+            ti.wrapMode = TextureWrapMode.Clamp;
+            ti.filterMode = FilterMode.Bilinear;
+            ti.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static IEnumerable<string> Paths(Layer layer) => layer.frames != null && layer.frames.Length > 0 ? layer.frames : new[] { layer.path };

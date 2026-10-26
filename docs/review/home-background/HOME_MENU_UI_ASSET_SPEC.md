@@ -1,15 +1,14 @@
 # ホームメニュー UI 素材仕様（制作依頼用）
 
-作成：2026-10-26（日本時間）。同日、受け入れ状況を追記。
+作成：2026-10-26（日本時間）。同日、受け入れ状況と実装の状況を追記。
 状態：この仕様で別の画像制作ルームが制作し、AssetPipeline で受け取る。登録されるまで、素材が存在する前提の実装はしない。受け入れ状況は §4.4。
 
 - デザインの正本：`docs/review/home-background/home_menu_design_approved.png`
   - 1672×941、SHA-256 `078ea6ea105d814dc06238a823bf2d144f7b3730cf87729085c44918b1408a2a`、D-048・D-049
 - 背景の正本 `home_concept_approved.png` は対象外。背景・家具・蝋燭の素材は変えない。
-- 実装：`Assets/Game/Scripts/Runtime/Home/HomeMenu.cs`
-  - 今は、パネル・枠・リベット・矢印・文字を Unity UI で描いている。
-  - Survival・Event・Gear・Crate のアイコンは空欄。
-  - Training と設定は既存の操作アイコン、ロゴは既存の採用ロゴを使っている。
+- 実装：`Assets/Game/Scripts/Runtime/Home/HomeMenu.cs`（2026-10-26 時点、未コミット）
+  - 承認済みの7枚（Survival・Training・Event・Gear・設定のアイコン、矢印、ホーム用ロゴ）を表示している（§5）。
+  - パネル・枠・リベット・文字は Unity UI で描いている。Crate のアイコンは空欄。
 
 ## 0. 共通ルール
 
@@ -182,9 +181,11 @@
 | 色 | クリームの明・中・暗、輪郭の暗色、線の真鍮で、合計8色以内 |
 | Pivot | 中央。9-slice は不要。Preserve Aspect で拡大縮小 |
 
-- **未決定**：このロゴを、既存の採用ロゴ（`Assets/Game/Art/UI/Branding/deadlock_title_logo.png`。赤黒の縞の版、D-039）とどう使い分けるか。
-  - 候補は「ホーム画面だけで使い、ゲーム中のメニューとオンライン画面は既存ロゴのまま」。
-  - 承認までは、ホーム画面も既存ロゴのまま表示する。
+- 既存の採用ロゴ（`Assets/Game/Art/UI/Branding/deadlock_title_logo.png`。赤黒の縞の版、D-039）との使い分け（2026-10-26、ユーザーの指示で実装）：
+  - ホーム画面は `home_title_logo.png`（承認済み、受付ID R20261026-184731-60fa5c）。
+  - ゲーム中のメニューとオンライン画面は、既存の採用ロゴのまま。
+  - どちらのロゴ画像も変えていない。
+- **未解決**：ホーム画面のロゴの表示枠は、今の実装の 342×114 デザイン px のまま（上の表の 494×108 ではない）。ロゴは縦横比を保って枠に収めるので、表示は約 342×75 になる。枠を変えるには初期配置の定義も変わるため、今回は変えていない。
 
 ## 4. 必要枚数と AssetPipeline での受け取り
 
@@ -206,7 +207,7 @@ PNG 9枚。状態ごとの別の PNG、連番、大きさ違いはない。
 
 ### 4.2 素材ID と登録先
 
-AssetPipeline の今の `home.ui.*` は、D-047 以前の計画の名前になっている（`icon_battle.png`・`icon_ruins.png`・`icon_equipment.png`・`icon_skin.png`・`icon_skill.png`・`icon_gacha.png`・`icon_training.png`・`icon_settings.png`、`button_wide.png`・`button_square.png`・`points_plate.png`）。今回の素材とは名前も役割も合わないので、次の新しい ID を使う。2026-10-26 に、上の5件（panel と4アイコン）を `config/assets.json` に追加した（要求寸法つき）。残りの4件は案のままで、まだ追加していない。
+AssetPipeline の今の `home.ui.*` は、D-047 以前の計画の名前になっている（`icon_battle.png`・`icon_ruins.png`・`icon_equipment.png`・`icon_skin.png`・`icon_skill.png`・`icon_gacha.png`・`icon_training.png`・`icon_settings.png`、`button_wide.png`・`button_square.png`・`points_plate.png`）。今回の素材とは名前も役割も合わないので、次の新しい ID を使う。2026-10-26 に、下の9件すべてを `config/assets.json` に追加した（要求寸法つき）。
 
 | 素材ID | 分類 | 登録先 |
 | --- | --- | --- |
@@ -241,31 +242,33 @@ AssetPipeline README のとおり。
 | home_icon_event.png | **APPROVED**（承認済み、未登録） | R20261026-094326-774a4b | `699264d2f9af142078b0ca568acd89aa7911f47aead2eda7ee71138c89e53d63` |
 | home_icon_gear.png | **APPROVED**（承認済み、未登録） | R20261026-094328-d01491 | `cd2f9d1d98a049eb902f96ca6504045fa4bd296a6b8fb1a3580141c834b833d9` |
 | home_menu_panel.png | **CANDIDATE**（技術検査は合格、採用は未判断） | R20261026-094334-8312ce | `3ff2ab2704a14dfbf25de27d3aeae91f23086d7dd2624cbff7d8d8f23481aa54` |
-| home_icon_settings.png | 未制作・未受付 | ― | ― |
-| home_icon_crate.png | 未制作・未受付 | ― | ― |
-| home_menu_arrow.png | 未制作・未受付 | ― | ― |
-| home_title_logo.png | 未制作・未受付 | ― | ― |
+| home_icon_settings.png | **APPROVED**（承認済み、未登録） | R20261026-184726-c0b784 | `edba3a01142a867c6e85f0e397f5e722bcb2a7744521a9b619ec91a434d4c52b` |
+| home_icon_crate.png | **CANDIDATE**（採用は未判断。ドットの細かさ・色数が §2 と合わない） | R20261026-105809-4f4129 | `e04d485f4eb1be35042cba7a851e0cf0ceca7d5819a0ae4b3110c32106cf585f` |
+| home_menu_arrow.png | **APPROVED**（承認済み、未登録） | R20261026-184729-e7b223 | `971b87ad7703243fee491256688726bc015a1b1f59568353eeacdad7ed41d0a2` |
+| home_title_logo.png | **APPROVED**（承認済み、未登録） | R20261026-184731-60fa5c | `3e9f32ccb8f83f79391e92fdcb835d2dda23eb29a7b042de8135031e93604cbc` |
+
+- 設定のアイコンは、最初の候補 R20261026-104724-20a644（原画を正規化したもの）を使わず、作り直した版を承認した。最初の候補は CANDIDATE のまま。
 
 - 承認済みの4アイコンは、残りの素材（歯車・Crate・矢印）の線の太さ・色・ドットの大きさを合わせる基準になる（§2.4）。色は `#2A2018`・`#CAAF8D`・`#E8CDAA`・`#F6DFBE` の4色。
 - `home_menu_panel.png` は、§1.2 の数値の条件は満たしている。ただし、承認デザインとの見た目の差があり、採用するかどうかはユーザーの判断待ち。
   - 差は3点：中央が透ける（§1.2 のアルファ224による。デザインはほぼ不透明）、リベットが小さく平ら、角の補強がない。
   - 判断が出るまで、§1 の数値は変えない。
 - 検査の記録：AssetPipeline `reports/home_ui_initial_intake/REPORT.md`（ローカル）。
-- Unity への登録（register）は、まだどの素材もしていない。
+- Unity への登録（register）は、まだどの素材もしていない。承認済みの7枚は、同じ SHA-256 のまま §4.2 の登録先に置き、ホーム画面で表示している（未コミット）。
 
 ## 5. 素材が届いたあとの実装（登録後に行う）
 
 - `HomeMenu` の Unity で描いている枠・リベットを、`home_menu_panel.png`（Sliced）に置き換える。地の色は Image の色で表す。
 - 「›」の文字を `home_menu_arrow.png` に置き換える。
 - アイコンの欄（`survivalIcon`・`eventIcon`・`gearIcon`・`crateIcon`、新しく `trainingIcon`・`settingsIcon`）に入れる。今の操作アイコンの流用はやめる。
-- ロゴは、§3 の使い分けが決まってから差し替える。
+- ロゴはホーム画面だけ差し替えた（§3）。表示枠の大きさは未解決（§3）。
 - 書体は Unity の文字のまま。フォントを差し替えるかは別に決める（§6）。
 
 ## 6. 不足している情報・未決定
 
 0. `home_menu_panel.png`（CANDIDATE）を採用するか、修正版を待つか（§4.4）。
 
-1. ホーム画面のロゴと、既存の採用ロゴの使い分け（§3）。
+1. ホーム画面のロゴの表示枠（342×114 のままか、494×108 にするか）。使い分けは実装済み（§3）。
 2. 文字の書体。正本画像の幅の狭い太いゴシックに近いフォントを入れるか。入れる場合は、ライセンスの確認が必要。
 3. アイコンの細部：小銃の種類（正本画像は木部のある小銃）、上着の種類（正本画像はジッパーとポケットのある防寒上着）。正本画像に合わせる前提で、細部は制作側に任せてよいか。
 4. Gear の各タブ・Event の各イベント・Survival の各モードのアイコンは、今回の対象外。必要なら別に指定する。

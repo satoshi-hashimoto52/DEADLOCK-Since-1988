@@ -137,16 +137,26 @@ namespace Deadlock.Tests
             Assert.AreEqual(new Vector2(0.2f, 0.2f), session.Commit().Get("b").center);
         }
 
+        static (Vector2 canvas, Rect safe) TestScreen(int w, int h)
+        {
+            var canvas = new Vector2(941f * w / h, 941f);
+            var safe = w == 2622 ? UiLayoutMath.SafeRectInCanvas(new Rect(186, 63, 2250, 1143), new Vector2(w, h), canvas) : new Rect(Vector2.zero, canvas);
+            return (canvas, safe);
+        }
+
+        static UiLayoutSpec HomeSpec(string id) => HomeMenu.Specs.First(s => s.id == id);
+
         [TestCase(2622, 1206)]
         [TestCase(1920, 1080)]
         [TestCase(2048, 1536)]
         public void HomeDefaults_InsideSafeArea_NoOverlap_ClearOfWindowAndCandle(int w, int h)
         {
-            var canvas = new Vector2(941f * w / h, 941f);
-            var safe = w == 2622 ? UiLayoutMath.SafeRectInCanvas(new Rect(186, 63, 2250, 1143), new Vector2(w, h), canvas) : new Rect(Vector2.zero, canvas);
+            var (canvas, safe) = TestScreen(w, h);
             var data = HomeMenu.Defaults(canvas, safe);
-            Assert.AreEqual(6, data.items.Count);
-            var rects = data.items.Select(i => UiLayoutMath.ItemRect(i, HomeMenu.Specs.First(s => s.id == i.id), canvas)).ToArray();
+            CollectionAssert.AreEqual(new[] { HomeMenu.Logo, HomeMenu.Survival, HomeMenu.Training, HomeMenu.Event, HomeMenu.Gear, HomeMenu.Points, HomeMenu.Settings, HomeMenu.Crate },
+                data.items.Select(i => i.id));
+            Assert.AreEqual(2, data.layoutVersion);
+            var rects = data.items.Select(i => UiLayoutMath.ItemRect(i, HomeSpec(i.id), canvas)).ToArray();
             foreach (var r in rects)
                 Assert.IsTrue(UiLayoutMath.Contains(safe, r), $"{r} outside the safe area {safe}");
             for (int i = 0; i < rects.Length; i++)
@@ -158,6 +168,73 @@ namespace Deadlock.Tests
             foreach (var important in new[] { Ref(1306, 164, 116, 228), Ref(1448, 457, 132, 175) })
                 foreach (var r in rects)
                     Assert.IsFalse(r.Overlaps(important), $"{r} covers {important}");
+        }
+
+        [TestCase(2622, 1206)]
+        [TestCase(2048, 1536)]
+        public void HomeDefaults_FourMainButtons_SameSize_LeftAligned_GearSetApart(int w, int h)
+        {
+            var (canvas, safe) = TestScreen(w, h);
+            var data = HomeMenu.Defaults(canvas, safe);
+            var r = HomeMenu.MainButtons.Select(id => UiLayoutMath.ItemRect(data.Get(id), HomeSpec(id), canvas)).ToArray();
+            foreach (var x in r)
+            {
+                Assert.AreEqual(r[0].size.x, x.size.x, 1e-3f, "same width");
+                Assert.AreEqual(r[0].size.y, x.size.y, 1e-3f, "same height");
+                Assert.AreEqual(r[0].xMin, x.xMin, 1e-3f, "left edges aligned");
+            }
+            float gap1 = r[0].yMin - r[1].yMax, gap2 = r[1].yMin - r[2].yMax, gearGap = r[2].yMin - r[3].yMax;
+            Assert.AreEqual(gap1, gap2, 1e-3f, "Survival / Training / Event equally spaced");
+            Assert.Greater(gearGap, gap1 * 2f, "Gear is set apart below Event");
+            float s = Mathf.Min(canvas.x / 1672f, canvas.y / 941f);
+            Assert.AreEqual(490f * s, r[0].width, 1e-2f, "design width 490 (reference px)");
+            Assert.AreEqual(18f * s, gap1, 1e-2f);
+            Assert.AreEqual(59f * s, gearGap, 1e-2f);
+        }
+
+        [Test]
+        public void HomeSpecs_MainButtonsShareOneSize()
+        {
+            foreach (var id in HomeMenu.MainButtons)
+                Assert.AreEqual(HomeMenu.MainButtonSize, HomeSpec(id).baseSize, id);
+        }
+
+        [Test]
+        public void HomeMenu_NamesIds_Version()
+        {
+            Assert.AreEqual(2, HomeMenu.LayoutVersion);
+            CollectionAssert.AreEqual(new[] { "survival", "training", "event", "gear" }, HomeMenu.MainButtons);
+            CollectionAssert.AreEqual(new[] { "Survival", "Training", "Event", "Gear", "Crate" },
+                new[] { HomeMenu.Survival, HomeMenu.Training, HomeMenu.Event, HomeMenu.Gear, HomeMenu.Crate }.Select(HomeMenu.DisplayName));
+        }
+
+        [Test]
+        public void SavedVersion1Layout_IsNotUsed_NorOverwritten_ByVersion2()
+        {
+            var v1 = new UiLayoutData { layoutVersion = 1 };
+            v1.items.Add(new UiLayoutItem { id = "mode", center = new Vector2(0.1f, 0.6f), scale = 1f, visible = true });
+            UiLayoutStore.Save(TestLayoutId, v1);
+            var (canvas, safe) = TestScreen(2622, 1206);
+            var shown = UiLayoutMath.Resolve(UiLayoutStore.Load(TestLayoutId), HomeMenu.Defaults(canvas, safe), HomeMenu.LayoutVersion, out bool usedDefaults);
+            Assert.IsTrue(usedDefaults);
+            Assert.AreEqual(8, shown.items.Count);
+            Assert.AreEqual(1, UiLayoutStore.Load(TestLayoutId).layoutVersion, "the saved v1 data stays as it was");
+        }
+
+        [Test]
+        public void GearTabs_And_EventEntries()
+        {
+            CollectionAssert.AreEqual(new[] { "Loadout", "Skin", "Skill" }, HomeMenu.GearTabs);
+            var events = HomeMenu.EventEntries();
+            CollectionAssert.AreEqual(new[] { "Ruins（廃墟）", "Assault（急襲）" }, events.Select(e => e.name));
+            Assert.AreEqual(HomeEntryStatus.Test, events[0].status);
+            Assert.IsNotNull(events[0].open);
+            Assert.AreEqual(HomeEntryStatus.ComingSoon, events[1].status);
+            Assert.IsNull(events[1].open, "no game mode is started for Assault");
+            var survival = HomeMenu.SurvivalEntries();
+            Assert.IsTrue(survival.Where(e => e.status == HomeEntryStatus.ComingSoon).All(e => e.open == null));
+            Assert.AreEqual(1, survival.Count(e => e.status == HomeEntryStatus.Test));
+            Assert.AreEqual(2, HomeMenu.TrainingEntries().Length);
         }
     }
 }
