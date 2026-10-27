@@ -452,7 +452,7 @@ namespace Deadlock.Tests
                 var survival = menu.Layout.Element(HomeMenu.Survival).GetComponent<HomePanelPart>();
                 Assert.AreEqual(0.7f, survival.ShownAlpha, 1e-3f);
                 Assert.AreEqual(1f, survival.FrameImage.color.a);
-                Assert.AreEqual(HomePanelLook.FillAlpha(8), menu.Layout.Element(HomeMenu.Points).GetComponent<HomePanelPart>().ShownAlpha, 1e-3f, "other targets keep theirs");
+                Assert.AreEqual(HomePanelLook.FillAlpha(HomePanelLook.Default(HomePanelTarget.Points)), menu.Layout.Element(HomeMenu.Points).GetComponent<HomePanelPart>().ShownAlpha, 1e-3f, "other targets keep theirs");
                 // The menu still works over the images, and the layout is not touched.
                 menu.Layout.Element(HomeMenu.Crate).GetComponent<Button>().onClick.Invoke();
                 Assert.AreEqual("CratePanel", menu.OpenPanelName);
