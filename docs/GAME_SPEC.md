@@ -339,7 +339,7 @@ BOTはゾンビとは別のシステムとして扱う。射撃・移動・索�
   - （2026-10-25の最初の版（D-047）は、ゲームモード・装備・スキル・ガチャ・ポイント・設定の入口だった。）
 - メニューは画面全体（背景の左右の黒い余白を含む）に配置でき、プレイヤーが位置と大きさを変えて端末に保存できる。初期配置はSafe Area内。Safe Area外にも置けるが、見えない・押せない場合があると警告する。【確定】
 - ゲーム中のメニューから「ホームへ」で戻れる（確認あり）。
-- メニューの見た目の正本：[home_menu_design_approved.png](review/home-background/home_menu_design_approved.png)（2026-10-25承認、D-048）。ロゴ・ボタン・アイコンは背景と別の部品として実装する。素材（アイコン6・矢印・ロゴ・共通パネル、2026-10-27 採用）は [HOME_MENU_UI_ASSET_SPEC.md](review/home-background/HOME_MENU_UI_ASSET_SPEC.md)。パネルの中央の透明度は対象ごとの暫定値（D-050）。ボタンの文言・行き先の対応は D-049 で決定（上記、[HOME_BACKGROUND_ASSET_SPEC.md](HOME_BACKGROUND_ASSET_SPEC.md) §2.1）。
+- メニューの見た目の正本：[home_menu_design_approved.png](review/home-background/home_menu_design_approved.png)（2026-10-25承認、D-048）。ロゴ・ボタン・アイコンは背景と別の部品として実装する。素材（アイコン6・矢印・ロゴ・共通パネル、2026-10-27 採用）は [HOME_MENU_UI_ASSET_SPEC.md](review/home-background/HOME_MENU_UI_ASSET_SPEC.md)。パネル中央の透明度は6対象とも製品初期値50%で確定（D-051）。ホームタイトルロゴの表示枠は342×114デザインpxを維持（D-051）。ボタンの文言・行き先の対応は D-049 で決定（上記、[HOME_BACKGROUND_ASSET_SPEC.md](HOME_BACKGROUND_ASSET_SPEC.md) §2.1）。
 - 同じ自由配置の仕組みを将来ゲームHUDにも使う予定。現在のゲームHUDの操作レイアウト（12.2、Safe Area内）は変えていない。【将来構想】
 
 ## 12. 基本アクションと操作
