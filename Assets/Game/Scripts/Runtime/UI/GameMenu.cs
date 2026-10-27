@@ -73,8 +73,19 @@ namespace Deadlock.UI
 
         void OnDisable() => SkinSelection.Changed -= RefreshSkinSettings;
 
+        /// <summary>Set by the home (Gear → Skin) before loading a scene: the skin test screen opens once on arrival.</summary>
+        public static bool OpenSkinSettingsOnLoad;
+
         // Other runtime UI (training HUD) is built in Awake too: keep the menu above all of it.
-        void Start() => layer.SetAsLastSibling();
+        void Start()
+        {
+            layer.SetAsLastSibling();
+            if (OpenSkinSettingsOnLoad)
+            {
+                OpenSkinSettingsOnLoad = false;
+                OpenSkinSettings();
+            }
+        }
 
         void Update()
         {
