@@ -33,14 +33,14 @@ namespace Deadlock.Tests
         }
 
         [Test]
-        public void Defaults_AreTheFirstProposal()
+        public void Defaults_AreTheUserApproved50Percent()
         {
-            Assert.AreEqual(12, HomePanelLook.Get(HomePanelTarget.MainButton));
-            Assert.AreEqual(8, HomePanelLook.Get(HomePanelTarget.Points));
-            Assert.AreEqual(12, HomePanelLook.Get(HomePanelTarget.Settings));
-            Assert.AreEqual(12, HomePanelLook.Get(HomePanelTarget.Crate));
-            Assert.AreEqual(3, HomePanelLook.Get(HomePanelTarget.Window));
-            Assert.AreEqual(8, HomePanelLook.Get(HomePanelTarget.Row));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.MainButton));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Points));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Settings));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Crate));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Window));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Row));
             Assert.AreEqual(6, HomePanelLook.Targets.Length);
         }
 
@@ -60,7 +60,7 @@ namespace Deadlock.Tests
                 HomePanelLook.Set(HomePanelTarget.Window, -5);
                 Assert.AreEqual(0, HomePanelLook.Get(HomePanelTarget.Window));
                 HomePanelLook.ResetAll();
-                Assert.AreEqual(3, HomePanelLook.Get(HomePanelTarget.Window));
+                Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Window));
                 Assert.AreEqual(4, changed, "every change is announced");
             }
             finally
@@ -81,9 +81,9 @@ namespace Deadlock.Tests
             PlayerPrefs.SetInt(HomePanelLook.Key(HomePanelTarget.Points), 50);
             Assert.IsTrue(HomePanelLook.OverridesEnabled, "the Editor reads the development overrides");
             Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.MainButton));
-            Assert.AreEqual(12, HomePanelLook.Get(HomePanelTarget.Settings), "no saved value: the default");
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Settings), "no saved value: the default");
             HomePanelLook.Reset(HomePanelTarget.MainButton);
-            Assert.AreEqual(12, HomePanelLook.Get(HomePanelTarget.MainButton));
+            Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.MainButton));
             Assert.IsFalse(PlayerPrefs.HasKey(HomePanelLook.Key(HomePanelTarget.MainButton)));
             Assert.AreEqual(50, HomePanelLook.Get(HomePanelTarget.Points), "other targets keep theirs");
         }
