@@ -91,7 +91,10 @@ namespace Deadlock.Tests
             var gearIcon = layout.Element(HomeMenu.Settings).Find("Icon").GetComponent<Image>();
             Assert.AreEqual("home_icon_settings", gearIcon.sprite.name);
             Assert.AreEqual(Color.white, gearIcon.color);
-            Assert.IsFalse(layout.Element(HomeMenu.Crate).Find("Icon").GetComponent<Image>().enabled, "Crate art not approved: empty slot");
+            var crateIcon = layout.Element(HomeMenu.Crate).Find("Icon").GetComponent<Image>();
+            Assert.IsTrue(crateIcon.enabled);
+            Assert.AreEqual("home_icon_crate", crateIcon.sprite.name, "approved Crate (design exception)");
+            Assert.AreEqual(Color.white, crateIcon.color);
             Assert.AreEqual("－ PT", layout.Element(HomeMenu.Points).GetComponentInChildren<Text>().text, "no fake balance");
             Assert.AreEqual("Crate", layout.Element(HomeMenu.Crate).Find("Label").GetComponent<Text>().text);
         }
@@ -384,6 +387,334 @@ namespace Deadlock.Tests
             Assert.IsNull(menu.OpenPanelName, "no sub-screen opens while editing");
             menu.Editor.Cancel();
         }
+
+        // ------------------------------------------------------------------ panel images and fill transparency
+
+        static Sprite PanelSprite(string name, Color c)
+        {
+            var tex = new Texture2D(128, 128, TextureFormat.RGBA32, false);
+            var px = new Color[128 * 128];
+            for (int i = 0; i < px.Length; i++)
+                px[i] = c;
+            tex.SetPixels(px);
+            tex.Apply();
+            var s = Sprite.Create(tex, new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(40, 40, 40, 40));
+            s.name = name;
+            return s;
+        }
+
+        [UnityTest]
+        public IEnumerator PanelImages_FillTransparencyPerTarget_FrameStaysOpaque_AndCanGoBack()
+        {
+            var saved = HomePanelLook.Targets.ToDictionary(t => t, t => PlayerPrefs.HasKey(HomePanelLook.Key(t)) ? PlayerPrefs.GetInt(HomePanelLook.Key(t)) : (int?)null);
+            foreach (var t in HomePanelLook.Targets)
+                PlayerPrefs.DeleteKey(HomePanelLook.Key(t));
+            try
+            {
+                yield return LoadHome();
+                var parts = menu.PanelParts;
+                Assert.AreEqual(7 + 7 + 3 + 2 + 2 + 4, parts.Length, "7 home panels, 7 windows, rows of Survival / Training / Event / Gear");
+                CollectionAssert.AreEquivalent(HomePanelLook.Targets, parts.Select(p => p.target).Distinct());
+                // The normal home: the approved panel images (from the scene, set by HomeSceneBuilder), defaults applied.
+                Assert.AreEqual("home_menu_panel_frame", menu.panelFrame.name);
+                Assert.AreEqual("home_menu_panel_fill", menu.panelFill.name);
+                Assert.AreEqual(new Vector4(40, 40, 40, 40), menu.panelFrame.border, "9-slice border kept");
+                Assert.AreEqual(new Vector4(40, 40, 40, 40), menu.panelFill.border);
+                foreach (var p in parts)
+                {
+                    Assert.IsTrue(p.Skinned, p.name);
+                    Assert.AreSame(menu.panelFill, p.Fill.sprite);
+                    Assert.AreSame(menu.panelFrame, p.FrameImage.sprite);
+                    Assert.AreEqual(1f, p.FrameImage.color.a, "frame and rivets opaque");
+                    if (p.gameObject.activeInHierarchy)
+                        Assert.AreEqual(HomePanelLook.FillAlpha(HomePanelLook.Default(p.target)) * (p.dimmed ? HomePanelPart.DimFactor : 1f), p.ShownAlpha, 1e-3f, "default drawn alpha: " + p.name);
+                }
+
+                var frame = PanelSprite("frame", Color.yellow);
+                var fill = PanelSprite("fill", Color.black);
+                menu.SetPanelSkin(frame, fill);
+                yield return null;
+                foreach (var p in parts)
+                {
+                    Assert.IsTrue(p.Skinned, p.name);
+                    Assert.AreSame(fill, p.Fill.sprite);
+                    Assert.AreEqual(Image.Type.Sliced, p.Fill.type);
+                    Assert.AreSame(frame, p.FrameImage.sprite);
+                    Assert.AreEqual(1f, p.FrameImage.color.a, "frame and rivets opaque");
+                    Assert.AreEqual(0, p.FrameImage.transform.GetSiblingIndex(), "frame drawn above the fill, below the content");
+                    Assert.IsFalse(p.transform.Find("Frame").gameObject.activeSelf, "Unity-drawn lines hidden");
+                    float expected = HomePanelLook.FillAlpha(HomePanelLook.Default(p.target)) * (p.dimmed ? HomePanelPart.DimFactor : 1f);
+                    if (p.gameObject.activeInHierarchy)
+                        Assert.AreEqual(expected, p.ShownAlpha, 1e-3f, "drawn alpha (button state colour included): " + p.name);
+                }
+                // One target changes alone, at once; the frame stays opaque.
+                HomePanelLook.Set(HomePanelTarget.MainButton, 30);
+                var survival = menu.Layout.Element(HomeMenu.Survival).GetComponent<HomePanelPart>();
+                Assert.AreEqual(0.7f, survival.ShownAlpha, 1e-3f);
+                Assert.AreEqual(1f, survival.FrameImage.color.a);
+                Assert.AreEqual(HomePanelLook.FillAlpha(8), menu.Layout.Element(HomeMenu.Points).GetComponent<HomePanelPart>().ShownAlpha, 1e-3f, "other targets keep theirs");
+                // The menu still works over the images, and the layout is not touched.
+                menu.Layout.Element(HomeMenu.Crate).GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual("CratePanel", menu.OpenPanelName);
+                menu.ClosePanel();
+                Assert.IsFalse(UiLayoutStore.HasSaved(HomeMenu.LayoutId));
+                // Small Settings panel (0.5x): the slice border shrinks with it.
+                menu.OpenLayoutEditor();
+                menu.Editor.SetScale(HomeMenu.Settings, 0.5f);
+                yield return null;
+                var settings = menu.Layout.Element(HomeMenu.Settings).GetComponent<HomePanelPart>();
+                var size = ((RectTransform)settings.transform).rect.size;
+                float border = 40f / settings.FrameImage.pixelsPerUnitMultiplier;
+                Assert.AreEqual(HomePanelPart.BorderUnits(size), border, 1e-3f);
+                Assert.Less(border * 2f, Mathf.Min(size.x, size.y), "corners never meet");
+                menu.Editor.Cancel();
+
+                // Back to the Unity-drawn panels.
+                menu.SetPanelSkin(null, null);
+                foreach (var p in parts)
+                {
+                    Assert.IsFalse(p.Skinned);
+                    Assert.IsNull(p.Fill.sprite);
+                    Assert.IsFalse(p.FrameImage.gameObject.activeSelf);
+                    Assert.IsTrue(p.transform.Find("Frame").gameObject.activeSelf);
+                }
+                Assert.AreEqual(HomeMenu.PanelColor, menu.Layout.Element(HomeMenu.Survival).GetComponent<Image>().color);
+            }
+            finally
+            {
+                foreach (var pair in saved)
+                {
+                    if (pair.Value.HasValue)
+                        PlayerPrefs.SetInt(HomePanelLook.Key(pair.Key), pair.Value.Value);
+                    else
+                        PlayerPrefs.DeleteKey(HomePanelLook.Key(pair.Key));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Renders the home (background camera + menu canvas) into a texture and reads back the colour at two points of a
+        /// panel (fx: share of the width, units: canvas units down from its top). Batchmode has no end-of-frame screen, so
+        /// the canvas is drawn by the home camera into a RenderTexture for the read-back, then put back.
+        /// </summary>
+        IEnumerator RenderPanel(RectTransform panel, (float fx, float units)[] points, Color32[] result)
+        {
+            var cam = Object.FindAnyObjectByType<HomeBackgroundView>().GetComponent<Camera>();
+            var canvas = menu.GetComponent<Canvas>();
+            var rt = new RenderTexture(1600, 900, 24);
+            var mode = canvas.renderMode;
+            cam.targetTexture = rt;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = cam.nearClipPlane + 1f;
+            canvas.sortingOrder = 1000;
+            yield return null;
+            yield return null; // the layout follows the new canvas size
+            Canvas.ForceUpdateCanvases();
+            cam.Render();
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+            var r = panel.rect;
+            for (int i = 0; i < points.Length; i++)
+            {
+                var p = RectTransformUtility.WorldToScreenPoint(cam, panel.TransformPoint(new Vector2(r.xMin + r.width * points[i].fx, r.yMax - points[i].units)));
+                result[i] = tex.GetPixel(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y));
+            }
+            Object.Destroy(tex);
+            cam.targetTexture = null;
+            canvas.renderMode = mode;
+            canvas.sortingOrder = 0;
+            rt.Release();
+            Object.Destroy(rt);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator PanelImages_TransparencyChangesTheShownFill_NotTheFrame()
+        {
+            var saved = HomePanelLook.Targets.ToDictionary(t => t, t => PlayerPrefs.HasKey(HomePanelLook.Key(t)) ? PlayerPrefs.GetInt(HomePanelLook.Key(t)) : (int?)null);
+            try
+            {
+                yield return LoadHome();
+                var white = PanelSprite("fill", Color.white); // a white fill: its alpha shows directly as brightness over the dark room
+                var frame = PanelSprite("frame", new Color(0f, 0f, 1f, 1f));
+                // Frame image: only a 6 px ring is opaque, the rest clear (as the real frame layer, whose centre is cleared).
+                var tex = frame.texture;
+                var px = tex.GetPixels();
+                for (int y = 0; y < 128; y++)
+                    for (int x = 0; x < 128; x++)
+                        if (x >= 6 && x < 122 && y >= 6 && y < 122)
+                            px[y * 128 + x] = Color.clear;
+                tex.SetPixels(px);
+                tex.Apply();
+                menu.SetPanelSkin(frame, white);
+                var survival = menu.Layout.Element(HomeMenu.Survival);
+                var part = survival.GetComponent<HomePanelPart>();
+
+                var pts = new[] { (0.315f, 0f), (0.5f, 1f) };
+                var at0 = new Color32[2];
+                var at50 = new Color32[2];
+                HomePanelLook.Set(HomePanelTarget.MainButton, 0);
+                yield return null;
+                // What is drawn: the fill Image's own alpha times its renderer (button state) alpha.
+                Assert.AreEqual(1f, part.ShownAlpha, 1e-3f);
+                pts[0].Item2 = survival.rect.height * 0.5f;
+                yield return RenderPanel(survival, pts, at0);
+
+                HomePanelLook.Set(HomePanelTarget.MainButton, 50);
+                yield return null;
+                Assert.AreEqual(0.5f, part.ShownAlpha, 1e-3f, "drawn at 50 %, not 57.5 % (button colour multiplier)");
+                Assert.AreEqual(1f, part.FrameImage.color.a * part.FrameImage.canvasRenderer.GetColor().a, 1e-3f, "frame drawn opaque");
+                pts[0].Item2 = survival.rect.height * 0.5f;
+                yield return RenderPanel(survival, pts, at50);
+                Color32 fill0 = at0[0], fill50 = at50[0], frame0 = at0[1], frame50 = at50[1];
+
+                // Nothing opaque left over the fill: the only full-size Images are the fill and the frame layer.
+                foreach (var g in survival.GetComponentsInChildren<Image>(false))
+                    if (g != part.Fill && g != part.FrameImage)
+                        Assert.IsFalse(g.rectTransform.rect.size == survival.rect.size, "no other panel-sized image: " + g.name);
+
+                // Rendered: the white fill gets clearly darker at 50 % (the room shows through); the frame does not change.
+                Debug.Log($"[test] fill 0%={fill0} 50%={fill50} frame 0%={frame0} 50%={frame50}");
+                Assert.Greater(fill0.r + fill0.g + fill0.b, fill50.r + fill50.g + fill50.b + 150, "the fill shows through at 50 %");
+                Assert.AreEqual(frame0, frame50, "the frame is the same at 0 % and 50 %");
+            }
+            finally
+            {
+                foreach (var pair in saved)
+                {
+                    if (pair.Value.HasValue)
+                        PlayerPrefs.SetInt(HomePanelLook.Key(pair.Key), pair.Value.Value);
+                    else
+                        PlayerPrefs.DeleteKey(HomePanelLook.Key(pair.Key));
+                }
+            }
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        static Rect ScreenRect(RectTransform r)
+        {
+            var c = new Vector3[4];
+            r.GetWorldCorners(c);
+            return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y);
+        }
+
+        static Vector2 ScreenAtX(RectTransform r, float fx) =>
+            RectTransformUtility.WorldToScreenPoint(null, r.TransformPoint(new Vector2(r.rect.xMin + r.rect.width * fx, r.rect.center.y)));
+
+        [UnityTest]
+        public IEnumerator PanelTuner_AllSixTargets_WorkWithRealPointerInput()
+        {
+            var saved = HomePanelLook.Targets.ToDictionary(t => t, t => PlayerPrefs.HasKey(HomePanelLook.Key(t)) ? PlayerPrefs.GetInt(HomePanelLook.Key(t)) : (int?)null);
+            int? compareSaved = PlayerPrefs.HasKey(HomePanelTuner.CompareKey) ? PlayerPrefs.GetInt(HomePanelTuner.CompareKey) : (int?)null;
+            foreach (var t in HomePanelLook.Targets)
+                PlayerPrefs.DeleteKey(HomePanelLook.Key(t));
+            PlayerPrefs.DeleteKey(HomePanelTuner.CompareKey);
+            try
+            {
+                yield return LoadHome();
+                var mouse = InputSystem.GetDevice<Mouse>();
+                var tuner = HomePanelTuner.Create(menu);
+                yield return null;
+
+                // Every control, where it is drawn, is the first thing a tap there reaches (nothing transparent over it).
+                void TopIs(Selectable s)
+                {
+                    var top = TopUnder(ScreenCenter((RectTransform)s.transform));
+                    Assert.IsTrue(top != null && (top == s.gameObject || top.transform.IsChildOf(s.transform)), $"{s.name}: first hit is {(top != null ? top.name : "nothing")}");
+                }
+                TopIs(tuner.OpenButton);
+                // The open button stays clear of every home element (default layout) and of the layout-edit button.
+                var openRect = ScreenRect((RectTransform)tuner.OpenButton.transform);
+                foreach (var id in menu.Layout.Ids)
+                    Assert.IsFalse(openRect.Overlaps(ScreenRect(menu.Layout.Element(id))), "tuner button over " + id);
+                Assert.IsFalse(openRect.Overlaps(ScreenRect((RectTransform)menu.LayoutEditButton.transform)), "tuner button over レイアウト編集");
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.OpenButton.transform));
+                Assert.IsTrue(tuner.IsOpen);
+                yield return null;
+                foreach (var s in new Selectable[] { tuner.CompareButton, tuner.Slider, tuner.MinusButton, tuner.PlusButton, tuner.ResetButton, tuner.ResetAllButton, tuner.CloseButton })
+                    TopIs(s);
+                foreach (var t in HomePanelLook.Targets)
+                    TopIs(tuner.TargetButton(t));
+                // The window fits inside the safe area.
+                var c = new Vector3[4];
+                tuner.Window.GetWorldCorners(c);
+                Assert.IsTrue(Screen.safeArea.Contains(c[0]) && Screen.safeArea.Contains(c[2]), "tuner inside the safe area");
+
+                // The approved panels are shown; the comparison switch shows the earlier Unity-drawn ones and back.
+                Assert.IsFalse(HomePanelTuner.ComparingLegacy);
+                Assert.IsTrue(menu.PanelParts.All(p => p.Skinned));
+                StringAssert.Contains("描画中", tuner.StatusText.text);
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.CompareButton.transform));
+                Assert.IsTrue(HomePanelTuner.ComparingLegacy);
+                Assert.IsTrue(menu.PanelParts.All(p => !p.Skinned), "comparison: Unity-drawn panels");
+                StringAssert.Contains("従来", tuner.StatusText.text);
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Crate).transform));
+                Assert.AreEqual(HomePanelTarget.Crate, tuner.Selected, "selectable while comparing");
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.CompareButton.transform));
+                Assert.IsFalse(HomePanelTuner.ComparingLegacy);
+                Assert.IsTrue(menu.PanelParts.All(p => p.Skinned && p.Fill.sprite == menu.panelFill));
+
+                foreach (var t in HomePanelLook.Targets)
+                {
+                    var others = HomePanelLook.Targets.Where(o => o != t).ToDictionary(o => o, HomePanelLook.Get);
+                    yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(t).transform));
+                    Assert.AreEqual(t, tuner.Selected, $"{t} selected by a click on it");
+                    Assert.AreEqual(HomePanelLook.Default(t), Mathf.RoundToInt(tuner.Slider.value), $"{t}: the slider shows its value");
+                    StringAssert.Contains(HomePanelLook.DisplayName(t), tuner.ValueText.text);
+                    // Click near the right end of the slider: the value jumps there.
+                    yield return MouseClick(mouse, ScreenAtX((RectTransform)tuner.Slider.transform, 0.97f));
+                    int high = HomePanelLook.Get(t);
+                    Assert.Greater(high, 40, $"{t}: slider moved by the click");
+                    yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.MinusButton.transform));
+                    Assert.AreEqual(high - 1, HomePanelLook.Get(t), $"{t}: −1 %");
+                    yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.PlusButton.transform));
+                    Assert.AreEqual(high, HomePanelLook.Get(t), $"{t}: ＋1 %");
+                    var part = menu.PanelParts.First(p => p.target == t);
+                    if (part.gameObject.activeInHierarchy)
+                        Assert.AreEqual(HomePanelLook.FillAlpha(high) * (part.dimmed ? HomePanelPart.DimFactor : 1f), part.ShownAlpha, 1e-3f, $"{t}: drawn fill alpha follows");
+                    Assert.AreEqual(1f, part.FrameImage.color.a, $"{t}: frame opaque");
+                    foreach (var o in others)
+                        Assert.AreEqual(o.Value, HomePanelLook.Get(o.Key), $"{t} changed only itself (not {o.Key})");
+                    yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.ResetButton.transform));
+                    Assert.AreEqual(HomePanelLook.Default(t), HomePanelLook.Get(t), $"{t}: reset to its default");
+                }
+                // Values survive switching targets; "すべて初期値" resets every one.
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Window).transform));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.PlusButton.transform));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Row).transform));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Window).transform));
+                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) + 1, HomePanelLook.Get(HomePanelTarget.Window));
+                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) + 1, Mathf.RoundToInt(tuner.Slider.value));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.ResetAllButton.transform));
+                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window), HomePanelLook.Get(HomePanelTarget.Window));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.CloseButton.transform));
+                Assert.IsFalse(tuner.IsOpen);
+                // The home menu works as before with the tuner there; nothing saved to the layout.
+                yield return MouseClick(mouse, ScreenCenter(menu.Layout.Element(HomeMenu.Crate)));
+                Assert.AreEqual("CratePanel", menu.OpenPanelName);
+                Assert.IsFalse(UiLayoutStore.HasSaved(HomeMenu.LayoutId));
+            }
+            finally
+            {
+                foreach (var pair in saved)
+                {
+                    if (pair.Value.HasValue)
+                        PlayerPrefs.SetInt(HomePanelLook.Key(pair.Key), pair.Value.Value);
+                    else
+                        PlayerPrefs.DeleteKey(HomePanelLook.Key(pair.Key));
+                }
+                if (compareSaved.HasValue)
+                    PlayerPrefs.SetInt(HomePanelTuner.CompareKey, compareSaved.Value);
+                else
+                    PlayerPrefs.DeleteKey(HomePanelTuner.CompareKey);
+            }
+        }
+#endif
 
         [UnityTest]
         public IEnumerator Settings_ResetToDefaults_AsksOnce_ThenSaves()

@@ -130,8 +130,11 @@ namespace Deadlock.Editor
             menu.gearIcon = UiSprite("Icons/home_icon_gear.png");
             menu.settingsIcon = UiSprite("Icons/home_icon_settings.png");
             menu.arrowSprite = UiSprite("Icons/home_menu_arrow.png");
+            menu.crateIcon = UiSprite("Icons/home_icon_crate.png"); // approved as a design exception (spec §2.5)
             menu.homeLogo = UiSprite("Branding/home_title_logo.png");
-            // crateIcon and the panel PNG: candidates, not approved (Crate stays empty, the panels stay drawn in Unity UI).
+            // Panel: the approved home_menu_panel.png split into two 9-slice layers (frame / fill; spec §1.5).
+            menu.panelFrame = UiSprite("Frames/home_menu_panel_frame.png", PanelBorder);
+            menu.panelFill = UiSprite("Frames/home_menu_panel_fill.png", PanelBorder);
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -140,11 +143,16 @@ namespace Deadlock.Editor
             Debug.Log($"[DEADLOCK] Home scene built: {ScenePath}");
         }
 
+        /// <summary>9-slice border of the panel images (40 PNG px on every side, spec §1.3).</summary>
+        static readonly Vector4 PanelBorder = new Vector4(40f, 40f, 40f, 40f);
+
+        static Sprite UiSprite(string relativePath) => UiSprite(relativePath, Vector4.zero);
+
         /// <summary>
         /// Imports one approved home menu image as a UI sprite (§0.5: 100 px per unit, centre pivot, full rect, bilinear,
-        /// no mipmaps, uncompressed, clamp) and returns it. The image itself is not changed.
+        /// no mipmaps, uncompressed, clamp; a 9-slice border when given) and returns it. The image itself is not changed.
         /// </summary>
-        static Sprite UiSprite(string relativePath)
+        static Sprite UiSprite(string relativePath, Vector4 border)
         {
             string path = UiArtFolder + relativePath;
             var ti = (TextureImporter)AssetImporter.GetAtPath(path);
@@ -158,6 +166,7 @@ namespace Deadlock.Editor
             settings.spriteAlignment = (int)SpriteAlignment.Center;
             settings.spriteMeshType = SpriteMeshType.FullRect;
             ti.SetTextureSettings(settings);
+            ti.spriteBorder = border;
             ti.mipmapEnabled = false;
             ti.textureCompression = TextureImporterCompression.Uncompressed;
             ti.maxTextureSize = 2048;

@@ -112,12 +112,14 @@ namespace Deadlock.Home
 
         [Tooltip("Existing UI art: used only where the home art below is unset (logo, settings, crosshair for Training).")]
         public ControlIconSet icons;
-        [Tooltip("Approved home pixel art (Assets/Game/Art/Home/UI, HOME_MENU_UI_ASSET_SPEC §2). Crate is not approved yet (the slot stays empty while unset).")]
+        [Tooltip("Approved home pixel art (Assets/Game/Art/Home/UI, HOME_MENU_UI_ASSET_SPEC §2); an unset slot stays empty.")]
         public Sprite survivalIcon, trainingIcon, eventIcon, gearIcon, settingsIcon, crateIcon;
         [Tooltip("Approved \"›\" of the main buttons (the text \"›\" is shown while unset).")]
         public Sprite arrowSprite;
         [Tooltip("Approved home title logo (§3); the existing logo of the icon set is shown while unset.")]
         public Sprite homeLogo;
+        [Tooltip("Approved panel images (frame with rivets / centre fill, 9-slice, derived from home_menu_panel.png; Assets/Game/Art/Home/UI/Frames). Unset: the earlier Unity-drawn panels, with an error logged.")]
+        public Sprite panelFrame, panelFill;
 
         RectTransform canvasRect;
         RectTransform panelLayer;
@@ -180,7 +182,34 @@ namespace Deadlock.Home
 
         static UiLayoutSpec SpecOf(string id) => Array.Find(Specs, s => s.id == id);
 
-        void Awake() => Build();
+        void Awake()
+        {
+            Build();
+            if (panelFrame != null && panelFill != null)
+                SetPanelSkin(panelFrame, panelFill);
+            else
+                Debug.LogError($"[DEADLOCK][home] panel images missing (panelFrame={(panelFrame != null ? panelFrame.name : "null")}, panelFill={(panelFill != null ? panelFill.name : "null")}): showing the Unity-drawn panels instead. Rebuild the home scene (HomeSceneBuilder).");
+        }
+
+        void OnEnable() => HomePanelLook.Changed += RefreshPanels;
+
+        void OnDisable() => HomePanelLook.Changed -= RefreshPanels;
+
+        /// <summary>Every home panel (buttons, windows, rows), shown or not.</summary>
+        public HomePanelPart[] PanelParts => GetComponentsInChildren<HomePanelPart>(true);
+
+        /// <summary>Shows the 9-slice panel images on every panel (both set), or the Unity-drawn panels (either null).</summary>
+        public void SetPanelSkin(Sprite frame, Sprite fill)
+        {
+            foreach (var part in PanelParts)
+                part.SetSkin(frame, fill);
+        }
+
+        void RefreshPanels()
+        {
+            foreach (var part in PanelParts)
+                part.Refresh();
+        }
 
         void Start() => Layout.Load();
 
@@ -219,10 +248,14 @@ namespace Deadlock.Home
 
         // ------------------------------------------------------------------------------------------- elements
 
-        /// <summary>Dark metal panel with a brass frame and four corner rivets (built in Unity UI; no panel PNG).</summary>
-        static Image MetalPanel(RectTransform rect, bool raycast)
+        /// <summary>
+        /// Dark metal panel with a brass frame and four corner rivets, built in Unity UI; shows the panel images instead
+        /// once they are set (<see cref="SetPanelSkin"/>, <see cref="HomePanelPart"/>).
+        /// </summary>
+        static Image MetalPanel(RectTransform rect, bool raycast, HomePanelTarget target)
         {
             var image = UiBuild.Image(rect, PanelColor, raycast);
+            rect.gameObject.AddComponent<HomePanelPart>().target = target;
             // Brass frame: four thin lines just inside the edge (follow any size).
             var frame = UiBuild.Stretch(UiBuild.Rect("Frame", rect));
             frame.offsetMin = new Vector2(4f, 4f);
@@ -276,7 +309,7 @@ namespace Deadlock.Home
         RectTransform MainButton(string id, Sprite icon, Action onClick)
         {
             var rect = UiBuild.Rect(id, transform);
-            var panel = MetalPanel(rect, true);
+            var panel = MetalPanel(rect, true, HomePanelTarget.MainButton);
             MakeButton(rect, panel, onClick);
             // Icon box, label and arrow are separate parts placed in proportion to the button (they follow a resize).
             var iconBox = UiBuild.Rect("Icon", rect);
@@ -353,7 +386,7 @@ namespace Deadlock.Home
         RectTransform PointsElement()
         {
             var rect = UiBuild.Rect(Points, transform);
-            var panel = MetalPanel(rect, true);
+            var panel = MetalPanel(rect, true, HomePanelTarget.Points);
             MakeButton(rect, panel, () => OpenPanel("PointsPanel"));
             var value = UiBuild.Rect("Value", rect);
             value.anchorMin = new Vector2(0.08f, 0.12f);
@@ -367,7 +400,7 @@ namespace Deadlock.Home
         RectTransform SettingsElement()
         {
             var rect = UiBuild.Rect(Settings, transform);
-            var panel = MetalPanel(rect, true);
+            var panel = MetalPanel(rect, true, HomePanelTarget.Settings);
             MakeButton(rect, panel, () => OpenPanel("SettingsPanel"));
             var icon = UiBuild.Rect("Icon", rect);
             var image = icon.gameObject.AddComponent<Image>();
@@ -394,12 +427,10 @@ namespace Deadlock.Home
         RectTransform CrateElement()
         {
             var rect = UiBuild.Rect(Crate, transform);
-            var panel = MetalPanel(rect, true);
+            var panel = MetalPanel(rect, true, HomePanelTarget.Crate);
             MakeButton(rect, panel, () => OpenPanel("CratePanel"));
             var icon = UiBuild.Rect("Icon", rect);
-            icon.anchorMin = new Vector2(0.12f, 0.36f);
-            icon.anchorMax = new Vector2(0.88f, 0.92f);
-            icon.offsetMin = icon.offsetMax = Vector2.zero;
+            Box(icon, new Vector2(186f, 182f), 29f, 16f, 128f, 104f); // §2.3: 128x104, 16 from the top, centred
             var image = icon.gameObject.AddComponent<Image>();
             image.sprite = crateIcon;
             image.preserveAspect = true;
@@ -433,7 +464,7 @@ namespace Deadlock.Home
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", panel));
             safe.gameObject.AddComponent<HomeSafeAreaPanel>();
             var window = UiBuild.Place(UiBuild.Rect("Window", safe), new Vector2(0.5f, 0.5f), Vector2.zero, size);
-            MetalPanel(window, true).color = new Color(PanelColor.r, PanelColor.g, PanelColor.b, 0.96f);
+            MetalPanel(window, true, HomePanelTarget.Window).color = new Color(PanelColor.r, PanelColor.g, PanelColor.b, 0.96f);
             UiBuild.Text(UiBuild.Place(UiBuild.Rect("Title", window), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(size.x - 80f, 48f)),
                 title, 34, TextAnchor.MiddleCenter, Cream).fontStyle = FontStyle.Bold;
             panel.gameObject.SetActive(false);
@@ -448,7 +479,7 @@ namespace Deadlock.Home
             foreach (var entry in entries)
             {
                 var row = UiBuild.Place(UiBuild.Rect(entry.name, parent), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(width, 92f));
-                var panel = MetalPanel(row, true);
+                var panel = MetalPanel(row, true, HomePanelTarget.Row);
                 var captured = entry;
                 var button = MakeButton(row, panel, () => OpenEntry(captured));
                 UiBuild.Text(UiBuild.Place(UiBuild.Rect("Name", row), new Vector2(0f, 1f), new Vector2(24f, -10f), new Vector2(width - 220f, 40f)),
@@ -460,7 +491,10 @@ namespace Deadlock.Home
                     StatusLabel(entry.status), 20, TextAnchor.MiddleRight, entry.status == HomeEntryStatus.ComingSoon ? new Color(0.75f, 0.72f, 0.66f, 0.8f) : Amber);
                 ((RectTransform)status.transform).pivot = new Vector2(1f, 0.5f);
                 if (entry.status == HomeEntryStatus.ComingSoon)
+                {
                     panel.color = new Color(PanelColor.r, PanelColor.g, PanelColor.b, 0.6f);
+                    row.GetComponent<HomePanelPart>().dimmed = true;
+                }
                 y -= 104f;
             }
         }
