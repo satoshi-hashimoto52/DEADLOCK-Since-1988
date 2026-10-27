@@ -18,7 +18,7 @@ namespace Deadlock.Home
     /// Transparency of the centre (fill) of the 9-slice home panels, per target, in percent (0 = opaque, 100 = clear;
     /// 0–50 in 1 % steps). The brass frame and rivets are a separate layer and stay opaque. Used while the panel images
     /// are shown (<see cref="HomeMenu.SetPanelSkin"/>, the normal home); Unity-drawn panels keep their colours.
-    /// Release builds always use the defaults (provisional values, not final). The Editor and development builds use the
+    /// Release builds use the user-approved 50% defaults for all six targets. The Editor and development builds use the
     /// development overrides saved on the device by the panel tuner (PlayerPrefs <see cref="KeyPrefix"/>), else the
     /// defaults; a release build never reads or writes those keys.
     /// </summary>
@@ -35,12 +35,12 @@ namespace Deadlock.Home
 
         public static int Default(HomePanelTarget target) => target switch
         {
-            HomePanelTarget.MainButton => 12,
-            HomePanelTarget.Points => 8,
-            HomePanelTarget.Settings => 12,
-            HomePanelTarget.Crate => 12,
-            HomePanelTarget.Window => 3,
-            _ => 8, // Row
+            HomePanelTarget.MainButton => 50,
+            HomePanelTarget.Points => 50,
+            HomePanelTarget.Settings => 50,
+            HomePanelTarget.Crate => 50,
+            HomePanelTarget.Window => 50,
+            _ => 50, // Row
         };
 
         public static string DisplayName(HomePanelTarget target) => target switch
