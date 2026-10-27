@@ -3,6 +3,7 @@
     "rootNamespace": "Deadlock.Tests",
     "references": [
         "Deadlock.Runtime",
+        "Deadlock.Dev",
         "Deadlock.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

@@ -4,6 +4,7 @@
 > 作成：2026-10-26  
 > 作業ブランチ：`feature/weapon-balance-lab`（`feature/integration-smg-dungeon` から分岐）  
 > 正本参照：`docs/GAME_SPEC.md` §7.2、`docs/PROGRESS.md` 試作値および §12-38、`docs/DECISIONS.md` D-012
+> **2026-10-27 追記（Phase 1）**：反動の方向・3段階の強度・距離減衰の仕組みと、開発用の調整画面を実装した（[`WEAPON_BALANCE_PHASE1.md`](WEAPON_BALANCE_PHASE1.md)）。下の表の数値（案Aを含む）は、引き続き未承認。現行の武器のアセットの値は変えていない。
 
 ## 目的
 

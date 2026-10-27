@@ -47,5 +47,11 @@ namespace Deadlock.Combat
         [Min(0.01f)] public float adsTime = 0.18f;
         [Range(0.1f, 1f)] public float adsMoveSpeedMultiplier = 0.6f;
         [Range(0.1f, 1f)] public float adsLookSensitivityMultiplier = 0.65f;
+
+        [Header("Recoil direction / damage falloff (optional; off and empty = earlier behaviour)")]
+        [Tooltip("Data-driven recoil direction and strength. Disabled: recoilPitchDegrees with random left / right yaw.")]
+        public RecoilProfile recoilProfile = new RecoilProfile();
+        [Tooltip("Damage multiplier over distance (shot origin to hit point). Empty: full damage at every distance up to maxRange.")]
+        public DamageFalloffProfile damageFalloff = new DamageFalloffProfile();
     }
 }

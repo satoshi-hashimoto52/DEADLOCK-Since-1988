@@ -13,6 +13,12 @@ namespace Deadlock.Combat
         public Vector3 Normal;
         public bool HitDamageable;
         public DamageResult Result;
+        /// <summary>Straight-line distance from the shot's origin to the hit point (m).</summary>
+        public float Distance;
+        /// <summary>Damage falloff multiplier used for this hit (1 without a falloff profile).</summary>
+        public float DamageMultiplier;
+        /// <summary>Damage handed to the target (base damage × multiplier; 0 when damage is not applied here).</summary>
+        public float Damage;
     }
 
     /// <summary>
@@ -26,12 +32,14 @@ namespace Deadlock.Combat
         struct Projectile
         {
             public int Id;
+            public Vector3 Origin;
             public Vector3 Position;
             public Vector3 Direction;
             public float Speed;
             public float RemainingRange;
             public float Damage;
             public GameObject Shooter;
+            public DamageFalloffProfile Falloff;
         }
 
         [SerializeField] LayerMask hitMask = ~0;
@@ -62,17 +70,27 @@ namespace Deadlock.Combat
             set => applyDamage = value;
         }
 
-        public void Fire(Vector3 origin, Vector3 direction, float speed, float maxRange, float damage, GameObject shooter)
+        public void Fire(Vector3 origin, Vector3 direction, float speed, float maxRange, float damage, GameObject shooter) =>
+            Fire(origin, direction, speed, maxRange, damage, shooter, null);
+
+        /// <summary>
+        /// Fires one projectile. <paramref name="falloff"/> (optional) scales the damage by the straight-line distance from
+        /// <paramref name="origin"/> to the hit point; null or empty keeps the full damage. Max range is unchanged.
+        /// </summary>
+        public void Fire(Vector3 origin, Vector3 direction, float speed, float maxRange, float damage, GameObject shooter,
+            DamageFalloffProfile falloff)
         {
             var projectile = new Projectile
             {
                 Id = nextId++,
+                Origin = origin,
                 Position = origin,
                 Direction = direction.normalized,
                 Speed = speed,
                 RemainingRange = maxRange,
                 Damage = damage,
                 Shooter = shooter,
+                Falloff = falloff,
             };
             active.Add(projectile);
             Spawned?.Invoke(projectile.Id, origin);
@@ -91,9 +109,11 @@ namespace Deadlock.Combat
                 if (FirstHit(p, distance, out RaycastHit hit))
                 {
                     var damageable = hit.collider.GetComponentInParent<IDamageable>();
-                    var result = damageable != null && applyDamage
-                        ? damageable.ApplyDamage(p.Damage, hit.point, p.Direction)
-                        : DamageResult.Ignored;
+                    float hitDistance = Vector3.Distance(p.Origin, hit.point);
+                    float multiplier = DamageFalloffProfile.Evaluate(p.Falloff, hitDistance);
+                    float damage = p.Damage * multiplier;
+                    bool applied = damageable != null && applyDamage;
+                    var result = applied ? damageable.ApplyDamage(damage, hit.point, p.Direction) : DamageResult.Ignored;
                     RemoveAt(i);
 
                     Hit?.Invoke(new ProjectileHit
@@ -105,6 +125,9 @@ namespace Deadlock.Combat
                         Normal = hit.normal,
                         HitDamageable = damageable != null,
                         Result = result,
+                        Distance = hitDistance,
+                        DamageMultiplier = multiplier,
+                        Damage = applied ? damage : 0f,
                     });
                     continue;
                 }

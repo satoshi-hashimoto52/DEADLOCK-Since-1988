@@ -3,6 +3,7 @@
 > 2026-10-26／`feature/weapon-balance-lab`／**設計のみ・未実装・ユーザー未承認**  
 > 調査対象：GitHubの本ブランチ上のC#・Unity .asset原本（作業中のローカル未コミット変更は未反映）。  
 > 関連：[`WEAPON_BALANCE_DESIGN.md`](WEAPON_BALANCE_DESIGN.md)、[`WEAPON_BALANCE_IMPLEMENTATION_PLAN.md`](WEAPON_BALANCE_IMPLEMENTATION_PLAN.md)。
+> **2026-10-27 追記（Phase 1）**：§2 の Phase A・B と、Phase C の一部（調整画面）を実装した（[`WEAPON_BALANCE_PHASE1.md`](WEAPON_BALANCE_PHASE1.md)）。§4 の論点への今回の扱い：①3段階のプリセット＋縦・横の基準角度 ②1発ごとの交互（発射が途切れたら最初から）③`Down` は開発用の選択肢として実装（製品で使うかは未決定）④発射点から命中点までの直線距離 ⑤無設定なら従来の反動・倍率1.0 ⑥Editor と iPhone の開発ビルドの両方。オンラインのダメージの経路は、ホストの `NetworkAvatar.ServerFire` が自分の武器定義で確定することを確認した。
 
 ## 1. ソース確認で確定した現状
 

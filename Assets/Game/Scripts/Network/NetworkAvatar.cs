@@ -308,7 +308,9 @@ namespace Deadlock.Network
                 direction = AimDirection;
             direction.Normalize();
 
-            session.ServerProjectiles.Fire(origin, direction, gunDefinition.projectileSpeed, gunDefinition.maxRange, gunDefinition.damage, gameObject);
+            // Damage and its falloff come from the host's own definition (never from the client).
+            session.ServerProjectiles.Fire(origin, direction, gunDefinition.projectileSpeed, gunDefinition.maxRange, gunDefinition.damage, gameObject,
+                gunDefinition.damageFalloff);
             ShotRpc(origin, direction);
         }
 

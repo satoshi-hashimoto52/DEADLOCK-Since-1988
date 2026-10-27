@@ -23,6 +23,7 @@ namespace Deadlock.Combat
         float reloadStartTime;
         float lastFireTime = -10f;
         bool waitForTriggerRelease;
+        int shotIndex;
 
         public WeaponDefinition Definition => definition;
         public AmmoState Ammo => ammo;
@@ -41,6 +42,13 @@ namespace Deadlock.Combat
         public event Action ReloadFinished;
         public event Action ReloadCanceled;
         public event Action AmmoChanged;
+        /// <summary>Kick of the last shot (x = pitch up, y = yaw right, degrees).</summary>
+        public Vector2 LastRecoil { get; private set; }
+        /// <summary>A longer pause than this (or two fire intervals) between shots starts the recoil pattern again.</summary>
+        public const float ShotSequenceGap = 0.5f;
+        /// <summary>Shot number since firing started (0 = first; back to 0 after a pause or reload); drives alternating recoil.</summary>
+        public int ShotIndex => shotIndex;
+
         /// <summary>The gun was swapped (<see cref="SetDefinition"/>): views re-read the definition's look.</summary>
         public event Action DefinitionChanged;
 
@@ -96,6 +104,8 @@ namespace Deadlock.Combat
 
             if (waitForTriggerRelease && !frame.FireHeld)
                 waitForTriggerRelease = false;
+            if (now - lastFireTime > Mathf.Max(ShotSequenceGap, definition.fireInterval * 2f))
+                shotIndex = 0; // a pause in firing starts the recoil pattern again
 
             AdsRequested = frame.AdsActive;
             AdsBlend = Mathf.MoveTowards(AdsBlend, AdsRequested ? 1f : 0f, Time.deltaTime / definition.adsTime);
@@ -130,6 +140,7 @@ namespace Deadlock.Combat
             IsReloading = false;
             AdsBlend = 0f;
             nextFireTime = 0f;
+            shotIndex = 0;
             waitForTriggerRelease = true;
             AmmoChanged?.Invoke();
         }
@@ -151,6 +162,7 @@ namespace Deadlock.Combat
             ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
             AdsBlend = 0f;
             nextFireTime = 0f;
+            shotIndex = 0;
             waitForTriggerRelease = true;
             input.CancelAds();
             AmmoChanged?.Invoke();
@@ -172,6 +184,7 @@ namespace Deadlock.Combat
                 return false;
             IsReloading = true;
             reloadStartTime = Time.time;
+            shotIndex = 0;
             ReloadStarted?.Invoke();
             return true;
         }
@@ -207,12 +220,21 @@ namespace Deadlock.Combat
             if (ShotOverride != null)
                 ShotOverride(aimOrigin.position, direction);
             else
-                projectiles.Fire(aimOrigin.position, direction, definition.projectileSpeed, definition.maxRange, definition.damage, gameObject);
+                projectiles.Fire(aimOrigin.position, direction, definition.projectileSpeed, definition.maxRange, definition.damage, gameObject,
+                    definition.damageFalloff);
 
-            float recoilScale = Mathf.Lerp(1f, definition.adsRecoilMultiplier, AdsBlend);
-            motor.AddRecoil(
-                definition.recoilPitchDegrees * recoilScale,
-                UnityEngine.Random.Range(-1f, 1f) * definition.recoilYawDegrees * recoilScale);
+            // An enabled, valid recoil profile sets direction and strength (no randomness); otherwise the earlier recoil.
+            float pitch, yaw;
+            if (definition.recoilProfile == null || !definition.recoilProfile.enabled
+                || !RecoilCalculator.TryCompute(definition.recoilProfile, shotIndex, AdsBlend, out pitch, out yaw))
+            {
+                float recoilScale = Mathf.Lerp(1f, definition.adsRecoilMultiplier, AdsBlend);
+                pitch = definition.recoilPitchDegrees * recoilScale;
+                yaw = UnityEngine.Random.Range(-1f, 1f) * definition.recoilYawDegrees * recoilScale;
+            }
+            motor.AddRecoil(pitch, yaw);
+            LastRecoil = new Vector2(pitch, yaw);
+            shotIndex++;
 
             AmmoChanged?.Invoke();
             Fired?.Invoke();

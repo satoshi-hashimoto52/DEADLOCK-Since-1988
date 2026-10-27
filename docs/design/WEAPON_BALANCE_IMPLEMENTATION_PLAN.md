@@ -4,6 +4,7 @@
 > 対象：`feature/weapon-balance-lab`  
 > 参照：`docs/GAME_SPEC.md` §7、`docs/PROGRESS.md` §1・§12-38、`docs/DECISIONS.md` D-012、`docs/design/WEAPON_BALANCE_DESIGN.md`  
 > **注意**：この文書はGitHubの既存仕様書から確認できた構成に基づく。現在のC#ソース／ScriptableObject実体は未走査のため、正確な実装箇所・フィールド名は未検証である。
+> **2026-10-27 追記（Phase 1）**：この計画のA〜E（反動・距離減衰・調整画面・試験データの保存・回帰テスト）は [`WEAPON_BALANCE_PHASE1.md`](WEAPON_BALANCE_PHASE1.md) のとおり実装した。保存先は `Assets/` ではなく、端末の `persistentDataPath/WeaponBalanceLab/`。調整画面は Editor と開発ビルドの両方（アセンブリ `Deadlock.Dev`）。G の「ソースコード確認待ち」は、同文書 §1 で確認済み。
 
 ## A. 既存処理と追加する調整項目の接続
 
