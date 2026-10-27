@@ -685,11 +685,11 @@ namespace Deadlock.Tests
                 }
                 // Values survive switching targets; "すべて初期値" resets every one.
                 yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Window).transform));
-                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.PlusButton.transform));
+                yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.MinusButton.transform));
                 yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Row).transform));
                 yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.TargetButton(HomePanelTarget.Window).transform));
-                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) + 1, HomePanelLook.Get(HomePanelTarget.Window));
-                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) + 1, Mathf.RoundToInt(tuner.Slider.value));
+                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) - 1, HomePanelLook.Get(HomePanelTarget.Window));
+                Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window) - 1, Mathf.RoundToInt(tuner.Slider.value));
                 yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.ResetAllButton.transform));
                 Assert.AreEqual(HomePanelLook.Default(HomePanelTarget.Window), HomePanelLook.Get(HomePanelTarget.Window));
                 yield return MouseClick(mouse, ScreenCenter((RectTransform)tuner.CloseButton.transform));
