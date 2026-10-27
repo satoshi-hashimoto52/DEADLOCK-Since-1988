@@ -115,7 +115,7 @@
 - 中央の地だけ透明度を変えられるように、Unity では2枚の 9-slice に分けて表示する：地（`home_menu_panel.png` のアルファ224の画素だけを不透明にしたもの）と、枠（地を透明にしたもの。真鍮の枠・リベット・黒い縁）。どちらも元画像から作る派生画像で、元画像は変えない。2枚を重ねると元画像と画素単位で一致する。
 - 枠は常に不透明。地の透明度は、メインボタン・ポイント表示・Settings・Crate・サブメニューの窓・サブメニューの項目ごとに 0〜50%（1%刻み）。初期値は 12・8・12・12・3・8%（比較用の案で、確定ではない）。
 - 小さいパネルでは、角の幅（20デザイン px）を短い辺の30%までに縮め、角とリベットがアイコンに重ならないようにする。
-- 2026-10-27：ユーザーが共通パネルのデザインを正式に承認した（`home.ui.menu.panel`、受付ID R20261026-094334-8312ce、SHA-256 `3ff2ab2704a14dfbf25de27d3aeae91f23086d7dd2624cbff7d8d8f23481aa54`、AssetPipeline で APPROVED。register は未実施）。
+- 2026-10-27：ユーザーが共通パネルのデザインを正式に承認した（`home.ui.menu.panel`、受付ID R20261026-094334-8312ce、SHA-256 `3ff2ab2704a14dfbf25de27d3aeae91f23086d7dd2624cbff7d8d8f23481aa54`、AssetPipeline で APPROVED、同日 register）。
 - 派生画像（元画像から作る。元画像は変えない）：枠 `home_menu_panel_frame.png`（SHA-256 `589f21d259bcecd116b4fd75ded75fb8cd37e96bf3f952d84ad3100d4d0f64e6`）、地 `home_menu_panel_fill.png`（`c16aa660b7d1ea2351db21435558ae5e4387630ec7c81a2f6567da82e80a3c9a`）。どちらも 128×128、Border 40、アルファ 0/255。
   - 置き場所：`Assets/Game/Art/Home/UI/Frames/`。親（元画像）`home_menu_panel.png` も同じ場所にある（AssetPipeline で登録）。
   - 作り方：元画像のアルファ224の画素を「地」（アルファを255にする）、アルファ255の画素を「枠」に分ける。2枚は重ならず（共通の画素0）、地をアルファ224に戻して枠と重ねると元画像と画素単位で一致する（2026-10-27 に確認）。
@@ -274,15 +274,15 @@ AssetPipeline README のとおり。
 
 | 素材 | 状態 | 受付ID | SHA-256 |
 | --- | --- | --- | --- |
-| home_icon_survival.png | **APPROVED**（承認済み、未登録） | R20261026-094330-fd3281 | `a7aff4a6c12ebdc3ed019f2a126f9a900174949ec5f90aa3354c698c0104c3c4` |
-| home_icon_training.png | **APPROVED**（承認済み、未登録） | R20261026-094332-c5dd49 | `17c722d33c0fcc355fcefa327a1b7020b9560c55eeb6d42c927a6be8cd19946a` |
-| home_icon_event.png | **APPROVED**（承認済み、未登録） | R20261026-094326-774a4b | `699264d2f9af142078b0ca568acd89aa7911f47aead2eda7ee71138c89e53d63` |
-| home_icon_gear.png | **APPROVED**（承認済み、未登録） | R20261026-094328-d01491 | `cd2f9d1d98a049eb902f96ca6504045fa4bd296a6b8fb1a3580141c834b833d9` |
-| home_menu_panel.png | **APPROVED**（2026-10-27、ユーザーが正式承認。未登録） | R20261026-094334-8312ce | `3ff2ab2704a14dfbf25de27d3aeae91f23086d7dd2624cbff7d8d8f23481aa54` |
-| home_icon_settings.png | **APPROVED**（承認済み、未登録） | R20261026-184726-c0b784 | `edba3a01142a867c6e85f0e397f5e722bcb2a7744521a9b619ec91a434d4c52b` |
-| home_icon_crate.png | **APPROVED**（2026-10-27、§2.5 のデザイン例外として承認、未登録） | R20261026-105809-4f4129 | `e04d485f4eb1be35042cba7a851e0cf0ceca7d5819a0ae4b3110c32106cf585f` |
-| home_menu_arrow.png | **APPROVED**（承認済み、未登録） | R20261026-184729-e7b223 | `971b87ad7703243fee491256688726bc015a1b1f59568353eeacdad7ed41d0a2` |
-| home_title_logo.png | **APPROVED**（承認済み、未登録） | R20261026-184731-60fa5c | `3e9f32ccb8f83f79391e92fdcb835d2dda23eb29a7b042de8135031e93604cbc` |
+| home_icon_survival.png | **REGISTERED**（2026-10-27 登録） | R20261026-094330-fd3281 | `a7aff4a6c12ebdc3ed019f2a126f9a900174949ec5f90aa3354c698c0104c3c4` |
+| home_icon_training.png | **REGISTERED**（2026-10-27 登録） | R20261026-094332-c5dd49 | `17c722d33c0fcc355fcefa327a1b7020b9560c55eeb6d42c927a6be8cd19946a` |
+| home_icon_event.png | **REGISTERED**（2026-10-27 登録） | R20261026-094326-774a4b | `699264d2f9af142078b0ca568acd89aa7911f47aead2eda7ee71138c89e53d63` |
+| home_icon_gear.png | **REGISTERED**（2026-10-27 登録） | R20261026-094328-d01491 | `cd2f9d1d98a049eb902f96ca6504045fa4bd296a6b8fb1a3580141c834b833d9` |
+| home_menu_panel.png | **REGISTERED**（2026-10-27 承認・登録、70a5189） | R20261026-094334-8312ce | `3ff2ab2704a14dfbf25de27d3aeae91f23086d7dd2624cbff7d8d8f23481aa54` |
+| home_icon_settings.png | **REGISTERED**（2026-10-27 登録） | R20261026-184726-c0b784 | `edba3a01142a867c6e85f0e397f5e722bcb2a7744521a9b619ec91a434d4c52b` |
+| home_icon_crate.png | **REGISTERED**（2026-10-27、§2.5 のデザイン例外。登録 dd7558b） | R20261026-105809-4f4129 | `e04d485f4eb1be35042cba7a851e0cf0ceca7d5819a0ae4b3110c32106cf585f` |
+| home_menu_arrow.png | **REGISTERED**（2026-10-27 登録） | R20261026-184729-e7b223 | `971b87ad7703243fee491256688726bc015a1b1f59568353eeacdad7ed41d0a2` |
+| home_title_logo.png | **REGISTERED**（2026-10-27 登録） | R20261026-184731-60fa5c | `3e9f32ccb8f83f79391e92fdcb835d2dda23eb29a7b042de8135031e93604cbc` |
 
 - 設定のアイコンは、最初の候補 R20261026-104724-20a644（原画を正規化したもの）を使わず、作り直した版を承認した。最初の候補は CANDIDATE のまま。
 
@@ -292,7 +292,7 @@ AssetPipeline README のとおり。
   - 判断が出るまで、§1 の数値は変えない。
   - 2026-10-27：中央の透明度を目的別に変えられるようにして（§1.5）、実機で比較したうえで、ユーザーが正式に承認した。§1.2 の数値（中央のアルファ224）は変えていない。
 - 検査の記録：AssetPipeline `reports/home_ui_initial_intake/REPORT.md`（ローカル）。
-- Unity への登録（register）は、まだどの素材もしていない。承認済みの7枚は、同じ SHA-256 のまま §4.2 の登録先に置き、ホーム画面で表示している（未コミット）。
+- 登録（register、2026-10-27）：9枚すべて REGISTERED。共通パネルの原本は AssetPipeline が `Frames/home_menu_panel.png` に置いてコミットした（70a5189）。ほかの8枚は同じ内容がすでにコミット済み（7枚は f70fd5e、Crate は dd7558b）のため、新しいコミットは作らず登録済みとして記録した。AssetPipeline・リポジトリとも push はしていない。
 
 ## 5. 素材が届いたあとの実装（登録後に行う）
 
