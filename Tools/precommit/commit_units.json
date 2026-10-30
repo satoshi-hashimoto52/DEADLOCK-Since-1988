@@ -1,0 +1,143 @@
+{
+  "_note": "Planned commit units of the uncommitted work on feature/weapon-balance-lab (stage 21). Read by audit_commit_units.py (read only). Every changed or new file must be in exactly one unit or in `exclude`. Order = commit order; depends_on must name earlier units.",
+  "exclude": {
+    "_note": "Never committed. Local-only records and verification code are also in .gitignore.",
+    "paths": [
+      "Assets/Game/Verification/",
+      "Assets/Game/Verification.meta",
+      "Assets/Settings/UniversalRenderPipelineGlobalSettings.asset",
+      "docs/recovery/IOS_DATA_RECOVERY_PLAN_20261028.md",
+      "docs/recovery/IOS_DEVICE_RECOVERY_RUNBOOK_20261028.md",
+      "docs/recovery/IOS_DATA_RECOVERY_MANIFEST_20261028.tsv"
+    ]
+  },
+  "units": [
+    {
+      "id": "1-capture-store",
+      "title": "検証画像の保存先と容量管理（DevCaptureStore・DevCapturePurge）",
+      "depends_on": [],
+      "paths": [
+        "Assets/Game/Scripts/Runtime/UI/DevCaptureStore.cs",
+        "Assets/Game/Scripts/Runtime/UI/DevCaptureStore.cs.meta",
+        "Assets/Game/Scripts/Dev/DevCapturePurge.cs",
+        "Assets/Game/Scripts/Dev/DevCapturePurge.cs.meta",
+        "Assets/Game/Scripts/Runtime/UI/EquipmentScreenDiagnostics.cs",
+        "Assets/Game/Tests/EditMode/DevCaptureStoreTests.cs",
+        "Assets/Game/Tests/EditMode/DevCaptureStoreTests.cs.meta",
+        "Assets/Game/Tests/EditMode/DevCapturePurgeTests.cs",
+        "Assets/Game/Tests/EditMode/DevCapturePurgeTests.cs.meta"
+      ]
+    },
+    {
+      "id": "2-weapon-recoil-controls",
+      "title": "武器・射撃・反動・調整ラボ・操作レイアウト・HUD（同じファイルに複数機能が混在するため分けない）",
+      "depends_on": [],
+      "paths": [
+        "Assets/Game/Data/Weapon_ProtoRifle.asset",
+        "Assets/Game/Data/Weapon_ProtoSMG_Candidate.asset",
+        "Assets/Game/Scenes/Proto_FiringRange.unity",
+        "Assets/Game/Scripts/Dev/WeaponBalanceLab.cs",
+        "Assets/Game/Scripts/Dev/WeaponBalanceProfile.cs",
+        "Assets/Game/Scripts/Dev/WeaponBalanceQuickPanel.cs",
+        "Assets/Game/Scripts/Dev/WeaponBalanceQuickPanel.cs.meta",
+        "Assets/Game/Scripts/Dev/WeaponRecoilEditor.cs",
+        "Assets/Game/Scripts/Dev/WeaponRecoilEditor.cs.meta",
+        "Assets/Game/Scripts/Editor/PrototypeSceneBuilder.cs",
+        "Assets/Game/Scripts/Editor/WeaponDefinitionAssets.cs",
+        "Assets/Game/Scripts/Editor/WeaponDefinitionAssets.cs.meta",
+        "Assets/Game/Scripts/Runtime/Combat/AmmoState.cs",
+        "Assets/Game/Scripts/Runtime/Combat/FiringRangeAmmo.cs",
+        "Assets/Game/Scripts/Runtime/Combat/FiringRangeAmmo.cs.meta",
+        "Assets/Game/Scripts/Runtime/Combat/GunController.cs",
+        "Assets/Game/Scripts/Runtime/Combat/ProjectileSystem.cs",
+        "Assets/Game/Scripts/Runtime/Combat/RecoilProfile.cs",
+        "Assets/Game/Scripts/Runtime/Player/FirstPersonMotor.cs",
+        "Assets/Game/Scripts/Runtime/View/ProjectileVisuals.cs",
+        "Assets/Game/Scripts/Runtime/View/WeaponViewModel.cs",
+        "Assets/Game/Scripts/Runtime/Input/TouchLayout.cs",
+        "Assets/Game/Scripts/Runtime/Input/TouchLayoutApplier.cs",
+        "Assets/Game/Scripts/Runtime/UI/GameMenu.cs",
+        "Assets/Game/Scripts/Runtime/UI/HudController.cs",
+        "Assets/Game/Scripts/Runtime/UI/MiniMapView.cs",
+        "Assets/Game/Scripts/Runtime/UI/TouchLayoutEditor.cs",
+        "Assets/Game/Scripts/Runtime/UI/UiBuild.cs",
+        "Assets/Game/Tests/EditMode/AmmoStateTests.cs",
+        "Assets/Game/Tests/EditMode/TouchLayoutTests.cs",
+        "Assets/Game/Tests/EditMode/WeaponBalanceTests.cs",
+        "Assets/Game/Tests/PlayMode/FiringRangeSceneTests.cs",
+        "Assets/Game/Tests/PlayMode/PlayerActionTests.cs",
+        "Assets/Game/Tests/PlayMode/WeaponBalanceLabTests.cs",
+        "Assets/Game/Tests/PlayMode/LayoutEditorRecoilButtonTests.cs",
+        "Assets/Game/Tests/PlayMode/LayoutEditorRecoilButtonTests.cs.meta",
+        "docs/design/WEAPON_BALANCE_PHASE1.md"
+      ]
+    },
+    {
+      "id": "3-device-recovery",
+      "title": "iPhone 設定データ復旧機能（開発ビルド限定）と公開用の事故概要",
+      "depends_on": ["1-capture-store", "2-weapon-recoil-controls"],
+      "paths": [
+        "Assets/Game/Scripts/Dev/DeviceDataRecovery.cs",
+        "Assets/Game/Scripts/Dev/DeviceDataRecovery.cs.meta",
+        "Assets/Game/Tests/EditMode/DeviceDataRecoveryTests.cs",
+        "Assets/Game/Tests/EditMode/DeviceDataRecoveryTests.cs.meta",
+        "Assets/Game/Tests/EditMode/ReleaseBuildExclusionTests.cs",
+        "Assets/Game/Tests/EditMode/ReleaseBuildExclusionTests.cs.meta",
+        "Assets/Game/Tests/PlayMode/DeviceDataRecoveryPlayTests.cs",
+        "Assets/Game/Tests/PlayMode/DeviceDataRecoveryPlayTests.cs.meta",
+        "Tools/recovery/make_recovery_bundle.py",
+        "docs/recovery/IOS_DATA_INCIDENT_20261028.md",
+        "docs/recovery/IOS_DATA_RECOVERY_PROCEDURE.md"
+      ]
+    },
+    {
+      "id": "4-smg-side-view",
+      "title": "SMG 側面画像の正式登録（画像・.meta・SkinCatalog・SkinSetup・テスト・仕様書）",
+      "depends_on": ["2-weapon-recoil-controls"],
+      "assetpipe_receipt": "R20261030-094659-916e46",
+      "paths": [
+        "Assets/Game/Art/Weapons/SMG/Side.meta",
+        "Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png",
+        "Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png.meta",
+        "Assets/Game/Data/Skins/SkinCatalog.asset",
+        "Assets/Game/Scripts/Editor/SkinSetup.cs",
+        "Assets/Game/Tests/EditMode/SkinDataTests.cs",
+        "Assets/Game/Tests/PlayMode/SmgCandidateTests.cs",
+        "Assets/Game/Tests/PlayMode/LayoutEdgesAndAmmoPanelTests.cs",
+        "Assets/Game/Tests/PlayMode/LayoutEdgesAndAmmoPanelTests.cs.meta",
+        "docs/WEAPON_SIDE_ASSET_SPEC.md"
+      ]
+    },
+    {
+      "id": "5-docs-and-rules",
+      "title": "開発記録・運用ルール・コミット前の安全対策（.gitignore・監査ツール）",
+      "depends_on": ["1-capture-store", "2-weapon-recoil-controls", "3-device-recovery", "4-smg-side-view"],
+      "paths": [
+        ".gitignore",
+        "CLAUDE.md",
+        "docs/PROGRESS.md",
+        "docs/COMMIT_SAFETY.md",
+        "Tools/precommit/audit_commit_units.py",
+        "Tools/precommit/commit_units.json"
+      ]
+    },
+    {
+      "id": "6-public-doc-cleanup",
+      "title": "既存の公開文書から Mac の絶対パスと Team ID を除く（ビルド設定は変えない。どの単位にも依存しない）",
+      "depends_on": [],
+      "paths": [
+        "docs/review/equipment-art/README.md",
+        "docs/review/equipment-art/player_front_request.md",
+        "docs/review/equipment-art/rifle_side_request.md",
+        "docs/review/player-parts/knife/slash/README_multipose.md",
+        "docs/review/player-parts/knife/slash/pose13-brief/README.md",
+        "docs/review/player-parts/knife/slash/pose13-brief/pose3_request.md",
+        "docs/review/player-parts/knife/slash/pose2-review/README.md",
+        "docs/review/player-parts/rifle-hip/README.md",
+        "docs/review/player-parts/smg/ads-brief/README.md",
+        "docs/review/player-parts/smg/side-brief/README.md",
+        "docs/DEVELOPMENT.md"
+      ]
+    }
+  ]
+}
