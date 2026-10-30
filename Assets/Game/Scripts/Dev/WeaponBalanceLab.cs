@@ -14,13 +14,14 @@ namespace Deadlock.Dev
 {
     /// <summary>
     /// DEVELOPMENT ONLY (assembly Deadlock.Dev: Editor and development builds; never in a release build). Weapon balance
-    /// lab of the firing range, opened from the menu ("開発 武器調整"). Top: the weapon table (weapons are rows,
-    /// parameters columns; edited cells show "current→edited"). Below, tabs for the selected weapon: performance values,
-    /// recoil (axis, up / down, left / right, strength, base angles, ADS factor, preview of the kick pattern), damage
-    /// falloff (control points, graph, damage by distance) and test / save ("試射に適用" puts the edited values on a
-    /// runtime clone of the weapon definition; "試射を終了" goes back to the weapon asset; save / load / reset of the trial
-    /// file). Weapon assets and game settings are never written. While open, the player's input is blocked (nothing
-    /// reaches shooting or looking, and nothing stays pressed after closing).
+    /// lab of the firing range, opened from the menu ("開発 武器調整"). Top: weapon drop-down and the weapon table
+    /// (weapons are rows, parameters columns; edited cells show "official→B"). Below, tabs for the selected weapon:
+    /// performance values, recoil (the A / B editor rows shared with the in-game panel, preview of the kick pattern),
+    /// damage falloff (control points, graph, damage by distance) and test / save. B is the edited copy of each weapon,
+    /// A what its test runs with (the official values without a test); only "Bを試射に適用" changes A, by putting B on a
+    /// runtime clone of the weapon definition; "試射を終了" goes back to the weapon asset. Weapon assets and game
+    /// settings are never written. While open, the player's input is blocked (nothing reaches shooting or looking, and
+    /// nothing stays pressed after closing).
     /// </summary>
     public sealed class WeaponBalanceLab : MonoBehaviour
     {
@@ -46,30 +47,51 @@ namespace Deadlock.Dev
         readonly Dictionary<string, WeaponDefinition> originals = new Dictionary<string, WeaponDefinition>();
         readonly Dictionary<string, WeaponBalanceProfile> current = new Dictionary<string, WeaponBalanceProfile>();
         readonly Dictionary<string, WeaponBalanceProfile> edited = new Dictionary<string, WeaponBalanceProfile>();
-        WeaponDefinition appliedClone;
+        // A per weapon under test: its clone (what the gun fires while that weapon is in hand) and the values it was
+        // given (B at the moment of applying). Kept while the lab switches weapons; a switch from elsewhere ends them.
+        readonly Dictionary<string, (WeaponDefinition clone, WeaponBalanceProfile profile)> tests =
+            new Dictionary<string, (WeaponDefinition, WeaponBalanceProfile)>();
+        bool switching; // the lab itself is swapping the gun
+        Deadlock.Player.FirstPersonMotor motor;
+        Vector2 aimReference; // yaw, pitch the aim reset goes back to
+        WeaponRecoilEditor recoilEditor;
+        WeaponPicker picker;
+        readonly Dictionary<string, Button> recoilButtons = new Dictionary<string, Button>();
         int selectedPoint;
 
         RectTransform root, window, tableContent, tabArea;
         readonly Dictionary<Tab, RectTransform> tabPages = new Dictionary<Tab, RectTransform>();
         readonly Dictionary<Tab, Button> tabButtons = new Dictionary<Tab, Button>();
         readonly Dictionary<string, Text> valueTexts = new Dictionary<string, Text>();
-        readonly Dictionary<string, Button> cycleButtons = new Dictionary<string, Button>();
         readonly List<GameObject> tableCells = new List<GameObject>();
         readonly List<GameObject> pointRows = new List<GameObject>();
         readonly List<GameObject> graphParts = new List<GameObject>();
         readonly List<GameObject> patternDots = new List<GameObject>();
         RectTransform pointList, graph, pattern;
         Text statusText, recoilText, recoilError, falloffText, falloffError, testText, messageText;
-        Slider pitchSlider, multiplierSlider;
+        Slider multiplierSlider;
         bool refreshing;
+        RectTransform testHud;
+        Text testHudText;
+        int lastShotIndex = -1;
+
+        void OnFired() => lastShotIndex = gun.ShotIndex - 1;
+
+        /// <summary>The small read-out shown over the game during a test session (null text when not testing).</summary>
+        public Text TestHudText => testHudText;
+        public bool TestHudVisible => testHud != null && testHud.gameObject.activeSelf;
 
         public bool IsOpen => root != null && root.gameObject.activeSelf;
         public string SelectedId { get; private set; }
         public Tab CurrentTab { get; private set; } = Tab.Performance;
         public WeaponBalanceStore Store => store;
-        /// <summary>The weapon clone carrying the edited values while a test session runs (null: the official weapon).</summary>
-        public WeaponDefinition AppliedClone => appliedClone;
-        public bool Testing => appliedClone != null && gun.Definition == appliedClone;
+        /// <summary>The clone with the test values the gun in hand fires with (null: the official weapon).</summary>
+        public WeaponDefinition AppliedClone => tests.TryGetValue(gun.Definition.weaponId, out var t) && t.clone == gun.Definition ? t.clone : null;
+        public bool Testing => AppliedClone != null;
+        /// <summary>This weapon has test values (A ≠ official until the test ends), in hand or not.</summary>
+        public bool IsTesting(string weaponId) => tests.ContainsKey(weaponId);
+        /// <summary>Weapon id of the gun in hand (a test clone counts as its weapon).</summary>
+        public string EquippedId => gun.Definition.weaponId;
         public WeaponBalanceProfile Edited(string weaponId) => edited[weaponId];
         public WeaponBalanceProfile Current(string weaponId) => current[weaponId];
         public int SelectedPoint => selectedPoint;
@@ -77,9 +99,34 @@ namespace Deadlock.Dev
         public Text Message => messageText;
         public string LastHitText { get; private set; } = "";
         public RectTransform Window => window;
+        /// <summary>The expected-recoil pattern of the recoil tab (fixed scale).</summary>
+        public RectTransform Pattern => pattern;
         public RectTransform Graph => graph;
         public int GraphSegmentCount { get; private set; }
-        public Slider PitchSlider => pitchSlider;
+        public Slider PitchSlider => recoilEditor.SliderOf(RecoilParam.Pitch);
+        public WeaponRecoilEditor RecoilEditor => recoilEditor;
+        public WeaponPicker Picker => picker;
+
+        /// <summary>Registered weapons (the scene's gun choices), in order: the drop-downs are made from this.</summary>
+        public IReadOnlyList<string> WeaponIds => new List<string>(originals.Keys);
+        /// <summary>Name shown in the drop-downs: the definition's display name and type.</summary>
+        public string WeaponLabel(string weaponId) =>
+            originals.TryGetValue(weaponId, out var d) ? $"{d.displayName}（{WeaponBalanceProfile.TypeOf(weaponId)}）" : weaponId;
+
+        /// <summary>
+        /// A: the values the test of this weapon runs with (read only). Without a test of it, the official values. Editing
+        /// B never changes it; "Bを試射に適用" does.
+        /// </summary>
+        public WeaponBalanceProfile Applied(string weaponId) =>
+            tests.TryGetValue(weaponId, out var t) ? t.profile : current[weaponId];
+        /// <summary>The earlier recoil's recovery speed (the scene's, °/s).</summary>
+        public float LegacyRecoverySpeed => motor != null ? motor.RecoilRecovery : 9f;
+        /// <summary>Recoil comparison items where A and B of the selected weapon differ.</summary>
+        public int RecoilDiffCount => RecoilParams.DiffCount(Applied(SelectedId).recoil, E.recoil, LegacyRecoverySpeed);
+        /// <summary>Sliders in fine mode (small window, small step), shared by both screens.</summary>
+        public bool FineAdjust { get; private set; }
+        public bool MessageIsError { get; private set; }
+        public Vector2 AimReference => aimReference;
         public Slider MultiplierSlider => multiplierSlider;
 
         /// <summary>A named control of the lab window (tests press them by their screen position).</summary>
@@ -152,6 +199,9 @@ namespace Deadlock.Dev
             devGun = gun.GetComponent<DevGunSelection>();
             projectiles = FindAnyObjectByType<ProjectileSystem>();
             menu = FindAnyObjectByType<GameMenu>();
+            motor = gun.GetComponent<Deadlock.Player.FirstPersonMotor>();
+            if (motor != null)
+                aimReference = new Vector2(motor.Yaw, motor.Pitch); // the spawn direction (facing the targets)
             var options = devGun != null && devGun.Options.Count > 0 ? devGun.Options : (IReadOnlyList<WeaponDefinition>)new[] { gun.Definition };
             foreach (var d in options)
             {
@@ -165,9 +215,11 @@ namespace Deadlock.Dev
             if (projectiles != null)
                 projectiles.Hit += OnHit;
             gun.DefinitionChanged += OnDefinitionChanged;
+            gun.Fired += OnFired;
             Build();
             AddMenuEntry();
             root.gameObject.SetActive(false);
+            Quick = WeaponBalanceQuickPanel.Create(this, gun, (RectTransform)transform);
         }
 
         void OnDestroy()
@@ -175,19 +227,18 @@ namespace Deadlock.Dev
             if (projectiles != null)
                 projectiles.Hit -= OnHit;
             if (gun != null)
+            {
                 gun.DefinitionChanged -= OnDefinitionChanged;
+                gun.Fired -= OnFired;
+            }
             if (IsOpen && input != null)
                 input.Unblock(InputBlockReason);
-            if (appliedClone != null)
-                Destroy(appliedClone);
+            foreach (var t in tests.Values)
+                Destroy(t.clone);
+            tests.Clear();
         }
 
-        WeaponDefinition OriginalOf(WeaponDefinition d)
-        {
-            if (d == appliedClone && appliedClone != null && originals.TryGetValue(appliedClone.weaponId, out var o))
-                return o;
-            return d;
-        }
+        WeaponDefinition OriginalOf(WeaponDefinition d) => originals.TryGetValue(d.weaponId, out var o) ? o : d;
 
         /// <summary>The menu's window gets "開発 武器調整" at its top right (opposite "ホームへ").</summary>
         void AddMenuEntry()
@@ -214,6 +265,8 @@ namespace Deadlock.Dev
             input?.Block(InputBlockReason); // touches and keys stop reaching the player; released again on close
             root.gameObject.SetActive(true);
             root.SetAsLastSibling();
+            Canvas.ForceUpdateCanvases();
+            PlaceHeader();
             Refresh();
         }
 
@@ -241,8 +294,92 @@ namespace Deadlock.Dev
             return t;
         }
 
+        /// <summary>
+        /// Read-out over the game while a test session runs (development only): profile, direction, strength and the
+        /// kick of the last shot. Display only (takes no touches), top left inside the safe area, under the HUD buttons.
+        /// </summary>
+        void BuildTestHud()
+        {
+            var safe = UiBuild.Stretch(UiBuild.Rect("TestHudSafeArea", transform));
+            safe.gameObject.AddComponent<SafeAreaFitter>();
+            testHud = UiBuild.Place(UiBuild.Rect("TestHud", safe), new Vector2(0f, 1f), new Vector2(12f, -250f), new Vector2(470f, 110f)); // below the top-left HUD button
+            testHud.pivot = new Vector2(0f, 1f);
+            UiBuild.Image(testHud, new Color(0f, 0f, 0f, 0.55f), false);
+            testHudText = UiBuild.Text(UiBuild.Stretch(UiBuild.Rect("Text", testHud)), "", 17, TextAnchor.UpperLeft, EditedColor);
+            testHudText.rectTransform.offsetMin = new Vector2(10f, 6f);
+            testHudText.rectTransform.offsetMax = new Vector2(-10f, -6f);
+            testHud.gameObject.SetActive(false);
+        }
+
+        void Update()
+        {
+            if (testHud == null)
+                return;
+            bool show = Testing && !IsOpen && (Quick == null || !Quick.IsOpen);
+            if (testHud.gameObject.activeSelf != show)
+                testHud.gameObject.SetActive(show);
+            if (!show)
+                return;
+            var appliedClone = AppliedClone;
+            var r = appliedClone.recoilProfile;
+            string dir = r != null && r.enabled ? RecoilCalculator.DirectionName(r) : "従来（上・左右ランダム）";
+            string str = r != null && r.enabled ? (r.strength == RecoilStrength.Weak ? "弱" : r.strength == RecoilStrength.Strong ? "強" : "中") : "従来";
+            testHudText.text = string.Format(CultureInfo.InvariantCulture,
+                "開発：試射中 {0}（編集値）\n反動 {1}・{2}　ADS {3:0.00}\n最後の発射（{4}発目）：縦 {5:+0.00;-0.00;0.00}°　横 {6:+0.00;-0.00;0.00}°",
+                appliedClone.weaponId, dir, str, gun.AdsBlend, Mathf.Max(0, lastShotIndex) + 1, gun.LastRecoil.x, gun.LastRecoil.y);
+        }
+
+        /// <summary>Room the recoil rows leave at the right of the recoil tab: the pattern (420) and its margins.</summary>
+        public const float RecoilEditorRightInset = 16f + 420f + 8f;
+        const float TitleWidth = 230f, CloseWidth = 150f, PickerMaxWidth = 360f;
+        Text title;
+
+        /// <summary>The title (top left) of the window.</summary>
+        public Text Title => title;
+
+        /// <summary>
+        /// The FPS read-out (a development overlay drawn over everything at the top centre) in window units, x from the
+        /// window's left: its text's extent with a margin; null when it is not shown.
+        /// </summary>
+        public (float xMin, float xMax, float yMax)? FpsSpan()
+        {
+            var monitor = FrameRateMonitor.Instance;
+            var t = monitor != null && monitor.isActiveAndEnabled ? monitor.GetComponentInChildren<Text>() : null;
+            if (t == null || !t.isActiveAndEnabled || string.IsNullOrEmpty(t.text))
+                return null;
+            var c = new Vector3[4];
+            t.rectTransform.GetWorldCorners(c);
+            float half = t.preferredWidth * 0.5f * t.rectTransform.lossyScale.x + 24f * window.lossyScale.x, mid = (c[0].x + c[2].x) * 0.5f;
+            Vector2 a = window.InverseTransformPoint(new Vector3(mid - half, c[1].y)), b = window.InverseTransformPoint(new Vector3(mid + half, c[1].y - t.preferredHeight * t.rectTransform.lossyScale.y));
+            var r = window.rect;
+            return (a.x - r.xMin, b.x - r.xMin, r.yMax - b.y);
+        }
+
+        /// <summary>
+        /// The weapon drop-down between the title and 閉じる, in the widest room clear of the FPS read-out (its name is cut
+        /// with "…" when the room is narrow; the open list shows full names).
+        /// </summary>
+        void PlaceHeader()
+        {
+            float left = TitleWidth + 24f, right = window.rect.width - 10f - CloseWidth - 12f;
+            var rooms = new List<(float a, float b)>();
+            if (FpsSpan() is var (f0, f1, _))
+            {
+                rooms.Add((left, Mathf.Min(right, f0)));
+                rooms.Add((Mathf.Max(left, f1), right));
+            }
+            else
+                rooms.Add((left, right));
+            var best = rooms[0];
+            foreach (var room in rooms)
+                if (room.b - room.a > best.b - best.a)
+                    best = room;
+            picker.Place(TouchUi.Span.L(best.a, Mathf.Clamp(best.b - best.a, 120f, PickerMaxWidth)), -6f, 52f);
+        }
+
         void Build()
         {
+            BuildTestHud();
             root = UiBuild.Stretch(UiBuild.Rect("WeaponLab", transform));
             UiBuild.Image(root, new Color(0f, 0f, 0f, 0.55f), true); // takes every touch outside the window too
             var safe = UiBuild.Stretch(UiBuild.Rect("SafeArea", root));
@@ -252,11 +389,12 @@ namespace Deadlock.Dev
             window.offsetMax = new Vector2(-8f, -8f);
             UiBuild.Image(window, Bg, true);
 
-            Label(window, "Title", "武器調整（開発用・試験値は正式な武器に反映しない）", new Vector2(0f, 1f), new Vector2(16f, -8f), new Vector2(900f, 44f), 24).rectTransform.pivot = new Vector2(0f, 1f);
-            statusText = Label(window, "Status", "", new Vector2(0f, 1f), new Vector2(930f, -8f), new Vector2(500f, 44f), 18);
-            statusText.rectTransform.pivot = new Vector2(0f, 1f);
-            var close = Make(window, "Close", "閉じる", new Vector2(1f, 1f), new Vector2(-10f, -6f), new Vector2(150f, 56f), Close, 22);
+            title = Label(window, "Title", "武器調整（開発用）\n<size=14>試験値は正式な武器に反映しない</size>", new Vector2(0f, 1f), new Vector2(16f, -4f), new Vector2(TitleWidth, 56f), 21);
+            title.rectTransform.pivot = new Vector2(0f, 1f);
+            title.verticalOverflow = VerticalWrapMode.Truncate;
+            var close = Make(window, "Close", "閉じる", new Vector2(1f, 1f), new Vector2(-10f, -6f), new Vector2(CloseWidth, 56f), Close, 22);
             ((RectTransform)close.transform).pivot = new Vector2(1f, 1f);
+            picker = WeaponPicker.Build(this, window, "", TouchUi.Span.L(TitleWidth + 24f, PickerMaxWidth), -6f, 52f, 18, null, 420f);
 
             BuildTable();
 
@@ -264,13 +402,20 @@ namespace Deadlock.Dev
             foreach (var (tab, label) in new[] { (Tab.Performance, "性能"), (Tab.Recoil, "反動"), (Tab.Falloff, "距離減衰"), (Tab.Test, "試射・保存") })
             {
                 var captured = tab;
-                var b = Make(window, "Tab_" + tab, label, new Vector2(0f, 1f), new Vector2(x, -262f), new Vector2(190f, 58f), () => ShowTab(captured), 22);
+                var b = Make(window, "Tab_" + tab, label, new Vector2(0f, 1f), new Vector2(x, -262f), new Vector2(150f, 58f), () => ShowTab(captured), 22);
                 ((RectTransform)b.transform).pivot = new Vector2(0f, 1f);
                 tabButtons[tab] = b;
-                x += 200f;
+                x += 160f;
             }
-            messageText = Label(window, "Message", "", new Vector2(0f, 1f), new Vector2(x + 10f, -262f), new Vector2(760f, 58f), 18);
-            messageText.rectTransform.pivot = new Vector2(0f, 1f);
+            // Status and message: right of the tabs, up to the window's right edge (fits a 4:3 screen too).
+            statusText = Label(window, "Status", "", new Vector2(0f, 1f), Vector2.zero, Vector2.zero, 16);
+            statusText.rectTransform.anchorMax = new Vector2(1f, 1f);
+            statusText.rectTransform.offsetMin = new Vector2(x + 10f, -262f - 28f);
+            statusText.rectTransform.offsetMax = new Vector2(-12f, -262f);
+            messageText = Label(window, "Message", "", new Vector2(0f, 1f), Vector2.zero, Vector2.zero, 16);
+            messageText.rectTransform.anchorMax = new Vector2(1f, 1f);
+            messageText.rectTransform.offsetMin = new Vector2(x + 10f, -262f - 60f);
+            messageText.rectTransform.offsetMax = new Vector2(-12f, -262f - 28f);
             messageText.color = EditedColor;
 
             tabArea = UiBuild.Stretch(UiBuild.Rect("TabArea", window));
@@ -302,7 +447,7 @@ namespace Deadlock.Dev
             scroll.scrollSensitivity = 30f;
         }
 
-        static float ColumnWidth(int i) => i == 17 ? 420f : i == 14 ? 220f : 150f;
+        static float ColumnWidth(int i) => i == WeaponBalanceProfile.Columns.Length - 1 ? 420f : i == 14 ? 220f : i == 18 ? 190f : 150f; // last: falloff, 14: recoil direction
 
         void RefreshTable()
         {
@@ -389,64 +534,218 @@ namespace Deadlock.Dev
                 .rectTransform.pivot = Vector2.zero;
         }
 
-        void Cycle(RectTransform page, string key, string label, Vector2 pos, Action next)
-        {
-            Label(page, "L_" + key, label, new Vector2(0f, 1f), pos, new Vector2(150f, 64f), 20).rectTransform.pivot = new Vector2(0f, 1f);
-            var b = Make(page, "Cycle_" + key, "", new Vector2(0f, 1f), pos + new Vector2(155f, 0f), new Vector2(250f, 64f), () =>
-            {
-                E.recoil.enabled = true; // choosing a direction turns the data-driven recoil on
-                next();
-                Changed();
-            }, 22);
-            ((RectTransform)b.transform).pivot = new Vector2(0f, 1f);
-            cycleButtons[key] = b;
-        }
-
-        static T NextOf<T>(T value) where T : Enum
-        {
-            var all = (T[])Enum.GetValues(typeof(T));
-            return all[(Array.IndexOf(all, value) + 1) % all.Length];
-        }
-
         void BuildRecoil()
         {
             var p = Page(Tab.Recoil);
-            Cycle(p, "axis", "反動軸", new Vector2(16f, -12f), () => E.recoil.axis = NextOf(E.recoil.axis));
-            Cycle(p, "vertical", "上下", new Vector2(16f, -84f), () => E.recoil.vertical = NextOf(E.recoil.vertical));
-            Cycle(p, "horizontal", "左右", new Vector2(16f, -156f), () => E.recoil.horizontal = NextOf(E.recoil.horizontal));
-            Cycle(p, "strength", "強度", new Vector2(16f, -228f), () => E.recoil.strength = NextOf(E.recoil.strength));
-            Stepper(p, "pitch", "縦の基準角(°)", new Vector2(430f, -12f), d => { E.recoil.enabled = true; E.recoil.pitchDegrees = Mathf.Max(0f, Round(E.recoil.pitchDegrees + d * 0.05f, 2)); });
-            Stepper(p, "yaw", "横の基準角(°)", new Vector2(430f, -84f), d => { E.recoil.enabled = true; E.recoil.yawDegrees = Mathf.Max(0f, Round(E.recoil.yawDegrees + d * 0.05f, 2)); });
-            Stepper(p, "adsRecoil", "ADS反動倍率", new Vector2(430f, -156f), d => { E.recoil.enabled = true; E.recoil.adsMultiplier = Mathf.Clamp01(Round(E.recoil.adsMultiplier + d * 0.05f, 2)); });
-            Label(p, "L_pitchSlider", "縦の基準角（スライダー）", new Vector2(0f, 1f), new Vector2(430f, -228f), new Vector2(230f, 64f), 18).rectTransform.pivot = new Vector2(0f, 1f);
-            pitchSlider = UiBuild.Slider(p, "PitchSlider", new Vector2(0f, 1f), new Vector2(665f, -228f), new Vector2(340f, 64f), 0f, 300f, v =>
+            // The same editor rows as the in-game panel: B (edited) with direction + slider + number, A (applied) beside.
+            // Rows from the left up to the pattern (420 at the right): the sliders take the room left.
+            recoilEditor = WeaponRecoilEditor.Build(this, p, new Vector2(16f, -8f), "", 50f, 19, recoilButtons, WeaponRecoilEditor.EditorLayout.Inline, RecoilEditorRightInset);
+            float y = -8f - recoilEditor.Height - 8f;
+            float bx = 16f;
+            foreach (var (name, label, action) in new (string, string, Action)[]
             {
-                if (refreshing)
-                    return;
-                E.recoil.enabled = true;
-                E.recoil.pitchDegrees = v / 100f;
-                Changed();
-            });
-            ((RectTransform)pitchSlider.transform).pivot = new Vector2(0f, 1f);
-            var legacy = Make(p, "RecoilLegacy", "従来の反動に戻す", new Vector2(0f, 1f), new Vector2(16f, -300f), new Vector2(405f, 64f), () =>
+                ("RApply", "Bを試射に適用", ApplyToTest),
+                ("RRevert", "BをAに戻す", RevertEditedToApplied),
+                ("REnd", "試射を終了", EndTest),
+                ("RAimReset", "照準リセット", ResetAim),
+                ("RecoilLegacy", "Bの反動を\n正式値に戻す", ResetEditedRecoil),
+            })
             {
-                E.recoil = current[SelectedId].recoil.Clone();
-                Changed();
-            }, 20);
-            ((RectTransform)legacy.transform).pivot = new Vector2(0f, 1f);
-            recoilError = Label(p, "RecoilError", "", new Vector2(0f, 1f), new Vector2(16f, -372f), new Vector2(1000f, 40f), 18);
+                var b = Make(p, name, label, new Vector2(0f, 1f), new Vector2(bx, y), new Vector2(148f, 56f), action, 18);
+                ((RectTransform)b.transform).pivot = new Vector2(0f, 1f);
+                bx += 152f;
+            }
+            recoilError = Label(p, "RecoilError", "", new Vector2(0f, 1f), new Vector2(16f, y - 60f), new Vector2(756f, 26f), 15);
             recoilError.rectTransform.pivot = new Vector2(0f, 1f);
             recoilError.color = new Color(1f, 0.45f, 0.4f, 1f);
-            recoilText = Label(p, "RecoilPreview", "", new Vector2(0f, 1f), new Vector2(16f, -416f), new Vector2(1000f, 120f), 18);
+            recoilText = Label(p, "RecoilPreview", "", new Vector2(0f, 1f), new Vector2(16f, y - 84f), new Vector2(756f, 70f), 14);
             recoilText.rectTransform.pivot = new Vector2(0f, 1f);
             recoilText.verticalOverflow = VerticalWrapMode.Truncate;
-            Label(p, "PatternTitle", "予想反動（8発の累積、照準の動く向き・回復は含めない）", new Vector2(1f, 1f), new Vector2(-16f, -8f), new Vector2(420f, 40f), 16).rectTransform.pivot = new Vector2(1f, 1f);
-            pattern = UiBuild.Place(UiBuild.Rect("Pattern", p), new Vector2(1f, 1f), new Vector2(-16f, -52f), new Vector2(420f, 420f));
+
+            Label(p, "PatternTitle", "予想（1マス2°、8発、B）灰＝A 橙＝腰だめ 水色＝ADS（累積・回復なし）\n緑＝視点の動き（腰だめ・回復込み、各発の直後と停止1秒後）", new Vector2(1f, 1f), new Vector2(-16f, -2f), new Vector2(420f, 50f), 14).rectTransform.pivot = new Vector2(1f, 1f);
+            pattern = UiBuild.Place(UiBuild.Rect("Pattern", p), new Vector2(1f, 1f), new Vector2(-16f, -54f), new Vector2(420f, 420f));
             UiBuild.Image(pattern, new Color(0f, 0f, 0f, 0.5f), false);
-            var hLine = UiBuild.Place(UiBuild.Rect("AxisH", pattern), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 1f));
-            UiBuild.Image(hLine, new Color(1f, 1f, 1f, 0.25f), false);
-            var vLine = UiBuild.Place(UiBuild.Rect("AxisV", pattern), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1f, 420f));
-            UiBuild.Image(vLine, new Color(1f, 1f, 1f, 0.25f), false);
+            // Grid: a line every 2° (fixed scale), the centre lines brighter.
+            for (int g = -10; g <= 10; g++)
+            {
+                float a = g == 0 ? 0.35f : 0.08f;
+                var hLine = UiBuild.Place(UiBuild.Rect("GridH", pattern), new Vector2(0.5f, 0.5f), new Vector2(0f, g * 2f * PreviewPixelsPerDegree), new Vector2(420f, 1f));
+                UiBuild.Image(hLine, new Color(1f, 1f, 1f, a), false);
+                var vLine = UiBuild.Place(UiBuild.Rect("GridV", pattern), new Vector2(0.5f, 0.5f), new Vector2(g * 2f * PreviewPixelsPerDegree, 0f), new Vector2(1f, 420f));
+                UiBuild.Image(vLine, new Color(1f, 1f, 1f, a), false);
+            }
+            foreach (var (txt, pos) in new[] { ("上 +20°", new Vector2(0f, 196f)), ("下 −20°", new Vector2(0f, -196f)), ("右 +20°", new Vector2(180f, 10f)), ("左 −20°", new Vector2(-180f, 10f)) })
+                UiBuild.Text(UiBuild.Place(UiBuild.Rect("GridLabel", pattern), new Vector2(0.5f, 0.5f), pos, new Vector2(90f, 22f)), txt, 14, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.55f));
+        }
+
+        // ------------------------------------------------------------------------------------------- recoil editing
+        // Shared by the full lab and the in-game panel (same edited profile).
+
+        /// <summary>Raised after the edited profile of any weapon changes (from either screen).</summary>
+        public event Action EditedChanged;
+        /// <summary>Raised after every refresh of the lab's state (edits, test start / end, load, reset).</summary>
+        public event Action Refreshed;
+        /// <summary>The compact in-game panel (same edited profile).</summary>
+        public WeaponBalanceQuickPanel Quick { get; private set; }
+
+        void EnableRecoil()
+        {
+            if (!E.recoil.enabled)
+            {
+                E.recoil.enabled = true;
+                if (!E.recoil.IsValid(out _))
+                    E.recoil.SetDirections(RecoilVertical.Up, RecoilHorizontal.None);
+            }
+        }
+
+        public void SetVertical(RecoilVertical v)
+        {
+            EnableRecoil();
+            if (!E.recoil.SetDirections(v, E.recoil.horizontal))
+            {
+                Refuse("上下と左右の両方を「なし」にはできません（反動の向きがなくなるため）");
+                return;
+            }
+            Changed();
+        }
+
+        /// <summary>Left / right / none (turns the alternating mode off).</summary>
+        public void SetHorizontal(RecoilHorizontal h)
+        {
+            EnableRecoil();
+            if (!E.recoil.SetDirections(E.recoil.vertical, h))
+            {
+                Refuse("上下と左右の両方を「なし」にはできません（反動の向きがなくなるため）");
+                return;
+            }
+            Changed();
+        }
+
+        /// <summary>Alternating left / right mode on or off (off: no sideways kick, or right when there is no up / down).</summary>
+        public void SetAlternating(bool on)
+        {
+            EnableRecoil();
+            var r = E.recoil;
+            if (on)
+                r.SetDirections(r.vertical, RecoilHorizontal.Alternating);
+            else
+                r.SetDirections(r.vertical, r.vertical == RecoilVertical.None ? RecoilHorizontal.Right : RecoilHorizontal.None);
+            Changed();
+        }
+
+        public void SetStrength(RecoilStrength s)
+        {
+            EnableRecoil();
+            E.recoil.strength = s;
+            Changed();
+        }
+
+        /// <summary>
+        /// Sets one recoil number of B (slider, typed number, test). Outside its range, or an angle whose direction is
+        /// "なし", it is refused with the reason (nothing changes). A only changes through "Bを試射に適用".
+        /// </summary>
+        public bool TrySetValue(RecoilParam p, float v)
+        {
+            if (!RecoilParams.InRange(p, v))
+            {
+                Refuse($"{RecoilParams.Label(p)}は {RecoilParams.Shown(p, RecoilParams.Min(p))}〜{RecoilParams.Shown(p, RecoilParams.Max(p))} の範囲で入力してください");
+                return false;
+            }
+            var r = E.recoil;
+            if (r.enabled && (p == RecoilParam.Pitch && r.vertical == RecoilVertical.None || p == RecoilParam.Yaw && r.horizontal == RecoilHorizontal.None))
+            {
+                Refuse($"方向が「なし」の間は{RecoilParams.Label(p)}を変えられません（値は保持しています）");
+                return false;
+            }
+            EnableRecoil();
+            RecoilParams.Set(E.recoil, p, Mathf.Clamp((float)Math.Round(v, 3), RecoilParams.Min(p), RecoilParams.Max(p)));
+            Changed();
+            return true;
+        }
+
+        /// <summary>One step (coarse or fine) up or down.</summary>
+        public void Step(RecoilParam p, int direction) =>
+            TrySetValue(p, Mathf.Clamp((float)Math.Round(RecoilParams.Get(E.recoil, p) + direction * RecoilParams.Step(p, FineAdjust), 3), RecoilParams.Min(p), RecoilParams.Max(p)));
+
+        public void SetFineAdjust(bool fine)
+        {
+            FineAdjust = fine;
+            Refresh();
+            EditedChanged?.Invoke();
+        }
+
+        /// <summary>A typed text that is not a number.</summary>
+        public void RefuseInput(string why) => Refuse(why);
+
+        void Refuse(string why)
+        {
+            messageText.text = why;
+            messageText.color = new Color(1f, 0.45f, 0.4f, 1f);
+            MessageIsError = true;
+            Refresh();
+            EditedChanged?.Invoke();
+        }
+
+        void Say(string text)
+        {
+            messageText.text = text;
+            messageText.color = EditedColor;
+            MessageIsError = false;
+        }
+
+        /// <summary>A (the running test) and B match for the selected weapon.</summary>
+        public bool AppliedMatchesEdited
+        {
+            get
+            {
+                if (!tests.TryGetValue(SelectedId, out var t))
+                    return false;
+                return WeaponBalanceProfile.Diff(t.profile, E).Count == 0;
+            }
+        }
+
+        /// <summary>B back to A (the applied values; without a test, the official ones). Only B changes.</summary>
+        public void RevertEditedToApplied()
+        {
+            edited[SelectedId] = Applied(SelectedId).Clone();
+            selectedPoint = 0;
+            Say("BをA（適用中の値）に戻しました");
+            Refresh();
+            EditedChanged?.Invoke();
+        }
+
+        /// <summary>Only B's recoil back to the official values.</summary>
+        void ResetEditedRecoil()
+        {
+            E.recoil = current[SelectedId].recoil.Clone();
+            Say("Bの反動を正式な武器の値に戻しました");
+            Refresh();
+            EditedChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Aim reset for comparing shots: the view goes back to the reference direction, the kick still to come and the
+        /// recovery still running are cleared, and the next shot is the first of the pattern. Parameters, ADS, ammo and
+        /// the gun are left as they are.
+        /// </summary>
+        public void ResetAim()
+        {
+            if (motor == null)
+                return;
+            motor.SetYawPitch(aimReference.x, aimReference.y);
+            gun.ResetShotSequence();
+            Say("照準を基準の向きに戻しました（反動の蓄積と回復中の分を消去）");
+            Refresh();
+        }
+
+        /// <summary>The current view becomes the aim reset's direction.</summary>
+        public void SetAimReference()
+        {
+            if (motor == null)
+                return;
+            aimReference = new Vector2(motor.Yaw, motor.Pitch);
+            Say("今の向きを照準リセットの基準にしました");
+            Refresh();
         }
 
         void BuildFalloff()
@@ -489,7 +788,7 @@ namespace Deadlock.Dev
             falloffError = Label(p, "FalloffError", "", new Vector2(0f, 1f), new Vector2(560f, -330f), new Vector2(700f, 36f), 17);
             falloffError.rectTransform.pivot = new Vector2(0f, 1f);
             falloffError.color = new Color(1f, 0.45f, 0.4f, 1f);
-            falloffText = Label(p, "FalloffTable", "", new Vector2(0f, 1f), new Vector2(560f, -370f), new Vector2(720f, 160f), 17);
+            falloffText = Label(p, "FalloffTable", "", new Vector2(0f, 1f), new Vector2(560f, -370f), new Vector2(640f, 160f), 17);
             falloffText.rectTransform.pivot = new Vector2(0f, 1f);
         }
 
@@ -502,13 +801,16 @@ namespace Deadlock.Dev
                 ((RectTransform)b.transform).pivot = new Vector2(0f, 1f);
                 return b;
             }
-            B("Apply", "試射に適用", ApplyToTest, new Vector2(16f, -12f));
+            B("Apply", "Bを試射に適用", ApplyToTest, new Vector2(16f, -12f));
             B("EndTest", "試射を終了（正式値に戻す）", EndTest, new Vector2(326f, -12f));
-            B("Save", "試験データを保存", Save, new Vector2(16f, -88f));
-            B("Load", "保存データを読み込み", Load, new Vector2(326f, -88f));
-            B("ResetEdit", "編集を現行値に戻す", ResetEdited, new Vector2(16f, -164f));
-            B("DeleteSaved", "保存データを削除", DeleteSaved, new Vector2(326f, -164f));
-            testText = Label(p, "TestInfo", "", new Vector2(0f, 1f), new Vector2(660f, -12f), new Vector2(620f, 500f), 17);
+            B("RevertToA", "BをAに戻す", RevertEditedToApplied, new Vector2(16f, -88f));
+            B("ResetEdit", "Bを正式値に戻す", ResetEdited, new Vector2(326f, -88f));
+            B("AimReset", "照準リセット", ResetAim, new Vector2(16f, -164f));
+            B("AimReference", "今の向きを照準の基準に", SetAimReference, new Vector2(326f, -164f));
+            B("Save", "Bを保存", Save, new Vector2(16f, -240f));
+            B("Load", "保存データをBに読み込み", Load, new Vector2(326f, -240f));
+            B("DeleteSaved", "保存データを削除", DeleteSaved, new Vector2(16f, -316f));
+            testText = Label(p, "TestInfo", "", new Vector2(0f, 1f), new Vector2(640f, -12f), new Vector2(560f, 500f), 16);
             testText.rectTransform.pivot = new Vector2(0f, 1f);
             testText.verticalOverflow = VerticalWrapMode.Truncate;
         }
@@ -525,20 +827,51 @@ namespace Deadlock.Dev
             Refresh();
         }
 
+        /// <summary>
+        /// Shows this weapon's A / B and puts it in hand (through <see cref="DevGunSelection"/>, as the menu's test choice
+        /// does): with test values of its own, the gun fires them (its A); otherwise the official weapon. A fresh gun, as
+        /// any switch.
+        /// </summary>
         public void Select(string weaponId)
         {
             if (!originals.ContainsKey(weaponId))
                 return;
             SelectedId = weaponId;
             selectedPoint = 0;
+            picker?.Close();
+            Equip(weaponId);
             Refresh();
+            EditedChanged?.Invoke();
         }
 
+        void Equip(string weaponId)
+        {
+            var target = tests.TryGetValue(weaponId, out var t) ? t.clone : originals[weaponId];
+            if (gun.Definition == target)
+                return;
+            switching = true;
+            try
+            {
+                if (devGun != null && OriginalOf(gun.Definition) != originals[weaponId])
+                    devGun.Select(weaponId); // the session's test choice follows (the official gun first)
+                gun.SetDefinition(target);
+            }
+            finally
+            {
+                switching = false;
+            }
+        }
+
+        /// <summary>B changed (A stays: the test only takes B through "Bを試射に適用").</summary>
         void Changed()
         {
-            messageText.text = "";
+            Say("");
             Refresh();
+            EditedChanged?.Invoke();
         }
+
+        /// <summary>For the in-game panel: the edited values changed through the shared API.</summary>
+        public void NotifyEdited() => Changed();
 
         void AddPoint()
         {
@@ -579,55 +912,92 @@ namespace Deadlock.Dev
             Refresh();
         }
 
-        /// <summary>Puts the edited values on a runtime clone of the selected weapon and equips it (weapon assets untouched).</summary>
+        /// <summary>
+        /// Puts B on a runtime clone of the selected weapon (weapon assets untouched): it becomes A and the gun fires it from
+        /// the next shot. The gun's state carries on — shot number, aim and recoil still recovering, ADS, rounds, the held
+        /// trigger; only the aim reset clears them. A weapon not in hand is put in hand first (a fresh gun, as any switch).
+        /// </summary>
         public void ApplyToTest()
         {
             var problems = E.Problems();
             if (problems.Count > 0)
             {
-                messageText.text = "適用できません：" + string.Join("／", problems);
+                Refuse("適用できません：" + string.Join("／", problems));
                 return;
             }
             var original = originals[SelectedId];
-            if (devGun != null && OriginalOf(gun.Definition) != original)
-                devGun.Select(SelectedId);
+            bool inHand = OriginalOf(gun.Definition) == original;
+            if (!inHand)
+                Equip(SelectedId);
             var clone = Instantiate(original);
             clone.name = original.name + " (lab)";
             E.ApplyTo(clone);
-            var old = appliedClone;
-            appliedClone = clone;
-            gun.SetDefinition(clone);
-            if (old != null)
-                Destroy(old);
-            messageText.text = $"{SelectedId} に編集値を適用しました（試射中）。弾倉・予備弾は満タンから";
+            tests.TryGetValue(SelectedId, out var old);
+            tests[SelectedId] = (clone, E.Clone()); // A: a copy, so editing B afterwards leaves it as applied
+            switching = true;
+            try
+            {
+                gun.SetDefinitionKeepingState(clone);
+            }
+            finally
+            {
+                switching = false;
+            }
+            if (old.clone != null)
+                Destroy(old.clone);
+            Say(inHand
+                ? $"{SelectedId} にBを適用しました（A＝B、次の発射から）。照準・反動・発射番号・弾数はそのまま"
+                : $"{SelectedId} に持ち替えてBを適用しました（A＝B、試射中）");
             Refresh();
+            EditedChanged?.Invoke();
         }
 
-        /// <summary>Back to the official weapon (the asset) for the gun in hand.</summary>
+        /// <summary>The selected weapon's test ends: A is the official values again; in hand, the gun fires them (its state carries on).</summary>
         public void EndTest()
         {
-            if (appliedClone == null)
+            if (!tests.TryGetValue(SelectedId, out var t))
             {
-                messageText.text = "試射中の編集値はありません";
+                Say("試射中の編集値はありません");
+                Refresh();
                 return;
             }
-            var original = originals[appliedClone.weaponId];
-            var clone = appliedClone;
-            appliedClone = null;
-            if (gun.Definition == clone)
-                gun.SetDefinition(original);
-            Destroy(clone);
-            messageText.text = "正式な武器の値に戻しました";
+            tests.Remove(SelectedId);
+            if (gun.Definition == t.clone)
+            {
+                switching = true;
+                try
+                {
+                    gun.SetDefinitionKeepingState(originals[SelectedId]);
+                }
+                finally
+                {
+                    switching = false;
+                }
+            }
+            Destroy(t.clone);
+            Say("試射を終了し、正式な武器の値に戻しました（Bは残しています）");
             Refresh();
+            EditedChanged?.Invoke();
         }
 
         void OnDefinitionChanged()
         {
-            // Switched elsewhere (menu test choice): the test session of the clone ends.
-            if (appliedClone != null && gun.Definition != appliedClone)
+            if (!switching)
             {
-                Destroy(appliedClone);
-                appliedClone = null;
+                // Switched elsewhere (the menu's test choice): every test ends (the gun is an official one now), and the
+                // lab shows the weapon in hand.
+                foreach (var t in tests.Values)
+                    if (t.clone != gun.Definition)
+                        Destroy(t.clone);
+                tests.Clear();
+                if (originals.ContainsKey(EquippedId))
+                    SelectedId = EquippedId;
+                if (root != null)
+                {
+                    Refresh();
+                    EditedChanged?.Invoke();
+                }
+                return;
             }
             if (root != null && IsOpen)
                 Refresh();
@@ -665,7 +1035,7 @@ namespace Deadlock.Dev
         public void Save()
         {
             store.Save(E, BaseCommit);
-            messageText.text = "保存しました：" + store.PathOf(SelectedId);
+            Say("保存しました：" + store.PathOf(SelectedId));
             Refresh();
         }
 
@@ -675,10 +1045,10 @@ namespace Deadlock.Dev
             {
                 edited[SelectedId] = loaded;
                 selectedPoint = 0;
-                messageText.text = $"読み込みました（保存 {loaded.savedAt}、基準 {Short(loaded.baseCommit)}）";
+                Say($"Bに読み込みました（保存 {loaded.savedAt}、基準 {Short(loaded.baseCommit)}）");
             }
             else
-                messageText.text = error;
+                Refuse(error);
             Refresh();
         }
 
@@ -686,13 +1056,14 @@ namespace Deadlock.Dev
         {
             edited[SelectedId] = current[SelectedId].Clone();
             selectedPoint = 0;
-            messageText.text = "編集値を現行の武器の値に戻しました（保存データは消していません）";
+            Say("Bを正式な武器の値に戻しました（保存データは消していません）");
             Refresh();
+            EditedChanged?.Invoke();
         }
 
         public void DeleteSaved()
         {
-            messageText.text = store.Delete(SelectedId) ? "保存データを削除しました" : "保存データはありません";
+            Say(store.Delete(SelectedId) ? "保存データを削除しました" : "保存データはありません");
             Refresh();
         }
 
@@ -721,7 +1092,11 @@ namespace Deadlock.Dev
             refreshing = true;
             var e = E;
             var c = current[SelectedId];
-            statusText.text = Testing ? $"試射中：{appliedClone.weaponId}（編集値）" : $"装備：{OriginalOf(gun.Definition).weaponId}（正式値）";
+            int diffs = WeaponBalanceProfile.Diff(Applied(SelectedId), e).Count;
+            statusText.text = (IsTesting(SelectedId) ? $"試射中：{SelectedId}（A＝適用したB）" : $"装備：{EquippedId}（A＝正式値）")
+                + (diffs == 0 ? "｜B＝A" : $"｜BはAと {diffs} 項目ちがう（未適用）");
+            picker.Refresh();
+            recoilEditor.Refresh();
             RefreshTable();
 
             void V(string key, string now, string next)
@@ -746,74 +1121,163 @@ namespace Deadlock.Dev
             V("pitch", F(c.recoil.pitchDegrees), F(e.recoil.pitchDegrees));
             V("yaw", F(c.recoil.yawDegrees), F(e.recoil.yawDegrees));
             V("adsRecoil", F(c.recoil.adsMultiplier), F(e.recoil.adsMultiplier));
-            pitchSlider.value = Mathf.Round(e.recoil.pitchDegrees * 100f);
+            V("recoveryAmount", F(c.recoil.recoveryFraction), F(e.recoil.recoveryFraction));
+            V("recoverySpeed", F(c.recoil.recoverySpeed, "0.0"), F(e.recoil.recoverySpeed, "0.0"));
 
             RefreshRecoil(e);
             RefreshFalloff(e, c);
             RefreshTest(e, c);
             refreshing = false;
+            Refreshed?.Invoke();
         }
+
+        /// <summary>Pixels per degree of the recoil preview (fixed, so strength and base angle change the drawing's size).</summary>
+        public const float PreviewPixelsPerDegree = 10f;
+        /// <summary>Shots in the recoil preview.</summary>
+        public const int PreviewShots = 8;
+
+        /// <summary>
+        /// Cumulative aim movement (x = yaw right, y = pitch up, degrees) after each of <see cref="PreviewShots"/> shots
+        /// (index 0 = before the first), at <paramref name="ads"/>. A disabled profile is the earlier recoil: pitch only,
+        /// its random sideways kick averages out.
+        /// </summary>
+        public static List<Vector2> PreviewPattern(RecoilProfile r, float ads)
+        {
+            var pts = new List<Vector2> { Vector2.zero };
+            Vector2 sum = Vector2.zero;
+            for (int i = 0; i < PreviewShots; i++)
+            {
+                float kp, ky;
+                if (r.enabled)
+                {
+                    if (!RecoilCalculator.TryCompute(r, i, ads, out kp, out ky))
+                        break;
+                }
+                else
+                {
+                    kp = r.pitchDegrees * Mathf.Lerp(1f, r.adsMultiplier, ads);
+                    ky = 0f;
+                }
+                sum += new Vector2(ky, kp);
+                pts.Add(sum);
+            }
+            return pts;
+        }
+
+        /// <summary>Last drawn preview (edited, hip / ADS; current), cumulative degrees.</summary>
+        public List<Vector2> PreviewHip { get; private set; } = new List<Vector2>();
+        public List<Vector2> PreviewAds { get; private set; } = new List<Vector2>();
+        public List<Vector2> PreviewCurrent { get; private set; } = new List<Vector2>();
+
+        void DrawPattern(List<Vector2> pts, string prefix, Color color, float size)
+        {
+            for (int i = 1; i < pts.Count; i++)
+            {
+                Vector2 px = pts[i] * PreviewPixelsPerDegree;
+                bool outside = Mathf.Abs(px.x) > 205f || Mathf.Abs(px.y) > 205f;
+                px = new Vector2(Mathf.Clamp(px.x, -205f, 205f), Mathf.Clamp(px.y, -205f, 205f));
+                var dot = UiBuild.Place(UiBuild.Rect(prefix + i, pattern), new Vector2(0.5f, 0.5f), px, outside ? new Vector2(size + 6f, 4f) : new Vector2(size, size));
+                UiBuild.Image(dot, color, false);
+                patternDots.Add(dot.gameObject);
+            }
+        }
+
+        /// <summary>
+        /// The aim's offset from where it was before firing, taken right after each of <see cref="PreviewShots"/> shots
+        /// at <paramref name="fireInterval"/> and 1 s after the last one, with the motor's recovery rule: each kick moves
+        /// the aim at once, its recovery share returns at the recovery speed (the earlier recoil: half, at
+        /// <paramref name="legacySpeed"/>). x = yaw right, y = pitch up (degrees). Hip fire.
+        /// </summary>
+        public static List<Vector2> PreviewView(RecoilProfile r, float fireInterval, float legacySpeed)
+        {
+            const float dt = 1f / 60f;
+            var pts = new List<Vector2> { Vector2.zero };
+            bool data = r.enabled && r.IsValid(out _);
+            if (r.enabled && !data)
+                return pts;
+            float fraction = data ? r.recoveryFraction : Deadlock.Player.FirstPersonMotor.DefaultRecoveryFraction;
+            float speed = data ? r.recoverySpeed : legacySpeed;
+            Vector2 view = Vector2.zero, remaining = Vector2.zero;
+            int frames = Mathf.Max(1, Mathf.RoundToInt(fireInterval / dt));
+            void Frames(int n)
+            {
+                for (int f = 0; f < n; f++)
+                {
+                    var rec = Vector2.MoveTowards(Vector2.zero, remaining, speed * dt);
+                    remaining -= rec;
+                    view -= rec;
+                }
+            }
+            for (int i = 0; i < PreviewShots; i++)
+            {
+                Vector2 kick;
+                if (data)
+                {
+                    RecoilCalculator.TryCompute(r, i, 0f, out float kp, out float ky);
+                    kick = new Vector2(ky, kp);
+                }
+                else
+                    kick = new Vector2(0f, r.pitchDegrees);
+                view += kick;
+                remaining += kick * fraction;
+                Frames(1); // the frame the kick lands also recovers
+                pts.Add(view);
+                if (i < PreviewShots - 1)
+                    Frames(frames - 1);
+            }
+            Frames(Mathf.RoundToInt(1f / dt));
+            pts.Add(view);
+            return pts;
+        }
+
+        public List<Vector2> PreviewViewPath { get; private set; } = new List<Vector2>();
 
         void RefreshRecoil(WeaponBalanceProfile e)
         {
             var r = e.recoil;
-            string[] axisNames = { "縦方向", "横方向", "斜め", "複合" };
-            string[] vNames = { "なし", "上", "下" };
-            string[] hNames = { "なし", "左", "右", "左右交互" };
-            string[] sNames = { "弱(0.7)", "中(1.0)", "強(1.4)" };
-            void SetCycle(string key, string text)
-            {
-                var t = cycleButtons[key].GetComponentInChildren<Text>();
-                t.text = r.enabled ? text : text + "（未使用）";
-            }
-            SetCycle("axis", axisNames[(int)r.axis]);
-            SetCycle("vertical", vNames[(int)r.vertical]);
-            SetCycle("horizontal", hNames[(int)r.horizontal]);
-            SetCycle("strength", sNames[(int)r.strength]);
             foreach (var go in patternDots)
                 Destroy(go);
             patternDots.Clear();
+            // Fixed scale: A, the applied recoil (grey), B at the hip (orange), fully aimed (light blue), and the aim's
+            // actual path with B's recovery (green).
+            PreviewCurrent = PreviewPattern(Applied(SelectedId).recoil, 0f);
+            bool valid = r.IsValid(out string err) || !r.enabled;
+            PreviewHip = valid ? PreviewPattern(r, 0f) : new List<Vector2> { Vector2.zero };
+            PreviewAds = valid ? PreviewPattern(r, 1f) : new List<Vector2> { Vector2.zero };
+            PreviewViewPath = valid ? PreviewView(r, 60f / Mathf.Max(1f, e.rpm), LegacyRecoverySpeed) : new List<Vector2> { Vector2.zero };
+            DrawPattern(PreviewCurrent, "Cur_", new Color(0.7f, 0.7f, 0.7f, 0.6f), 16f);
+            DrawPattern(PreviewAds, "Ads_", new Color(0.4f, 0.85f, 1f, 1f), 11f);
+            DrawPattern(PreviewHip, "Hip_", EditedColor, 11f);
+            DrawPattern(PreviewViewPath, "View_", new Color(0.4f, 1f, 0.45f, 1f), 9f);
+            var view = PreviewViewPath;
+            float peak = 0f;
+            foreach (var v in view)
+                peak = Mathf.Max(peak, v.magnitude);
+            var rest = view[view.Count - 1];
             if (!r.enabled)
             {
                 recoilError.text = "";
-                recoilText.text = $"従来の反動：縦 {F(r.pitchDegrees)}°（上）、横 ±{F(r.yawDegrees)}° のランダム、ADS ×{F(r.adsMultiplier)}。方向・強度のどれかを押すと、データで指定する反動に切り替わります。";
+                recoilText.text = $"B＝従来の反動：縦 {F(r.pitchDegrees)}°（上）、横 ±{F(r.yawDegrees)}° のランダム、ADS ×{F(r.adsMultiplier)}、回復は半分を {F(LegacyRecoverySpeed)}°/秒。\n"
+                    + string.Format(CultureInfo.InvariantCulture, "視点（回復込み）：8発で最大 {0:0.0}°、停止1秒後 縦{1:+0.0;-0.0;0.0}°。方向・強度などを押すと、データで指定する反動に切り替わります。", peak, rest.y);
                 return;
             }
-            recoilError.text = r.IsValid(out string err) ? "" : "組み合わせが不正（適用できません）：" + err;
-            if (!string.IsNullOrEmpty(recoilError.text))
+            recoilError.text = valid ? "" : "不正（適用できません）：" + err;
+            if (!valid)
             {
                 recoilText.text = "";
                 return;
             }
-            var lines = new List<string>();
-            for (int i = 0; i < 4; i++)
-            {
-                RecoilCalculator.TryCompute(r, i, 0f, out float hp, out float hy);
-                RecoilCalculator.TryCompute(r, i, 1f, out float ap, out float ay);
-                lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}発目：腰だめ 縦{1:+0.00;-0.00;0.00}° 横{2:+0.00;-0.00;0.00}°／ADS 縦{3:+0.00;-0.00;0.00}° 横{4:+0.00;-0.00;0.00}°",
-                    i + 1, hp, hy, ap, ay));
-            }
-            recoilText.text = $"{RecoilCalculator.DirectionName(r)}・{(r.strength == RecoilStrength.Weak ? "弱" : r.strength == RecoilStrength.Strong ? "強" : "中")}\n" + string.Join("\n", lines);
-            // Cumulative kick of 8 shots (aim moves up = dot goes up, right = right).
-            float px = 0f, py = 0f;
-            var pts = new List<Vector2> { Vector2.zero };
-            for (int i = 0; i < 8; i++)
-            {
-                RecoilCalculator.TryCompute(r, i, 0f, out float kp, out float ky);
-                px += ky;
-                py += kp;
-                pts.Add(new Vector2(px, py));
-            }
-            float extent = 0.01f;
-            foreach (var v in pts)
-                extent = Mathf.Max(extent, Mathf.Abs(v.x), Mathf.Abs(v.y));
-            float scale = 180f / extent;
-            for (int i = 0; i < pts.Count; i++)
-            {
-                var dot = UiBuild.Place(UiBuild.Rect("Dot" + i, pattern), new Vector2(0.5f, 0.5f), pts[i] * scale, new Vector2(14f, 14f));
-                UiBuild.Image(dot, i == 0 ? Color.white : Color.Lerp(EditedColor, new Color(1f, 0.3f, 0.2f, 1f), i / 8f), false);
-                patternDots.Add(dot.gameObject);
-            }
+            RecoilCalculator.TryCompute(r, 0, 0f, out float hp, out float hy);
+            RecoilCalculator.TryCompute(r, 1, 0f, out float hp2, out float hy2);
+            RecoilCalculator.TryCompute(r, 0, 1f, out float ap, out float ay);
+            var end = PreviewHip[PreviewHip.Count - 1];
+            var cur = PreviewCurrent[PreviewCurrent.Count - 1];
+            recoilText.text = $"B：{RecoilCalculator.DirectionName(r)}・{(r.strength == RecoilStrength.Weak ? "弱" : r.strength == RecoilStrength.Strong ? "強" : "中")}　回復：{F(r.recoveryFraction)} を {F(r.recoverySpeed)}°/秒\n"
+                + string.Format(CultureInfo.InvariantCulture,
+                    "1発目 腰だめ 縦{0:+0.00;-0.00;0.00}° 横{1:+0.00;-0.00;0.00}°／2発目 縦{2:+0.00;-0.00;0.00}° 横{3:+0.00;-0.00;0.00}°／ADS 縦{4:+0.00;-0.00;0.00}° 横{5:+0.00;-0.00;0.00}°\n" +
+                    "8発の累積（回復なし）：縦{6:+0.0;-0.0;0.0}° 横{7:+0.0;-0.0;0.0}°（A 縦{8:+0.0;-0.0;0.0}°）\n" +
+                    "視点（回復込み）：最大 {9:0.0}°、8発目の直後 縦{10:+0.0;-0.0;0.0}° 横{11:+0.0;-0.0;0.0}°、停止1秒後 縦{12:+0.0;-0.0;0.0}° 横{13:+0.0;-0.0;0.0}°",
+                    hp, hy, hp2, hy2, ap, ay, end.y, end.x, cur.y, peak, view[view.Count - 2].y, view[view.Count - 2].x, rest.y, rest.x);
         }
 
         void RefreshFalloff(WeaponBalanceProfile e, WeaponBalanceProfile c)
@@ -920,17 +1384,20 @@ namespace Deadlock.Dev
 
         void RefreshTest(WeaponBalanceProfile e, WeaponBalanceProfile c)
         {
-            var diff = WeaponBalanceProfile.Diff(c, e);
+            var a = Applied(SelectedId);
+            var diff = WeaponBalanceProfile.Diff(a, e);
             var lines = new List<string>
             {
-                Testing ? $"試射中：{appliedClone.weaponId} に編集値を適用中（武器の正式な値は変えていません）" : "試射中の編集値なし（正式な武器の値）",
+                IsTesting(SelectedId) ? $"試射中：{SelectedId}（A＝適用したB。武器の正式な値は変えていません）" : "試射なし（A＝正式な武器の値）",
                 LastHitText,
                 $"保存先：{store.PathOf(SelectedId)}",
                 $"基準コミット：{Short(BaseCommit)}",
-                diff.Count == 0 ? "現行値との差：なし" : "現行値との差：",
+                diff.Count == 0 ? "AとBの差：なし" : "AとBの差（A → B、未適用）：",
             };
             foreach (var (column, from, to) in diff)
                 lines.Add($"・{column}：{from} → {to}");
+            var official = WeaponBalanceProfile.Diff(c, e);
+            lines.Add(official.Count == 0 ? "正式値とBの差：なし" : $"正式値とBの差：{official.Count} 項目（表の「正式→B」）");
             var problems = e.Problems();
             if (problems.Count > 0)
                 lines.Add("適用できない理由：" + string.Join("／", problems));

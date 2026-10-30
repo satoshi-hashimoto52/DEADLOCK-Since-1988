@@ -56,6 +56,8 @@ namespace Deadlock.UI
         public bool IsSkinSettingsOpen => skinPanel != null && skinPanel.activeSelf;
         public bool IsEditingLayout => layoutEditor != null && layoutEditor.IsOpen;
         public Button MenuButton { get; private set; }
+        /// <summary>The skin catalog of this scene (the guns' side views; may be null).</summary>
+        public SkinCatalog Skins => skins;
         /// <summary>Menu → Home (null in the online scene).</summary>
         public Button HomeButton { get; private set; }
         public bool IsHomeConfirmOpen => homeConfirm != null && homeConfirm.activeSelf;

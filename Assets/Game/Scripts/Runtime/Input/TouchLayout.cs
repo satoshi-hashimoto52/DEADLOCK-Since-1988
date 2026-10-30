@@ -4,7 +4,10 @@ using UnityEngine;
 
 namespace Deadlock.Input
 {
-    /// <summary>One editable touch widget. Positions are normalised to the Safe Area (0..1, y up).</summary>
+    /// <summary>
+    /// One editable touch widget. Positions are normalised to the Safe Area (0..1, y up); sideways a widget may go past
+    /// it into the screen's left / right margins (x below 0 or above 1), up to the screen's edges.
+    /// </summary>
     [Serializable]
     public struct TouchLayoutItem
     {
@@ -13,7 +16,7 @@ namespace Deadlock.Input
         public Vector2 center;
         /// <summary>Move zone only: normalised width / height of the touch area.</summary>
         public Vector2 size;
-        /// <summary>Buttons / stick: size multiplier of the default diameter.</summary>
+        /// <summary>Buttons / stick: size multiplier of the default diameter (the ammo panel: of its base size).</summary>
         public float scale;
     }
 
@@ -55,6 +58,8 @@ namespace Deadlock.Input
         public const string Jump = "jump";
         public const string Posture = "posture";
         public const string Weapon = "weapon";
+        /// <summary>The ammo panel (reserve / loaded and the gun's side view): a HUD box, moved like the buttons.</summary>
+        public const string Ammo = "ammo";
 
         public const string PrefsKey = "deadlock.touchLayout.v1";
 
@@ -82,6 +87,15 @@ namespace Deadlock.Input
         };
 
         public static readonly string[] Circles = { MoveStick, Fire, Ads, Reload, Jump, Posture, Weapon };
+        /// <summary>Rectangular HUD items placed by the layout (shown, not touched: controls may cover them).</summary>
+        public static readonly string[] Boxes = { Ammo };
+        /// <summary>Base size of the ammo panel (canvas units): the count on top, the gun's side view under it.</summary>
+        public static readonly Vector2 AmmoBaseSize = new Vector2(280f, 134f);
+
+        public static bool IsBox(string id) => Array.IndexOf(Boxes, id) >= 0;
+
+        /// <summary>A box item's size in canvas units.</summary>
+        public static Vector2 BoxSize(TouchLayoutItem item) => AmmoBaseSize * item.scale;
 
         public static string DisplayName(string id) => id switch
         {
@@ -93,6 +107,7 @@ namespace Deadlock.Input
             Jump => "ジャンプ",
             Posture => "姿勢",
             Weapon => "武器切り替え",
+            Ammo => "弾数表示",
             _ => id,
         };
 
@@ -108,6 +123,8 @@ namespace Deadlock.Input
             data.items.Add(Circle(Jump, 0.755f, 0.398f));
             data.items.Add(Circle(Posture, 0.602f, 0.139f));
             data.items.Add(Circle(Weapon, 0.911f, 0.676f));
+            // Top right, where the ammo counter always was (48 / 24 units in from the corner on a 1920 x 1080 Safe Area).
+            data.items.Add(new TouchLayoutItem { id = Ammo, center = new Vector2((1920f - 48f - 140f) / 1920f, (1080f - 24f - 67f) / 1080f), scale = 1f });
             return data;
         }
 
@@ -116,22 +133,37 @@ namespace Deadlock.Input
 
         public static float Diameter(TouchLayoutItem item) => BaseDiameter(item.id) * item.scale;
 
-        /// <summary>Centre clamped so the whole circle stays inside the Safe Area.</summary>
-        public static Vector2 ClampCircle(Vector2 center, float diameter, Vector2 safeSize)
+        /// <summary>
+        /// Centre clamped so the whole circle stays on screen: up and down inside the Safe Area, sideways up to the
+        /// screen's edges. <paramref name="sideRoom"/> is the screen's margin left (x) and right (y) of the Safe Area in
+        /// canvas units (zero: inside the Safe Area, as before).
+        /// </summary>
+        public static Vector2 ClampCircle(Vector2 center, float diameter, Vector2 safeSize, Vector2 sideRoom = default) =>
+            ClampBox(center, new Vector2(diameter, diameter), safeSize, sideRoom);
+
+        /// <summary>Centre of a box of <paramref name="size"/> (canvas units) clamped like <see cref="ClampCircle"/>.</summary>
+        public static Vector2 ClampBox(Vector2 center, Vector2 size, Vector2 safeSize, Vector2 sideRoom = default)
         {
-            float rx = diameter * 0.5f / Mathf.Max(1f, safeSize.x);
-            float ry = diameter * 0.5f / Mathf.Max(1f, safeSize.y);
+            float w = Mathf.Max(1f, safeSize.x), h = Mathf.Max(1f, safeSize.y);
+            float rx = size.x * 0.5f / w, ry = size.y * 0.5f / h;
+            float left = -Mathf.Max(0f, sideRoom.x) / w + rx, right = 1f + Mathf.Max(0f, sideRoom.y) / w - rx;
             return new Vector2(
-                Mathf.Clamp(center.x, rx, Mathf.Max(rx, 1f - rx)),
+                Mathf.Clamp(center.x, left, Mathf.Max(left, right)),
                 Mathf.Clamp(center.y, ry, Mathf.Max(ry, 1f - ry)));
         }
 
-        public static TouchLayoutItem ClampZone(TouchLayoutItem zone)
+        /// <summary>
+        /// The move zone kept to its size range and on screen (sideways up to the screen's edges when the Safe Area's
+        /// size and the side margins are given, otherwise inside the Safe Area).
+        /// </summary>
+        public static TouchLayoutItem ClampZone(TouchLayoutItem zone, Vector2 safeSize = default, Vector2 sideRoom = default)
         {
             zone.size = Vector2.Max(MinZoneSize, Vector2.Min(MaxZoneSize, zone.size));
             Vector2 half = zone.size * 0.5f;
+            float w = Mathf.Max(1f, safeSize.x);
+            float left = safeSize.x > 0f ? -Mathf.Max(0f, sideRoom.x) / w : 0f, right = safeSize.x > 0f ? 1f + Mathf.Max(0f, sideRoom.y) / w : 1f;
             zone.center = new Vector2(
-                Mathf.Clamp(zone.center.x, half.x, 1f - half.x),
+                Mathf.Clamp(zone.center.x, left + half.x, right - half.x),
                 Mathf.Clamp(zone.center.y, half.y, 1f - half.y));
             return zone;
         }
@@ -155,7 +187,7 @@ namespace Deadlock.Input
         /// A layout is usable when no two circles overlap (beyond a small tolerance), nothing covers the menu button or
         /// its margin, and the stick rests inside the move zone. Checked in canvas units for the current Safe Area size.
         /// </summary>
-        public static bool IsUsable(TouchLayoutData data, Vector2 safeSize, out string problem)
+        public static bool IsUsable(TouchLayoutData data, Vector2 safeSize, out string problem, Vector2 sideRoom = default)
         {
             problem = null;
             for (int a = 0; a < Circles.Length; a++)
@@ -163,8 +195,8 @@ namespace Deadlock.Input
             {
                 var ia = data.Get(Circles[a]);
                 var ib = data.Get(Circles[b]);
-                Vector2 pa = Vector2.Scale(ClampCircle(ia.center, Diameter(ia), safeSize), safeSize);
-                Vector2 pb = Vector2.Scale(ClampCircle(ib.center, Diameter(ib), safeSize), safeSize);
+                Vector2 pa = Vector2.Scale(ClampCircle(ia.center, Diameter(ia), safeSize, sideRoom), safeSize);
+                Vector2 pb = Vector2.Scale(ClampCircle(ib.center, Diameter(ib), safeSize, sideRoom), safeSize);
                 float minDistance = (Diameter(ia) + Diameter(ib)) * 0.5f * (1f - AllowedOverlap);
                 if (Vector2.Distance(pa, pb) < minDistance)
                 {
@@ -176,14 +208,14 @@ namespace Deadlock.Input
             foreach (var id in Circles)
             {
                 var item = data.Get(id);
-                Vector2 p = Vector2.Scale(ClampCircle(item.center, Diameter(item), safeSize), safeSize);
+                Vector2 p = Vector2.Scale(ClampCircle(item.center, Diameter(item), safeSize, sideRoom), safeSize);
                 if (CircleHitsRect(p, Diameter(item) * 0.5f, guard))
                 {
                     problem = $"{DisplayName(id)}がメニューボタンに重なっています";
                     return false;
                 }
             }
-            var zone = ClampZone(data.Get(MoveZone));
+            var zone = ClampZone(data.Get(MoveZone), safeSize, sideRoom);
             var zoneRect = new Rect(Vector2.Scale(zone.center - zone.size * 0.5f, safeSize), Vector2.Scale(zone.size, safeSize));
             if (zoneRect.Overlaps(guard))
             {

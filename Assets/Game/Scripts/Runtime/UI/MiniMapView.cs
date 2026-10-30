@@ -167,11 +167,15 @@ namespace Deadlock.UI
         public static float ChoosePosition(Vector2 safeSize, TouchLayoutData layout)
         {
             const float gap = 8f;
+            var ammo = layout != null && layout.IndexOf(TouchLayout.Ammo) >= 0 ? layout.Get(TouchLayout.Ammo) : TouchLayout.Defaults().Get(TouchLayout.Ammo);
+            Vector2 ammoSize = TouchLayout.BoxSize(ammo), ammoCenter = TouchLayout.ClampBox(ammo.center, ammoSize, safeSize) * safeSize;
+            const float postureLine = 86f; // the posture line under the ammo panel
             var fixedAreas = new[]
             {
                 TouchLayout.MenuGuard(safeSize),
                 new Rect(safeSize.x * 0.5f - 300f, safeSize.y - 124f, 600f, 124f),              // status line
-                new Rect(safeSize.x - 48f - 420f, safeSize.y - 206f, 468f, 206f),              // ammo / posture
+                new Rect(ammoCenter.x - ammoSize.x * 0.5f, ammoCenter.y - ammoSize.y * 0.5f - postureLine,
+                    ammoSize.x, ammoSize.y + postureLine),                                     // ammo panel / posture
             };
             for (float left = Margin.x; left + BaseSize.x + Margin.x <= safeSize.x; left += gap)
             {
@@ -182,7 +186,7 @@ namespace Deadlock.UI
                 if (layout != null)
                     foreach (var item in layout.items)
                     {
-                        if (!clear || item.id == TouchLayout.MoveZone)
+                        if (!clear || item.id == TouchLayout.MoveZone || TouchLayout.IsBox(item.id))
                             continue;
                         float r = TouchLayout.Diameter(item) * 0.5f + gap;
                         Vector2 c = TouchLayout.ClampCircle(item.center, TouchLayout.Diameter(item), safeSize) * safeSize;
@@ -448,6 +452,8 @@ namespace Deadlock.UI
             if (hud != null)
             {
                 AddText(hud.AmmoText, "888 / 888", hud.MeleeName);
+                if (hud.AmmoPanel != null)
+                    avoidBoxes.Add(WorldRect(hud.AmmoPanel));
                 AddText(hud.StanceText, "スライディング　ダッシュ\n頭上が塞がっています");
                 if (hud.HealthArea != null)
                 {

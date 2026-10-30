@@ -10,8 +10,10 @@ namespace Deadlock.UI
     /// <summary>
     /// "Settings → Control layout": edit the touch widgets on top of the real game screen. Drag a handle to move a
     /// widget, select it and use − / ＋ to resize. Changes preview live; Apply saves them on the device, Cancel
-    /// restores the saved layout, Reset shows the defaults (saved only on Apply). Moves that would leave the Safe Area
-    /// or make widgets overlap are refused. A full-screen blocker stops game input while editing.
+    /// restores the saved layout, Reset shows the defaults (saved only on Apply). Widgets may go sideways up to the
+    /// screen's edges (past the Safe Area into the side margins), up and down only inside the Safe Area; moves that
+    /// would make buttons overlap are refused. The ammo panel (a HUD box) moves and resizes the same way; buttons may
+    /// cover it. A full-screen blocker stops game input while editing.
     /// Where the scene has a floor map (<see cref="MiniMapView"/>), it is one more item: drag to move, − / ＋ to resize
     /// (aspect kept), shown with sample markers while editing, always kept inside the Safe Area. The handle follows where
     /// the map is actually shown, which keeps clear of the HUD text and the controls (a note says when it is moved off the
@@ -46,6 +48,18 @@ namespace Deadlock.UI
         Action onClosed;
 
         public bool IsOpen { get; private set; }
+
+        static int openEditors;
+
+        /// <summary>
+        /// A layout editor is open somewhere. Overlays drawn above the menu (the development recoil HUD's button) hide
+        /// while it is, so they never sit on the editor's toolbar or take its touches.
+        /// </summary>
+        public static bool AnyOpen => openEditors > 0;
+
+        /// <summary>Raised when <see cref="AnyOpen"/> changes (true: an editor opened; false: the last one closed).</summary>
+        public static event Action<bool> AnyOpenChanged;
+
         public TouchLayoutData Working => working?.Clone();
         /// <summary>The floor map's place / size being edited (when the scene has one).</summary>
         public MiniMapPlacement MapWorking => mapWorking;
@@ -97,12 +111,25 @@ namespace Deadlock.UI
                 Build();
             if (handles.TryGetValue(MiniMapView.LayoutId, out var mapHandle))
                 mapHandle.gameObject.SetActive(miniMap != null);
+            foreach (string box in TouchLayout.Boxes)
+                handles[box].gameObject.SetActive(applier.HasWidget(box));
             layer.gameObject.SetActive(true);
             layer.SetAsLastSibling();
             Select(null);
             ShowMessage("");
-            IsOpen = true;
+            SetOpenState(true);
         }
+
+        void SetOpenState(bool open)
+        {
+            if (IsOpen == open)
+                return;
+            IsOpen = open;
+            openEditors = Mathf.Max(0, openEditors + (open ? 1 : -1));
+            AnyOpenChanged?.Invoke(AnyOpen);
+        }
+
+        void OnDestroy() => SetOpenState(false); // a scene unloaded while editing
 
         // ---------------------------------------------------------------- edit operations (also used by tests)
 
@@ -110,6 +137,7 @@ namespace Deadlock.UI
         public bool MoveBy(string id, Vector2 screenDelta)
         {
             Vector2 safe = applier.SafeSize;
+            Vector2 room = applier.SideRoom;
             Vector2 delta = screenDelta / Mathf.Max(0.0001f, canvas.scaleFactor);
             Vector2 normalized = new Vector2(delta.x / Mathf.Max(1f, safe.x), delta.y / Mathf.Max(1f, safe.y));
             if (id == MiniMapView.LayoutId)
@@ -125,17 +153,21 @@ namespace Deadlock.UI
             var item = candidate.Get(id);
             if (id == TouchLayout.MoveZone)
             {
-                var before = TouchLayout.ClampZone(item);
+                var before = TouchLayout.ClampZone(item, safe, room);
                 item.center += normalized;
-                item = TouchLayout.ClampZone(item);
+                item = TouchLayout.ClampZone(item, safe, room);
                 // The stick rests inside the zone: it moves with it.
                 var stick = candidate.Get(TouchLayout.MoveStick);
                 stick.center += item.center - before.center;
                 candidate.Set(stick);
             }
+            else if (TouchLayout.IsBox(id))
+            {
+                item.center = TouchLayout.ClampBox(item.center + normalized, TouchLayout.BoxSize(item), safe, room);
+            }
             else
             {
-                item.center = TouchLayout.ClampCircle(item.center + normalized, TouchLayout.Diameter(item), safe);
+                item.center = TouchLayout.ClampCircle(item.center + normalized, TouchLayout.Diameter(item), safe, room);
             }
             candidate.Set(item);
             return TryAccept(candidate);
@@ -157,12 +189,14 @@ namespace Deadlock.UI
             if (id == TouchLayout.MoveZone)
             {
                 item.size *= 1f + ZoneStep * direction;
-                item = TouchLayout.ClampZone(item);
+                item = TouchLayout.ClampZone(item, applier.SafeSize, applier.SideRoom);
             }
             else
             {
                 item.scale = Mathf.Clamp(item.scale + ScaleStep * direction, TouchLayout.MinScale, TouchLayout.MaxScale);
-                item.center = TouchLayout.ClampCircle(item.center, TouchLayout.Diameter(item), applier.SafeSize);
+                item.center = TouchLayout.IsBox(id)
+                    ? TouchLayout.ClampBox(item.center, TouchLayout.BoxSize(item), applier.SafeSize, applier.SideRoom)
+                    : TouchLayout.ClampCircle(item.center, TouchLayout.Diameter(item), applier.SafeSize, applier.SideRoom);
             }
             candidate.Set(item);
             return TryAccept(candidate);
@@ -222,7 +256,7 @@ namespace Deadlock.UI
 
         bool TryAccept(TouchLayoutData candidate)
         {
-            if (!TouchLayout.IsUsable(candidate, applier.SafeSize, out string problem))
+            if (!TouchLayout.IsUsable(candidate, applier.SafeSize, out string problem, applier.SideRoom))
             {
                 ShowMessage(problem + "（変更できません）");
                 return false;
@@ -235,7 +269,7 @@ namespace Deadlock.UI
 
         void Close()
         {
-            IsOpen = false;
+            SetOpenState(false);
             layer.gameObject.SetActive(false);
             var opacity = controls.GetComponent<TouchControlsOpacity>();
             if (opacity != null)
@@ -265,6 +299,8 @@ namespace Deadlock.UI
                 return new Color(1f, 0.8f, 0.2f, id == MiniMapView.LayoutId ? 0.3f : 0.55f);
             if (id == MiniMapView.LayoutId)
                 return new Color(0.45f, 0.78f, 0.95f, 0.18f);
+            if (TouchLayout.IsBox(id))
+                return new Color(0.6f, 1f, 0.6f, 0.22f);
             return id == TouchLayout.MoveZone ? new Color(0.3f, 0.6f, 1f, 0.22f) : new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -277,7 +313,7 @@ namespace Deadlock.UI
             // Handles follow the real widgets (which the applier positions), so what you drag is what you get.
             foreach (var pair in handles)
             {
-                if (pair.Key == MiniMapView.LayoutId && miniMap == null)
+                if (pair.Key == MiniMapView.LayoutId && miniMap == null || pair.Key != MiniMapView.LayoutId && !applier.HasWidget(pair.Key))
                     continue;
                 var widget = pair.Key == MiniMapView.LayoutId ? miniMap.Frame : applier.Widget(pair.Key);
                 var corners = new Vector3[4];
@@ -297,6 +333,7 @@ namespace Deadlock.UI
             handleRoot = UiBuild.Stretch(UiBuild.Rect("Handles", layer));
 
             var ids = new List<string> { TouchLayout.MoveZone, MiniMapView.LayoutId };
+            ids.AddRange(TouchLayout.Boxes);
             ids.AddRange(TouchLayout.Circles);
             foreach (string id in ids)
             {
@@ -314,7 +351,9 @@ namespace Deadlock.UI
                 drag.Dragged = delta => MoveBy(captured, delta);
                 handles[id] = handle;
             }
-            // Smaller widgets above the zone and the map so they stay grabbable.
+            // Smaller widgets above the zone, the map and the ammo panel so they stay grabbable.
+            foreach (string box in TouchLayout.Boxes)
+                handles[box].SetAsFirstSibling();
             handles[MiniMapView.LayoutId].SetAsFirstSibling();
             handles[TouchLayout.MoveZone].SetAsFirstSibling();
 

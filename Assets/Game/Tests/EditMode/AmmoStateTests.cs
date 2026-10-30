@@ -78,5 +78,30 @@ namespace Deadlock.Tests
             Assert.AreEqual(30, ammo.Loaded);
             Assert.AreEqual(0, ammo.Reserve);
         }
+
+        [Test]
+        public void InfiniteReserve_ReloadFillsTheMagazine_ReserveNeverDrawn_OffByDefault()
+        {
+            var finite = new AmmoState(30, 180, 0, 20);
+            Assert.IsFalse(finite.InfiniteReserve, "every mode is finite unless the firing range sets it");
+            Assert.AreEqual(20, finite.Reload());
+            Assert.AreEqual(0, finite.Reserve);
+            Assert.IsFalse(finite.CanReload);
+
+            var range = new AmmoState(30, 180, 0, 0) { InfiniteReserve = true };
+            Assert.IsTrue(range.CanReload, "even with the reserve number at 0");
+            Assert.IsFalse(range.IsCompletelyEmpty);
+            for (int i = 0; i < 10; i++)
+            {
+                while (range.TryConsume()) { }
+                Assert.AreEqual(0, range.Loaded, "shots empty the magazine");
+                Assert.AreEqual(30, range.Reload(), "a reload fills it to the magazine size");
+                Assert.AreEqual(30, range.Loaded);
+                Assert.AreEqual(0, range.Reserve);
+            }
+            Assert.AreEqual(0, range.Reload(), "nothing to do with a full magazine");
+            range.TryConsume();
+            Assert.AreEqual(1, range.Reload(), "tops up like the finite rule");
+        }
     }
 }

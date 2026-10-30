@@ -33,6 +33,57 @@ namespace Deadlock.Tests
             }
         }
 
+        /// <summary>iPhone 16 Pro in landscape: Safe Area 1755.6 x 891.9 units, 145 units of screen beside it on each side.</summary>
+        static readonly Vector2 PhoneSafe = new Vector2(1755.6f, 891.9f), PhoneRoom = new Vector2(145f, 145f);
+
+        [Test]
+        public void ClampCircle_WithSideRoom_ReachesTheScreenEdges_NeverPast()
+        {
+            float d = 240f;
+            Vector2 right = TouchLayout.ClampCircle(new Vector2(5f, 0.5f), d, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(PhoneSafe.x + PhoneRoom.y, right.x * PhoneSafe.x + d / 2f, 0.01f, "right edge of the button on the screen's right edge");
+            Vector2 left = TouchLayout.ClampCircle(new Vector2(-5f, 0.5f), d, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(-PhoneRoom.x, left.x * PhoneSafe.x - d / 2f, 0.01f, "left edge on the screen's left edge");
+            Assert.Less(left.x, 0f, "past the Safe Area, into the margin");
+            Vector2 top = TouchLayout.ClampCircle(new Vector2(0.5f, 5f), d, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(PhoneSafe.y, top.y * PhoneSafe.y + d / 2f, 0.01f, "up and down: still the Safe Area");
+            Assert.AreEqual(TouchLayout.ClampCircle(new Vector2(-5f, 0.5f), d, PhoneSafe).x * PhoneSafe.x - d / 2f, 0f, 0.01f, "no room: the Safe Area, as before");
+        }
+
+        [Test]
+        public void ButtonsAtTheScreenEdges_AreUsable_AndTheZoneFollows()
+        {
+            var data = TouchLayout.Defaults();
+            var fire = data.Get(TouchLayout.Fire);
+            fire.center.x = 5f;
+            data.Set(fire);
+            var posture = data.Get(TouchLayout.Posture);
+            posture.center = new Vector2(-5f, 0.6f);
+            data.Set(posture);
+            Assert.IsTrue(TouchLayout.IsUsable(data, PhoneSafe, out string problem, PhoneRoom), problem);
+            var zone = TouchLayout.ClampZone(new TouchLayoutItem { id = TouchLayout.MoveZone, center = new Vector2(-5f, 0.4f), size = new Vector2(0.4f, 0.8f) }, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(-PhoneRoom.x, (zone.center.x - zone.size.x * 0.5f) * PhoneSafe.x, 0.01f, "the move zone reaches the left edge too");
+        }
+
+        [Test]
+        public void AmmoPanel_IsALayoutBox_TopRightByDefault_ClampedOnScreen()
+        {
+            var ammo = TouchLayout.Defaults().Get(TouchLayout.Ammo);
+            Assert.IsTrue(TouchLayout.IsBox(TouchLayout.Ammo));
+            CollectionAssert.DoesNotContain(TouchLayout.Circles, TouchLayout.Ammo, "buttons may cover it (not an overlap rule)");
+            Assert.Greater(ammo.center.x, 0.85f);
+            Assert.Greater(ammo.center.y, 0.85f);
+            Vector2 size = TouchLayout.BoxSize(ammo);
+            Vector2 c = TouchLayout.ClampBox(new Vector2(5f, 5f), size, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(PhoneSafe.x + PhoneRoom.y, c.x * PhoneSafe.x + size.x / 2f, 0.01f);
+            Assert.AreEqual(PhoneSafe.y, c.y * PhoneSafe.y + size.y / 2f, 0.01f);
+            c = TouchLayout.ClampBox(new Vector2(-5f, -5f), size * 1.6f, PhoneSafe, PhoneRoom);
+            Assert.AreEqual(-PhoneRoom.x, c.x * PhoneSafe.x - size.x * 0.8f, 0.01f);
+            Assert.AreEqual(0f, c.y * PhoneSafe.y - size.y * 0.8f, 0.01f);
+            foreach (var safe in SafeSizes)
+                Assert.IsTrue(TouchLayout.IsUsable(TouchLayout.Defaults(), safe, out string problem), problem);
+        }
+
         [Test]
         public void Overlapping_Buttons_And_StickOutsideZone_AreRejected()
         {

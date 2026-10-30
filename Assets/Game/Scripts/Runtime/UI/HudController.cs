@@ -1,14 +1,31 @@
 using Deadlock.Combat;
 using Deadlock.Input;
 using Deadlock.Player;
+using Deadlock.View;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Deadlock.UI
 {
     /// <summary>
-    /// Minimal prototype HUD: crosshair (gap follows spread), ammo counter / weapon name, reload progress, hit marker,
-    /// posture and sprint state. Reads player state only; never changes it.
+    /// Minimal prototype HUD: crosshair (gap follows spread), ammo panel, reload progress, hit marker, posture and sprint
+    /// state. Reads player state only; never changes it.
+    /// The ammo panel is one box placed by the touch layout (<see cref="TouchLayout.Ammo"/>, moved in the layout editor,
+    /// saved with the buttons): on top "loaded / reserve" (reserve "∞" where it never runs out, the firing range), under
+    /// it the gun in hand's side view from the skin catalog (with its skin), or the gun's name where it has none yet (the
+    /// SMG candidate); with the knife out, the knife's name. The posture line hangs under the panel.
+    /// The whole panel (count, divider, picture or name, face, frame, posture line) takes the on-screen controls'
+    /// transparency setting through one CanvasGroup: exactly the controls' own multiplier
+    /// (<see cref="TouchControlsOpacity"/>: 1 − transparency / 100, full strength while the layout editor is open), so
+    /// it always looks as see-through as the buttons; the parts keep their own alpha under it (no second group).
+    /// <code>
+    /// ┌──────────────┐
+    /// │   30 / ∞     │
+    /// ├──────────────┤
+    /// │ [side view]  │
+    /// └──────────────┘
+    ///          立ち
+    /// </code>
     /// </summary>
     public sealed class HudController : MonoBehaviour
     {
@@ -45,6 +62,13 @@ namespace Deadlock.UI
         Text hpText;
         Image damageFlash;
         float damageFlashStart = -10f;
+        RectTransform ammoPanel;
+        CanvasGroup ammoGroup;
+        TouchControlsOpacity controlsOpacity;
+        RectTransform ammoArtHost;
+        Text ammoCaption;
+        string ammoArtId;
+        SkinCatalog skins;
 
         // Damage flash: short and faint. A hit during a running flash does not brighten it again, so several
         // zombies hitting in quick succession never strobe the screen.
@@ -53,6 +77,22 @@ namespace Deadlock.UI
 
         /// <summary>HUD text the floor map keeps clear of (ammo / melee name, posture line), with their widest contents.</summary>
         public Text AmmoText => ammoText;
+        /// <summary>The ammo panel (count, divider, side view), placed by the touch layout.</summary>
+        public RectTransform AmmoPanel => ammoPanel;
+        /// <summary>The ammo panel's see-through multiplier now (the on-screen controls').</summary>
+        public float AmmoPanelAlpha => ammoGroup != null ? ammoGroup.alpha : 1f;
+
+        /// <summary>The side view shown in the ammo panel (null when the gun has none, or the knife is out).</summary>
+        public Image AmmoArt { get; private set; }
+        /// <summary>Shown instead of the side view: the gun's name when it has none, or empty.</summary>
+        public Text AmmoCaption => ammoCaption;
+
+        /// <summary>Size of the ammo count (canvas units; the count used to be 56 / 64), and the height of its row.</summary>
+        public const int AmmoCountFont = 40;
+        public const float AmmoCountRow = 54f;
+
+        /// <summary>The ammo line: the rounds in the magazine, then the reserve ("∞" when it never runs out).</summary>
+        public static string AmmoLine(AmmoState ammo) => $"{ammo.Loaded} / {(ammo.InfiniteReserve ? "∞" : ammo.Reserve.ToString())}";
         public Text StanceText => stanceText;
         public string MeleeName => melee != null && melee.Definition != null ? melee.Definition.displayName : "";
         /// <summary>The HP bar and its number (bottom centre), when the player has health.</summary>
@@ -70,6 +110,151 @@ namespace Deadlock.UI
             health = gun.GetComponent<PlayerHealth>();
             if (health != null)
                 BuildHealthWidgets();
+            BuildAmmoPanel();
+            CentreOnScreen();
+        }
+
+        /// <summary>
+        /// The crosshair and the hit marker mark where shots go: the camera's centre, which is the screen's centre. They
+        /// were laid out in the Safe Area, whose centre is not the screen's where its insets differ (an iPhone in landscape:
+        /// 63 px for the home indicator at the bottom, none at the top, so 31.5 px ≈ 10.5 pt higher), and every shot landed
+        /// that far below the crosshair. Both now hang from the canvas (the whole screen), centred.
+        /// </summary>
+        void CentreOnScreen()
+        {
+            foreach (var r in new[] { crosshairGroup != null ? (RectTransform)crosshairGroup.transform : null, hitMarker != null ? hitMarker.rectTransform : null })
+            {
+                if (r == null || canvasRect == null)
+                    continue;
+                r.SetParent(canvasRect, false);
+                r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
+                r.anchoredPosition = Vector2.zero;
+            }
+        }
+
+        /// <summary>The crosshair's centre on screen (pixels): where the shots go.</summary>
+        public Vector2 CrosshairScreenPoint
+        {
+            get
+            {
+                var c = new Vector3[4];
+                ((RectTransform)crosshairGroup.transform).GetWorldCorners(c);
+                var canvas = canvasRect.GetComponentInParent<Canvas>();
+                Camera uiCam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+                return RectTransformUtility.WorldToScreenPoint(uiCam, (c[0] + c[2]) * 0.5f);
+            }
+        }
+
+        void Start()
+        {
+            var menu = FindAnyObjectByType<GameMenu>(FindObjectsInactive.Include);
+            skins = menu != null ? menu.Skins : null;
+            ammoArtId = null; // shown with the catalog from the next frame
+            // Placed by the saved layout now, and by the layout's applier from then on (also while editing).
+            PlaceAmmo(PlacedOnScreen(TouchLayout.Load().Get(TouchLayout.Ammo)));
+            var applier = FindAnyObjectByType<TouchLayoutApplier>(FindObjectsInactive.Include);
+            if (applier != null)
+                applier.Attach(TouchLayout.Ammo, ammoPanel, PlaceAmmo);
+            controlsOpacity = FindAnyObjectByType<TouchControlsOpacity>(FindObjectsInactive.Include);
+            ApplyControlsAlpha();
+        }
+
+        /// <summary>The on-screen controls' multiplier (their own while they are shown, else from the same setting).</summary>
+        void ApplyControlsAlpha()
+        {
+            if (ammoGroup == null)
+                return;
+            ammoGroup.alpha = controlsOpacity != null && controlsOpacity.isActiveAndEnabled
+                ? controlsOpacity.Alpha
+                : 1f - ControlSettings.TouchControlTransparency / 100f;
+        }
+
+        TouchLayoutItem PlacedOnScreen(TouchLayoutItem item)
+        {
+            var safe = (RectTransform)ammoPanel.parent;
+            item.center = TouchLayout.ClampBox(item.center, TouchLayout.BoxSize(item), safe.rect.size, TouchLayoutApplier.SideRoomOf(safe));
+            return item;
+        }
+
+        /// <summary>Puts the ammo panel at a layout item's place and size (centre normalised to the Safe Area).</summary>
+        void PlaceAmmo(TouchLayoutItem item)
+        {
+            ammoPanel.anchorMin = ammoPanel.anchorMax = item.center;
+            ammoPanel.anchoredPosition = Vector2.zero;
+            ammoPanel.localScale = new Vector3(item.scale, item.scale, 1f);
+        }
+
+        /// <summary>
+        /// The ammo panel: a framed box with the count (the scene's ammo text, moved in) over a divider and the gun's side
+        /// view; the posture line moves under it.
+        /// </summary>
+        void BuildAmmoPanel()
+        {
+            var safe = (RectTransform)ammoText.transform.parent;
+            ammoPanel = UiBuild.Rect("AmmoPanel", safe);
+            ammoPanel.pivot = new Vector2(0.5f, 0.5f);
+            ammoPanel.sizeDelta = TouchLayout.AmmoBaseSize;
+            ammoGroup = ammoPanel.gameObject.AddComponent<CanvasGroup>();
+            ammoGroup.interactable = false;
+            ammoGroup.blocksRaycasts = false;
+            var face = UiBuild.Image(ammoPanel, new Color(0f, 0f, 0f, 0.28f), false);
+            face.gameObject.AddComponent<Outline>().effectColor = new Color(1f, 1f, 1f, 0.45f);
+            float countH = AmmoCountRow;
+            var count = ammoText.rectTransform;
+            count.SetParent(ammoPanel, false);
+            count.anchorMin = new Vector2(0f, 1f);
+            count.anchorMax = new Vector2(1f, 1f);
+            count.pivot = new Vector2(0.5f, 1f);
+            count.anchoredPosition = new Vector2(0f, -2f);
+            count.sizeDelta = new Vector2(-16f, countH);
+            ammoText.alignment = TextAnchor.MiddleCenter;
+            ammoText.resizeTextForBestFit = true; // "180 / 30" still fits
+            ammoText.resizeTextMinSize = 24;
+            ammoText.resizeTextMaxSize = AmmoCountFont;
+            ammoText.fontSize = AmmoCountFont;
+            var divider = UiBuild.Rect("Divider", ammoPanel);
+            divider.anchorMin = new Vector2(0f, 1f);
+            divider.anchorMax = new Vector2(1f, 1f);
+            divider.pivot = new Vector2(0.5f, 0.5f);
+            divider.anchoredPosition = new Vector2(0f, -countH - 4f);
+            divider.sizeDelta = new Vector2(-12f, 2f);
+            UiBuild.Image(divider, new Color(1f, 1f, 1f, 0.45f), false);
+            ammoArtHost = UiBuild.Stretch(UiBuild.Rect("ArtArea", ammoPanel));
+            ammoArtHost.offsetMin = new Vector2(10f, 6f);
+            ammoArtHost.offsetMax = new Vector2(-10f, -countH - 10f);
+            ammoCaption = UiBuild.Text(UiBuild.Stretch(UiBuild.Rect("Caption", ammoArtHost)), "", 24, TextAnchor.MiddleCenter);
+            if (stanceText != null)
+            {
+                var stance = stanceText.rectTransform;
+                stance.SetParent(ammoPanel, false);
+                stance.anchorMin = stance.anchorMax = new Vector2(1f, 0f);
+                stance.pivot = new Vector2(1f, 1f);
+                stance.anchoredPosition = new Vector2(0f, -6f);
+            }
+            PlaceAmmo(TouchLayout.Defaults().Get(TouchLayout.Ammo));
+        }
+
+        /// <summary>Side view of the gun in hand (with its skin), or its name when it has none; nothing for the knife.</summary>
+        void RefreshAmmoArt(bool meleeOut)
+        {
+            string id = meleeOut ? "" : gun.Definition != null ? gun.Definition.weaponId : "";
+            if (id == ammoArtId)
+                return;
+            ammoArtId = id;
+            if (AmmoArt != null)
+                Destroy(AmmoArt.gameObject);
+            AmmoArt = null;
+            var set = skins != null && id.Length > 0 ? skins.WeaponSet(id) : null;
+            if (set != null && set.sideView != null)
+            {
+                var art = UiBuild.Stretch(UiBuild.Rect("SideView_" + id, ammoArtHost));
+                art.gameObject.AddComponent<Image>();
+                art.gameObject.AddComponent<SkinnedImage>().Init(skins, set.sideView, set.sideViewRegions, id, false);
+                AmmoArt = art.GetComponent<Image>();
+                ammoCaption.text = "";
+            }
+            else
+                ammoCaption.text = meleeOut ? "" : set != null ? set.label : gun.Definition != null ? gun.Definition.displayName : "";
         }
 
         /// <summary>HP bar (bottom centre, inside the Safe Area) and a red screen flash when hit.</summary>
@@ -206,7 +391,9 @@ namespace Deadlock.UI
             }
             AmmoState ammo = gun.Ammo;
             bool meleeOut = weapons != null && weapons.Current == WeaponSlot.Melee;
-            ammoText.text = meleeOut ? melee.Definition.displayName : $"{ammo.Loaded} / {ammo.Reserve}";
+            ammoText.text = meleeOut ? melee.Definition.displayName : AmmoLine(ammo); // ∞: the firing range
+            RefreshAmmoArt(meleeOut);
+            ApplyControlsAlpha();
 
             if (meleeOut)
                 statusText.text = "";

@@ -179,7 +179,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(def.magazineSize - fired, gun.Ammo.Loaded);
             Assert.AreEqual(total - fired, gun.Ammo.Loaded + gun.Ammo.Reserve);
 
-            int totalBeforeReload = gun.Ammo.Loaded + gun.Ammo.Reserve;
+            int reserveBeforeReload = gun.Ammo.Reserve;
             Press(keyboard.rKey, queueEventOnly: true);
             yield return null;
             Release(keyboard.rKey, queueEventOnly: true);
@@ -196,7 +196,7 @@ namespace Deadlock.Tests
             yield return Wait(def.reloadTime);
             Assert.IsFalse(gun.IsReloading);
             Assert.AreEqual(def.magazineSize, gun.Ammo.Loaded);
-            Assert.AreEqual(totalBeforeReload, gun.Ammo.Loaded + gun.Ammo.Reserve, "Reload must not create rounds");
+            Assert.AreEqual(reserveBeforeReload, gun.Ammo.Reserve, "The firing range's reserve never runs out");
         }
 
         [UnityTest]
@@ -234,7 +234,8 @@ namespace Deadlock.Tests
         [UnityTest]
         public IEnumerator AmmoPickup_AddsToReserveExactlyOnce()
         {
-            yield return LoadScene(InputMode.Desktop);
+            // The firing range has no ammo boxes (its reserve is infinite); the training ground keeps them.
+            yield return LoadScene(InputMode.Desktop, Deadlock.Game.GameScenes.Training);
             var pickup = GameObject.Find("AmmoPickup_A").GetComponent<AmmoPickup>();
             int loaded = gun.Ammo.Loaded;
             int reserve = gun.Ammo.Reserve;
@@ -538,6 +539,81 @@ namespace Deadlock.Tests
             Assert.AreEqual(InputMode.Desktop, router.Mode);
             Assert.IsFalse(UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance != null
                            && UnityEngine.InputSystem.EnhancedTouch.TouchSimulation.instance.enabled);
+        }
+
+        [UnityTest]
+        public IEnumerator FiringRange_NoAmmoBoxes_InfiniteReserve_MagazineAndReloadAsDefined()
+        {
+            Deadlock.Combat.DevGunSelection.ClearSelection();
+            yield return LoadScene(InputMode.Desktop);
+            WeaponDefinition def = gun.Definition;
+            Assert.AreEqual(0, Object.FindObjectsByType<AmmoPickup>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length, "no ammo boxes in the range");
+            Assert.IsNotNull(Object.FindAnyObjectByType<FiringRangeAmmo>());
+            Assert.IsTrue(gun.InfiniteReserve);
+            Assert.AreEqual(def.magazineSize, gun.Ammo.MagazineSize, "the weapon's own magazine");
+            var hud = Object.FindAnyObjectByType<Deadlock.UI.HudController>();
+            yield return null;
+            Assert.AreEqual($"{def.magazineSize} / ∞", hud.AmmoText.text, "loaded / reserve");
+
+            // Empty the magazine by firing: it runs dry and a fresh press reloads instead of firing.
+            int fired = 0;
+            gun.Fired += () => fired++;
+            Press(mouse.leftButton, queueEventOnly: true);
+            float timeout = Time.time + def.magazineSize * def.fireInterval + 2f;
+            while (gun.Ammo.Loaded > 0 && Time.time < timeout)
+                yield return null;
+            Release(mouse.leftButton, queueEventOnly: true);
+            yield return null;
+            Assert.AreEqual(def.magazineSize, fired, "one round per shot");
+            Assert.AreEqual(0, gun.Ammo.Loaded);
+            Assert.AreEqual($"0 / ∞", hud.AmmoText.text);
+
+            // Many reloads in a row: each takes the defined time and fills the magazine; the reserve never runs out.
+            for (int i = 0; i < 8; i++)
+            {
+                if (i > 0)
+                    gun.SetAmmo(0, gun.Ammo.Reserve); // as if the magazine were emptied again
+                yield return Tap(keyboard.rKey);
+                Assert.IsTrue(gun.IsReloading, $"reload {i + 1} starts");
+                yield return Wait(def.reloadTime * 0.5f);
+                Assert.IsTrue(gun.IsReloading, "still reloading half way");
+                Assert.AreEqual(0, gun.Ammo.Loaded, "nothing loaded before the reload ends");
+                yield return Wait(def.reloadTime * 0.5f + 0.15f);
+                Assert.IsFalse(gun.IsReloading);
+                Assert.AreEqual(def.magazineSize, gun.Ammo.Loaded, $"reload {i + 1} fills the magazine");
+            }
+            Assert.AreEqual(def.startReserve, gun.Ammo.Reserve, "the reserve number is never drawn down");
+            Assert.IsFalse(gun.Ammo.IsCompletelyEmpty);
+
+            // Another gun of the range: its own magazine, still an infinite reserve.
+            Assert.IsTrue(player.GetComponent<DevGunSelection>().Select("proto_smg"));
+            Assert.IsTrue(gun.InfiniteReserve);
+            Assert.IsTrue(gun.Ammo.InfiniteReserve, "the swapped gun's ammo too");
+            Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded);
+            yield return null;
+            Assert.AreEqual($"{gun.Definition.magazineSize} / ∞", hud.AmmoText.text);
+            Deadlock.Combat.DevGunSelection.ClearSelection();
+        }
+
+        [UnityTest]
+        public IEnumerator OtherModes_KeepTheFiniteReserve_NothingCarriedOverFromTheRange()
+        {
+            yield return LoadScene(InputMode.Desktop);
+            Assert.IsTrue(gun.InfiniteReserve);
+            // Training ground after the range: ammo boxes there, the reserve counts down on a reload.
+            yield return LoadScene(InputMode.Desktop, Deadlock.Game.GameScenes.Training);
+            Assert.IsFalse(gun.InfiniteReserve, "the range's rule is not carried over");
+            Assert.IsNull(Object.FindAnyObjectByType<FiringRangeAmmo>());
+            Assert.Greater(Object.FindObjectsByType<AmmoPickup>(FindObjectsSortMode.None).Length, 0, "the training ground keeps its ammo boxes");
+            var hud = Object.FindAnyObjectByType<Deadlock.UI.HudController>();
+            int reserve = gun.Ammo.Reserve;
+            gun.SetAmmo(0, reserve);
+            yield return Tap(keyboard.rKey);
+            yield return Wait(gun.Definition.reloadTime + 0.2f);
+            Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded);
+            Assert.AreEqual(reserve - gun.Definition.magazineSize, gun.Ammo.Reserve, "a reload takes from the reserve");
+            yield return null;
+            Assert.AreEqual($"{gun.Ammo.Loaded} / {gun.Ammo.Reserve}", hud.AmmoText.text, "normal ammo: loaded / reserve");
         }
     }
 }

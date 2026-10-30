@@ -62,6 +62,12 @@ namespace Deadlock.Combat
         [Min(0f)] public float yawDegrees = 0.25f;
         [Tooltip("Recoil factor when fully aimed (1 = same as hip).")]
         [Range(0f, 1f)] public float adsMultiplier = 0.55f;
+        [Tooltip("Recovery amount: share of each kick that returns afterwards (0 = all of it stays, 1 = all of it returns). The earlier recoil uses 0.5.")]
+        [Range(0f, 1f)] public float recoveryFraction = 0.5f;
+        [Tooltip("Recovery speed in degrees per second (" + "0.5–60" + "). The prototype scenes use 9.")]
+        [Range(MinRecoverySpeed, MaxRecoverySpeed)] public float recoverySpeed = 9f;
+
+        public const float MinRecoverySpeed = 0.5f, MaxRecoverySpeed = 60f;
 
         public static float Factor(RecoilStrength strength) => strength switch
         {
@@ -71,6 +77,32 @@ namespace Deadlock.Combat
         };
 
         public RecoilProfile Clone() => (RecoilProfile)MemberwiseClone();
+
+        /// <summary>The axis that up / down and left / right make (both none: null, no valid profile).</summary>
+        public static RecoilAxis? AxisFor(RecoilVertical v, RecoilHorizontal h)
+        {
+            bool up = v != RecoilVertical.None;
+            if (h == RecoilHorizontal.Alternating)
+                return up ? RecoilAxis.Mixed : RecoilAxis.Horizontal;
+            if (h == RecoilHorizontal.None)
+                return up ? RecoilAxis.Vertical : (RecoilAxis?)null;
+            return up ? RecoilAxis.Diagonal : RecoilAxis.Horizontal;
+        }
+
+        /// <summary>
+        /// Sets the directions and the axis they make, so the profile is never contradictory. Both none is refused
+        /// (false, nothing changed): a profile always kicks somewhere.
+        /// </summary>
+        public bool SetDirections(RecoilVertical v, RecoilHorizontal h)
+        {
+            var axis = AxisFor(v, h);
+            if (axis == null)
+                return false;
+            vertical = v;
+            horizontal = h;
+            this.axis = axis.Value;
+            return true;
+        }
 
         /// <summary>
         /// Checks that the directions match the axis and the numbers are usable. Vertical: up / down, no sideways.
@@ -99,6 +131,10 @@ namespace Deadlock.Combat
             if (error == null && !(Finite(pitchDegrees) && Finite(yawDegrees) && Finite(adsMultiplier)
                                    && pitchDegrees >= 0f && yawDegrees >= 0f && adsMultiplier >= 0f && adsMultiplier <= 1f))
                 error = "角度は0以上、ADS倍率は0〜1の数値にしてください";
+            if (error == null && !(Finite(recoveryFraction) && recoveryFraction >= 0f && recoveryFraction <= 1f))
+                error = "回復量は0〜1（戻る割合）にしてください";
+            if (error == null && !(Finite(recoverySpeed) && recoverySpeed >= MinRecoverySpeed && recoverySpeed <= MaxRecoverySpeed))
+                error = $"回復速度は{MinRecoverySpeed}〜{MaxRecoverySpeed}°/秒にしてください";
             return error == null;
         }
 

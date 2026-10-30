@@ -133,7 +133,9 @@ namespace Deadlock.Editor
             else
             {
                 BuildTargets();
-                BuildPickups(mats, new Vector3(2f, 0f, 4f), new Vector3(-6f, 0f, 19f));
+                // The firing range has no ammo boxes: its reserve never runs out (magazine and reloading as defined).
+                var rangeAmmo = player.Root.AddComponent<FiringRangeAmmo>();
+                Set(rangeAmmo, "gun", player.Gun);
             }
             var canvas = BuildUi(player, projectiles);
 

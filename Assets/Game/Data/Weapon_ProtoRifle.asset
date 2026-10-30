@@ -34,3 +34,16 @@ MonoBehaviour:
   adsTime: 0.18
   adsMoveSpeedMultiplier: 0.6
   adsLookSensitivityMultiplier: 0.65
+  recoilProfile:
+    enabled: 0
+    axis: 0
+    vertical: 1
+    horizontal: 0
+    strength: 1
+    pitchDegrees: 0.7
+    yawDegrees: 0.25
+    adsMultiplier: 0.55
+    recoveryFraction: 0.5
+    recoverySpeed: 9
+  damageFalloff:
+    points: []

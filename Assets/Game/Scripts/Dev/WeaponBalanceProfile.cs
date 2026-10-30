@@ -77,6 +77,7 @@ namespace Deadlock.Dev
                     pitchDegrees = d.recoilPitchDegrees,
                     yawDegrees = d.recoilYawDegrees,
                     adsMultiplier = d.adsRecoilMultiplier,
+                    recoveryFraction = Deadlock.Player.FirstPersonMotor.DefaultRecoveryFraction, // the earlier rule (the speed is the scene's)
                 };
             return p;
         }
@@ -195,6 +196,8 @@ namespace Deadlock.Dev
             new Column("反動方向", RecoilDirectionText),
             new Column("反動強度", RecoilStrengthText),
             new Column("ADS反動倍率", p => F(p.recoil.adsMultiplier)),
+            new Column("回復量", p => p.recoil == null || !p.recoil.enabled ? "従来 0.5" : F(p.recoil.recoveryFraction)),
+            new Column("回復速度(°/秒)", p => p.recoil == null || !p.recoil.enabled ? "従来（場面の値）" : F(p.recoil.recoverySpeed, "0.0")),
             new Column("距離減衰", FalloffText),
         };
 

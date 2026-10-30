@@ -60,7 +60,7 @@ namespace Deadlock.Combat
 
         void Awake()
         {
-            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
+            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve) { InfiniteReserve = infiniteReserve };
         }
 
         /// <summary>
@@ -146,6 +146,27 @@ namespace Deadlock.Combat
         }
 
         /// <summary>
+        /// Reserve ammo never runs out (set by <see cref="FiringRangeAmmo"/> in the firing range only). Magazine size,
+        /// reloading and its time stay as the weapon defines them; it carries over to a swapped gun of the same scene.
+        /// </summary>
+        public bool InfiniteReserve
+        {
+            get => infiniteReserve;
+            set
+            {
+                infiniteReserve = value;
+                if (ammo != null)
+                    ammo.InfiniteReserve = value;
+                AmmoChanged?.Invoke();
+            }
+        }
+
+        bool infiniteReserve;
+
+        /// <summary>The next shot is the first of the recoil pattern again (as after a pause; nothing else changes).</summary>
+        public void ResetShotSequence() => shotIndex = 0;
+
+        /// <summary>
         /// Swaps the gun (development test choice, <see cref="DevGunSelection"/>): the new definition starts fresh —
         /// full magazine and starting reserve, no reload, no ADS, trigger released first. Same rig, same everything else.
         /// </summary>
@@ -159,12 +180,28 @@ namespace Deadlock.Combat
                 ReloadCanceled?.Invoke();
             }
             definition = next;
-            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve);
+            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve) { InfiniteReserve = infiniteReserve };
             AdsBlend = 0f;
             nextFireTime = 0f;
             shotIndex = 0;
             waitForTriggerRelease = true;
             input.CancelAds();
+            AmmoChanged?.Invoke();
+            DefinitionChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Swaps in other values for the gun in hand (the weapon lab's test values, or back to the official ones): the
+        /// state carries over — shot number of the recoil pattern, fire timing, ADS, a reload in progress, the held
+        /// trigger, and the rounds (cut to the new magazine and reserve). The aim and its recoil are the motor's and stay.
+        /// </summary>
+        public void SetDefinitionKeepingState(WeaponDefinition next)
+        {
+            if (next == null || next == definition)
+                return;
+            definition = next;
+            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, Mathf.Min(ammo.Loaded, definition.magazineSize),
+                Mathf.Min(ammo.Reserve, definition.reserveMax)) { InfiniteReserve = infiniteReserve };
             AmmoChanged?.Invoke();
             DefinitionChanged?.Invoke();
         }
@@ -232,7 +269,16 @@ namespace Deadlock.Combat
                 pitch = definition.recoilPitchDegrees * recoilScale;
                 yaw = UnityEngine.Random.Range(-1f, 1f) * definition.recoilYawDegrees * recoilScale;
             }
-            motor.AddRecoil(pitch, yaw);
+            if (definition.recoilProfile != null && definition.recoilProfile.enabled && definition.recoilProfile.IsValid(out _))
+            {
+                motor.RecoverySpeedOverride = definition.recoilProfile.recoverySpeed;
+                motor.AddRecoil(pitch, yaw, definition.recoilProfile.recoveryFraction);
+            }
+            else
+            {
+                motor.RecoverySpeedOverride = null; // the earlier recovery (half, at the scene's speed)
+                motor.AddRecoil(pitch, yaw);
+            }
             LastRecoil = new Vector2(pitch, yaw);
             shotIndex++;
 

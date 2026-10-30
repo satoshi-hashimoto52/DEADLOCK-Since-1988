@@ -96,6 +96,23 @@ namespace Deadlock.Combat
             Spawned?.Invoke(projectile.Id, origin);
         }
 
+        /// <summary>
+        /// Where a projectile in flight would stop if nothing moved: its first hit along the rest of its path (the same
+        /// rules as <see cref="Step"/>: mask, triggers ignored, never the shooter), else the end of its range. Display
+        /// only (tracers): changes nothing. False when no such projectile is in flight.
+        /// </summary>
+        public bool TryPredictEnd(int id, out Vector3 end, out Vector3 direction)
+        {
+            end = direction = default;
+            int index = active.FindIndex(a => a.Id == id);
+            if (index < 0)
+                return false;
+            var p = active[index];
+            direction = p.Direction;
+            end = FirstHit(p, p.RemainingRange, out RaycastHit hit) ? hit.point : p.Position + p.Direction * p.RemainingRange;
+            return true;
+        }
+
         void Update() => Step(Time.deltaTime);
 
         /// <summary>Advances all projectiles by <paramref name="deltaTime"/>. Public for deterministic tests.</summary>

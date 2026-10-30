@@ -36,7 +36,18 @@ namespace Deadlock.Player
         float yaw;
         float pitch;
         Vector2 recoil;
+        Vector2 recoveryAdded;
         Vector2 recoveryRemaining;
+
+        /// <summary>Share of each kick that recovers when the gun gives none (the earlier rule: half).</summary>
+        public const float DefaultRecoveryFraction = 0.5f;
+        /// <summary>Recovery speed of this player (°/s) when the gun sets none (serialized; 9 in the prototype scenes).</summary>
+        public float RecoilRecovery => recoilRecovery;
+        /// <summary>Recovery speed set by the gun for its recoil profile (°/s); null: <see cref="RecoilRecovery"/>.</summary>
+        public float? RecoverySpeedOverride { get; set; }
+        public float CurrentRecoverySpeed => RecoverySpeedOverride ?? recoilRecovery;
+        /// <summary>Part of the kicks still to recover (x = yaw, y = pitch, degrees).</summary>
+        public Vector2 RecoveryRemaining => recoveryRemaining;
 
         public bool IsGrounded { get; private set; }
         public bool IsSprinting { get; private set; }
@@ -65,7 +76,7 @@ namespace Deadlock.Player
         {
             yaw = yawDegrees;
             pitch = Mathf.Clamp(pitchDegrees, -maxPitch, maxPitch);
-            recoil = recoveryRemaining = Vector2.zero;
+            recoil = recoveryAdded = recoveryRemaining = Vector2.zero;
             transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             cameraPivot.localRotation = Quaternion.Euler(-pitch, 0f, 0f);
         }
@@ -81,11 +92,18 @@ namespace Deadlock.Player
             SetYawPitch(yawDegrees, 0f);
         }
 
-        /// <summary>Kicks the aim. Positive pitch is upward. Part of it recovers over time.</summary>
-        public void AddRecoil(float pitchDegrees, float yawDegrees)
+        /// <summary>Kicks the aim. Positive pitch is upward. Half of it recovers over time (the earlier rule).</summary>
+        public void AddRecoil(float pitchDegrees, float yawDegrees) => AddRecoil(pitchDegrees, yawDegrees, DefaultRecoveryFraction);
+
+        /// <summary>
+        /// Kicks the aim; <paramref name="recoveryFraction"/> (0–1) of this kick returns afterwards at
+        /// <see cref="CurrentRecoverySpeed"/>, the rest stays (recovery amount and speed are separate settings).
+        /// </summary>
+        public void AddRecoil(float pitchDegrees, float yawDegrees, float recoveryFraction)
         {
-            recoil.x += yawDegrees;
-            recoil.y += pitchDegrees;
+            var kick = new Vector2(yawDegrees, pitchDegrees);
+            recoil += kick;
+            recoveryAdded += kick * Mathf.Clamp01(recoveryFraction);
         }
 
         void Update()
@@ -102,13 +120,15 @@ namespace Deadlock.Player
             yaw += look.x;
             pitch = Mathf.Clamp(pitch + look.y, -maxPitch, maxPitch);
 
-            // Recoil: the kick is applied to the aim instantly; about half of it is recovered smoothly.
+            // Recoil: the kick is applied to the aim instantly; a share of it (half unless the gun sets another) is
+            // recovered smoothly at the recovery speed.
             Vector2 kick = recoil;
             recoil = Vector2.zero;
             yaw += kick.x;
             pitch = Mathf.Clamp(pitch + kick.y, -maxPitch, maxPitch);
-            recoveryRemaining += kick * 0.5f;
-            Vector2 recover = Vector2.MoveTowards(Vector2.zero, recoveryRemaining, recoilRecovery * dt);
+            recoveryRemaining += recoveryAdded;
+            recoveryAdded = Vector2.zero;
+            Vector2 recover = Vector2.MoveTowards(Vector2.zero, recoveryRemaining, CurrentRecoverySpeed * dt);
             recoveryRemaining -= recover;
             yaw -= recover.x;
             pitch = Mathf.Clamp(pitch - recover.y, -maxPitch, maxPitch);

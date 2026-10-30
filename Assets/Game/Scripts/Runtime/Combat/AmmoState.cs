@@ -12,10 +12,15 @@ namespace Deadlock.Combat
         public int ReserveMax { get; }
         public int Loaded { get; private set; }
         public int Reserve { get; private set; }
+        /// <summary>
+        /// Reserve never runs out (the firing range only): a reload still takes its time and fills the magazine, but
+        /// takes nothing from <see cref="Reserve"/>. Off by default (every match mode).
+        /// </summary>
+        public bool InfiniteReserve { get; set; }
 
-        public bool CanReload => Loaded < MagazineSize && Reserve > 0;
+        public bool CanReload => Loaded < MagazineSize && (InfiniteReserve || Reserve > 0);
         public bool IsReserveFull => Reserve >= ReserveMax;
-        public bool IsCompletelyEmpty => Loaded == 0 && Reserve == 0;
+        public bool IsCompletelyEmpty => Loaded == 0 && Reserve == 0 && !InfiniteReserve;
 
         public AmmoState(int magazineSize, int reserveMax, int startLoaded, int startReserve)
         {
@@ -43,11 +48,12 @@ namespace Deadlock.Combat
         /// </summary>
         public int Reload()
         {
-            int moved = Math.Min(MagazineSize - Loaded, Reserve);
+            int moved = InfiniteReserve ? MagazineSize - Loaded : Math.Min(MagazineSize - Loaded, Reserve);
             if (moved <= 0)
                 return 0;
             Loaded += moved;
-            Reserve -= moved;
+            if (!InfiniteReserve)
+                Reserve -= moved;
             return moved;
         }
 

@@ -537,7 +537,7 @@ namespace Deadlock.Tests
             yield return Tap(keyboard.cKey);
             yield return Wait(gun.Definition.reloadTime + 0.2f);
             Assert.AreEqual(gun.Definition.magazineSize, gun.Ammo.Loaded);
-            Assert.AreEqual(loaded - 1 + reserve, gun.Ammo.Loaded + gun.Ammo.Reserve, "Reload while crouching completes once");
+            Assert.AreEqual(reserve, gun.Ammo.Reserve, "Reload while crouching completes once (the range's reserve is infinite)");
         }
 
         [UnityTest]

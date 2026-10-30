@@ -16,6 +16,70 @@ namespace Deadlock.View
         // The view-model camera renders sprites at z = 1 with a fixed vertical FOV of 50°.
         const float SpriteDepth = 1f;
         static readonly float HalfHeight = Mathf.Tan(25f * Mathf.Deg2Rad);
+        /// <summary>
+        /// The hip weapon (gun and hands together) sits this much further left than its profile places it: 5 % of the
+        /// screen's height (about 20 pt on an iPhone 16 Pro in landscape), so its muzzle and the shots look less far to
+        /// the side; still a lower-right hold. ADS is not moved.
+        /// </summary>
+        public static readonly float HipShiftLeft = 0.10f * HalfHeight;
+
+        /// <summary>
+        /// The hip weapon (gun and hands together) sits this part of the screen's height lower than its profile places
+        /// it: 9 % (3 % from 2026-10-29 stage 12, 6 % more from stage 14): the shots leave the barrel at a less sideways
+        /// angle. The hands may go below the screen's bottom edge. In the sprites' own units (the screen's height is
+        /// 2 × half height), so the same on every screen. ADS is not moved.
+        /// </summary>
+        public const float HipShiftDownPart = 0.09f;
+
+        /// <summary>
+        /// On wide screens the hip weapon goes this part of the screen's height further down (stage 15): all of it at an
+        /// iPhone 16 Pro's 2622 × 1206 and wider (14 % in all), none at 4:3, in between by the aspect. The drawn barrel
+        /// (about 30° up on screen) then points at the crosshair on the iPhone instead of above it. Not at 4:3 (iPad):
+        /// there the line to the crosshair is already steeper than the barrel. ADS is not moved.
+        /// </summary>
+        public const float HipShiftDownWide = 0.05f;
+
+        /// <summary>How far down (part of the screen's height) the hip weapon sits on a screen of this aspect.</summary>
+        public static float HipShiftDownAt(float aspect) =>
+            HipShiftDownPart + HipShiftDownWide * Mathf.InverseLerp(4f / 3f, 2622f / 1206f, aspect);
+
+        /// <summary>
+        /// Development comparison only (default 0): this many screen heights further down (negative: up), on top of
+        /// <see cref="HipShiftDownPart"/>. Set by checks to compare places; nothing else changes.
+        /// </summary>
+        public static float HipShiftDownForComparison;
+
+        /// <summary>
+        /// ADS: the flash sits at most this far (sprite units, about 20 px on an iPhone 16 Pro) under the front sight's tip,
+        /// <see cref="AdsFlashBehindScale"/> times its profile size, drawn behind the ADS image. Seen from behind the sights
+        /// the muzzle is just beyond the front sight, hidden by the gun: the flash bursts out around the front sight from
+        /// behind, never painted on the gun's top (the baked muzzle points lie on the rail and the receiver). Looks only.
+        /// </summary>
+        public const float AdsFlashMaxBelowSight = 0.015f;
+        /// <summary>ADS flash size against its profile's (only its outer part shows from behind the gun).</summary>
+        public const float AdsFlashBehindScale = 1.5f;
+
+        /// <summary>Half the screen's height in the weapon sprites' units (for <see cref="HipShiftDownForComparison"/>).</summary>
+        public static float ScreenHalfHeight => HalfHeight;
+
+        /// <summary>Where the hands (the hold point) are drawn on screen now (pixels): with the muzzle, the gun's axis on screen.</summary>
+        public bool TryGetHoldScreenPoint(out Vector2 point)
+        {
+            point = default;
+            if (!TryGetMuzzleScreenPoint(out _) || profile == null)
+                return false;
+            var sprite = lastAdsAlpha >= 0.5f ? adsSprite.transform : hipSprite.transform;
+            Vector2 hold = lastAdsAlpha >= 0.5f ? profile.adsHoldOffset : profile.hipHoldOffset;
+            point = viewCamera.WorldToScreenPoint(sprite.parent.TransformPoint(new Vector3(MuzzleLocal(sprite).x + hold.x, MuzzleLocal(sprite).y + hold.y, SpriteDepth)));
+            return true;
+        }
+
+        Vector2 MuzzleLocal(Transform sprite)
+        {
+            var muzzle = lastAdsAlpha >= 0.5f ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
+            Vector3 local = sprite.parent.InverseTransformPoint(muzzle.position);
+            return new Vector2(local.x, local.y);
+        }
 
         [SerializeField] GunController gun;
         [SerializeField] FirstPersonMotor motor;
@@ -37,7 +101,33 @@ namespace Deadlock.View
         float kick;
         float bobPhase;
         float flashUntil;
+        float lastAdsAlpha;
+        Camera viewCamera;
         Material hipDefaultMaterial, adsDefaultMaterial;
+
+        /// <summary>The ADS image is the one shown (aimed down the sights): the muzzle is under the sights, mid-screen.</summary>
+        public bool ShowsAdsImage => lastAdsAlpha >= 0.5f;
+
+        /// <summary>The camera of the world (shots and tracers live there).</summary>
+        public Camera WorldCamera => worldCamera;
+
+        /// <summary>
+        /// Where the gun's muzzle is drawn on screen now (pixels): the hip or ADS flash's place, whichever sprite is
+        /// shown. False when the gun is not out or the sprites' camera is unknown.
+        /// </summary>
+        public bool TryGetMuzzleScreenPoint(out Vector2 point)
+        {
+            point = default;
+            if (viewCamera == null)
+                foreach (var c in Camera.allCameras)
+                    if ((c.cullingMask & (1 << hipSprite.gameObject.layer)) != 0 && c != worldCamera)
+                        viewCamera = c;
+            if (viewCamera == null || !hipSprite.enabled && !adsSprite.enabled)
+                return false;
+            var muzzle = lastAdsAlpha >= 0.5f ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
+            point = viewCamera.WorldToScreenPoint(muzzle.position);
+            return true;
+        }
 
         void Awake()
         {
@@ -58,10 +148,10 @@ namespace Deadlock.View
             // Flashes sit on the muzzle of the sprite they belong to (hip pivot = muzzle).
             hipMuzzleFlash.transform.localPosition = new Vector3(0f, 0f, -0.01f);
             hipMuzzleFlash.transform.localScale = Vector3.one * profile.hipMuzzleFlashScale;
-            adsMuzzleFlash.transform.localPosition = new Vector3(profile.adsMuzzleOffset.x, profile.adsMuzzleOffset.y, 0.01f);
-            adsMuzzleFlash.transform.localScale = Vector3.one * profile.adsMuzzleFlashScale;
-            // In ADS the muzzle sits just under the front sight: draw the flash in front so it is not hidden by the sight.
-            adsMuzzleFlash.sortingOrder = adsSprite.sortingOrder + 1;
+            adsMuzzleFlash.transform.localPosition = new Vector3(profile.adsMuzzleOffset.x, -Mathf.Min(-profile.adsMuzzleOffset.y, AdsFlashMaxBelowSight), 0.01f);
+            adsMuzzleFlash.transform.localScale = Vector3.one * (profile.adsMuzzleFlashScale * AdsFlashBehindScale);
+            // ADS: behind the gun (it shows around the front sight, from the muzzle beyond it); hip: in front, on the muzzle tip.
+            adsMuzzleFlash.sortingOrder = adsSprite.sortingOrder - 1;
             hipMuzzleFlash.sortingOrder = hipSprite.sortingOrder + 1;
             ApplySkin();
         }
@@ -163,7 +253,7 @@ namespace Deadlock.View
 
             Vector2 shared = bob + kickOffset + reloadOffset + holster;
 
-            Vector2 hipRest = p.hipMuzzlePosition + new Vector2(edgeShift, 0f);
+            Vector2 hipRest = p.hipMuzzlePosition + new Vector2(edgeShift - HipShiftLeft, -(HipShiftDownAt(aspect) + HipShiftDownForComparison) * 2f * HalfHeight);
             Vector2 hipTarget = p.hipToAdsRelative ? hipRest + p.hipToAdsMuzzlePosition : p.hipToAdsMuzzlePosition;
             Vector2 hip = Vector2.Lerp(hipRest, hipTarget, t) + shared;
             Place(hipSprite.transform, hip, p.hipHoldOffset * hipScale, rotation, hipScale * scale);
@@ -172,6 +262,7 @@ namespace Deadlock.View
             Place(adsSprite.transform, ads, p.adsHoldOffset, rotation, scale);
 
             float adsAlpha = Mathf.InverseLerp(p.crossfadeStart, p.crossfadeEnd, t);
+            lastAdsAlpha = adsAlpha;
             SetAlpha(hipSprite, 1f - adsAlpha);
             SetAlpha(adsSprite, adsAlpha);
 
