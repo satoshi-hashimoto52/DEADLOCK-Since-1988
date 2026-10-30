@@ -43,16 +43,16 @@ GitHub Issue #1「装備画面用素材と一人称表示の連携」に向け�
 
 | 依頼 | 添付 |
 | --- | --- |
-| ライフル横向き全体図 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/rifle_side_request.md`（依頼文）、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/rifle_side_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` |
-| プレイヤー正面立ち絵 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/player_front_request.md`（依頼文）、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/player_front_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png` |
+| ライフル横向き全体図 | `docs/review/equipment-art/rifle_side_request.md`（依頼文）、`docs/review/equipment-art/rifle_side_guide.png`、`Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、`Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` |
+| プレイヤー正面立ち絵 | `docs/review/equipment-art/player_front_request.md`（依頼文）、`docs/review/equipment-art/player_front_guide.png`、`Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`、`Assets/Game/Art/Weapons/Knife/knife_candidate.png` |
 
 ## 完成画像の保存先（原画。変更しない）
 
 | 画像 | 保存先 |
 | --- | --- |
-| ライフル全体図・段階1 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png`（1760×800） |
+| ライフル全体図・段階1 | `Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png`（1760×800） |
 | ライフル全体図・段階2（承認後） | 同じフォルダに `rifle_side_body.png`・`rifle_side_magazine_standard.png`・`rifle_side_muzzle_standard.png`・`rifle_side_sights_iron.png` |
-| プレイヤー立ち絵・段階1 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Player/Front/player_front_design.png`（1024×1536） |
+| プレイヤー立ち絵・段階1 | `Assets/Game/Art/Player/Front/player_front_design.png`（1024×1536） |
 | プレイヤー立ち絵・段階2（承認後） | 同じフォルダに `player_front_<レイヤー名>.png`（`layer_design.md` 3章のレイヤー名） |
 
 保存先のフォルダはまだ作っていない（画像が届いたときに作る）。

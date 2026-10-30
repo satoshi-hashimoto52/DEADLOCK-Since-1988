@@ -69,14 +69,14 @@ SMGのADS（照準を覗いた状態）の画像を、画像制作AIへ依頼す
 
 | ファイル | 役割 |
 | --- | --- |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/smg/ads-brief/smg_ads_canvas_guide.png` | **構図ガイド（必須）**。キャンバスの寸法、照準の中心、照門・照星・手・袖の位置、透明に保つ範囲、画面の範囲 |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2.png` | **デザインの基準（必須）**。同じ銃・同じ配色・同じ手と袖・同じ画風にする |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/smg/ads-brief/smg_parts_reference.png` | 部位の名前と、保つ特徴 |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` | **ADSの構図の参考**（採用済みのライフル）。照門の開口から照星が見える構図、手と袖の入り方を参考にする。銃のデザイン・色はまねしない |
+| `docs/review/player-parts/smg/ads-brief/smg_ads_canvas_guide.png` | **構図ガイド（必須）**。キャンバスの寸法、照準の中心、照門・照星・手・袖の位置、透明に保つ範囲、画面の範囲 |
+| `Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2.png` | **デザインの基準（必須）**。同じ銃・同じ配色・同じ手と袖・同じ画風にする |
+| `docs/review/player-parts/smg/ads-brief/smg_parts_reference.png` | 部位の名前と、保つ特徴 |
+| `Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` | **ADSの構図の参考**（採用済みのライフル）。照門の開口から照星が見える構図、手と袖の入り方を参考にする。銃のデザイン・色はまねしない |
 
 ### 完成画像の保存先
 
-`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/SMG/smg_ads_candidate.png`（2400×1200、透明背景）
+`Assets/Game/Art/Weapons/SMG/smg_ads_candidate.png`（2400×1200、透明背景）
 
 ### 依頼文
 

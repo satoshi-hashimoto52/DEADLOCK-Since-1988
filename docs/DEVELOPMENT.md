@@ -335,7 +335,7 @@ batchmode：`-batchmode -quit -executeMethod Deadlock.Editor.WeaponSpriteBaker.B
 | --- | --- |
 | Bundle Identifier | `com.satoshihashimoto52.deadlock1988`（このユーザーの他のUnityプロジェクトの命名に合わせた開発用ID） |
 | 表示名（productName） | DEADLOCK: Since 1988 |
-| 署名 | 自動署名、Team `HZ43AT7U4F`（Personal Team。Xcodeにサインイン済みのアカウント） |
+| 署名 | 自動署名、Team ID は伏せる（Personal Team。Xcodeにサインイン済みのアカウント。値はビルド設定 `ProjectSettings.asset` と `IOSPlayerSetup.DevelopmentTeam` にある） |
 | 画面方向 | 左右のLandscapeのみ（縦向き不可） |
 | 対象端末 | iPhone＋iPad（Unity既定）。最低OSは15.0（Unity既定のまま、製品仕様は未決定） |
 | フレームレート | `AppStartup` で 60 fps を目標に設定（試作用の暫定値） |

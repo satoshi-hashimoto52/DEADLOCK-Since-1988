@@ -80,17 +80,17 @@
 
 ## 保存先（元画像。変更しない）
 
-- ポーズ1：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup.png`
-- ポーズ3：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png`
+- ポーズ1：`Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup.png`
+- ポーズ3：`Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png`
 
 ## 画像制作AIへ添付するファイル
 
-- 依頼文：このファイル `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/pose13-brief/README.md` の「画像制作AIへの依頼文」
-- 構図ガイド（ポーズ1）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/pose13-brief/pose1_windup_brief_guide.png`
-- 構図ガイド（ポーズ3）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/pose13-brief/pose3_follow_through_brief_guide.png`
-- 待機画像（画風・装備・ドットの基準）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png`
-- ポーズ2（同じ動作の中央、画風の基準）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass_extended.png`
-- 時間割（参考）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_timeline.png`
+- 依頼文：このファイル `docs/review/player-parts/knife/slash/pose13-brief/README.md` の「画像制作AIへの依頼文」
+- 構図ガイド（ポーズ1）：`docs/review/player-parts/knife/slash/pose13-brief/pose1_windup_brief_guide.png`
+- 構図ガイド（ポーズ3）：`docs/review/player-parts/knife/slash/pose13-brief/pose3_follow_through_brief_guide.png`
+- 待機画像（画風・装備・ドットの基準）：`Assets/Game/Art/Weapons/Knife/knife_candidate.png`
+- ポーズ2（同じ動作の中央、画風の基準）：`Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass_extended.png`
+- 時間割（参考）：`docs/review/player-parts/knife/slash/multipose_timeline.png`
 
 ## 届いた後（ローカル）
 

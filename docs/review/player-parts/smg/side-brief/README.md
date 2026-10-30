@@ -83,15 +83,15 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/smg/side-brief/smg_side_canvas_guide.png` | **構図ガイド（必須）**。キャンバスの寸法、銃身の中心線、銃口の先端、部品の位置、推定の部分、取付部品の余白 |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2.png` | **形・配色の基準（必須）**。同じ銃・同じ配色・同じ画風にする |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/SMG/smg_ads_front_sight_gap3.png` | 照門・照星の形の整合（真後ろから見た形）。構図はまねしない |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/smg/side-brief/smg_side_reference_parts.png` | 部位の名前と、手で隠れている部分の目印 |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png` | **全体図の画風だけの参考**（採用済みのライフル）。真横の描き方、輪郭、陰影。ライフルの形やタン色はSMGに持ち込まない |
+| `docs/review/player-parts/smg/side-brief/smg_side_canvas_guide.png` | **構図ガイド（必須）**。キャンバスの寸法、銃身の中心線、銃口の先端、部品の位置、推定の部分、取付部品の余白 |
+| `Assets/Game/Art/Weapons/SMG/smg_hip_candidate_v2.png` | **形・配色の基準（必須）**。同じ銃・同じ配色・同じ画風にする |
+| `Assets/Game/Art/Weapons/SMG/smg_ads_front_sight_gap3.png` | 照門・照星の形の整合（真後ろから見た形）。構図はまねしない |
+| `docs/review/player-parts/smg/side-brief/smg_side_reference_parts.png` | 部位の名前と、手で隠れている部分の目印 |
+| `Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design.png` | **全体図の画風だけの参考**（採用済みのライフル）。真横の描き方、輪郭、陰影。ライフルの形やタン色はSMGに持ち込まない |
 
 ### 完成画像の保存先
 
-`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png`（1440×800、透明背景）
+`Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png`（1440×800、透明背景）
 
 ### 依頼文
 

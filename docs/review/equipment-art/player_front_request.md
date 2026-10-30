@@ -26,9 +26,9 @@
 
 | 用途 | ファイル |
 | --- | --- |
-| 構図ガイド | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/player_front_guide.png` |
-| グローブ・手首の帯・袖の基準（腰だめ・採用済みの原画） | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png` |
-| グローブ・手首の帯・袖の基準（ナイフ待機の原画） | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png` |
+| 構図ガイド | `docs/review/equipment-art/player_front_guide.png` |
+| グローブ・手首の帯・袖の基準（腰だめ・採用済みの原画） | `Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png` |
+| グローブ・手首の帯・袖の基準（ナイフ待機の原画） | `Assets/Game/Art/Weapons/Knife/knife_candidate.png` |
 
 ## 依頼文（段階1：デザイン確認用）
 

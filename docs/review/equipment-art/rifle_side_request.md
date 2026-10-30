@@ -6,9 +6,9 @@
 
 | 用途 | ファイル |
 | --- | --- |
-| 構図ガイド | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/equipment-art/rifle_side_guide.png` |
-| 同じ銃の基準（腰だめ・採用済みの原画） | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png` |
-| 同じ銃の基準（ADS・採用済みの原画） | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` |
+| 構図ガイド | `docs/review/equipment-art/rifle_side_guide.png` |
+| 同じ銃の基準（腰だめ・採用済みの原画） | `Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png` |
+| 同じ銃の基準（ADS・採用済みの原画） | `Assets/Game/Art/Weapons/Rifle/rifle_ads_approved.png` |
 
 ## 依頼文（段階1：デザイン確認用）
 

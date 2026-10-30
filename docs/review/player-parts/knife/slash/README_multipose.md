@@ -75,18 +75,18 @@
 
 | 画像 | 保存先（元画像。変更しない） |
 | --- | --- |
-| 1 振りかぶり | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup.png` |
-| 2 斬撃・中央通過 | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass.png` |
-| 3 振り抜き | `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png` |
+| 1 振りかぶり | `Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup.png` |
+| 2 斬撃・中央通過 | `Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass.png` |
+| 3 振り抜き | `Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png` |
 
 ## 画像制作AIへ添付するファイル
 
-- 依頼文：このファイル `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/README_multipose.md` の「画像制作AIへの依頼文」
-- 待機画像（画風・装備・ドットの基準）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png`
-- 構図ガイド：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose1_windup_canvas_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose2_center_pass_canvas_guide.png`、`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_pose3_follow_through_canvas_guide.png`
-- 画面での配置予定図（参考）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_screen_layout_iPhone16Pro_2622x1206.png`
-- 時間割（参考）：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_timeline.png`
-- 手・袖の配色の参考：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`
+- 依頼文：このファイル `docs/review/player-parts/knife/slash/README_multipose.md` の「画像制作AIへの依頼文」
+- 待機画像（画風・装備・ドットの基準）：`Assets/Game/Art/Weapons/Knife/knife_candidate.png`
+- 構図ガイド：`docs/review/player-parts/knife/slash/multipose_pose1_windup_canvas_guide.png`、`docs/review/player-parts/knife/slash/multipose_pose2_center_pass_canvas_guide.png`、`docs/review/player-parts/knife/slash/multipose_pose3_follow_through_canvas_guide.png`
+- 画面での配置予定図（参考）：`docs/review/player-parts/knife/slash/multipose_screen_layout_iPhone16Pro_2622x1206.png`
+- 時間割（参考）：`docs/review/player-parts/knife/slash/multipose_timeline.png`
+- 手・袖の配色の参考：`Assets/Game/Art/Weapons/Rifle/rifle_hip_approved.png`
 
 ## 届いた後の作業（ローカル）
 

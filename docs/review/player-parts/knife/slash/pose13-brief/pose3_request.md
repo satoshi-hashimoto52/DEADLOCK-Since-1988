@@ -6,16 +6,16 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/pose13-brief/pose3_follow_through_brief_guide.png` | **構図ガイド**（必須）。キャンバス・握り・刃先・手首・袖の範囲・刃側と峰側の矢印 |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/pose13-brief/pose3_orientation_reference.png` | **刃の向きの参照図**。待機 → ポーズ1 → ポーズ2 → ポーズ3で、刃側・峰側がどうつながるか |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/knife_candidate.png` | **画風・配色の基準**（待機）。グローブ・手首の帯・袖・ナイフの色とデザイン |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass_extended.png` | **直前のポーズの基準**（ポーズ2）。握り方・見える面・配色・刃の向き。ポーズ3はこの続き |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup_v3.png` | **補助の参考**（ポーズ1）。ナイフ・手の大きさと画風だけ。グローブが明るすぎるので、**配色の基準にはしない** |
-| `/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/docs/review/player-parts/knife/slash/multipose_timeline.png` | 参考：3ポーズの時間割（どの時間に表示されるか） |
+| `docs/review/player-parts/knife/slash/pose13-brief/pose3_follow_through_brief_guide.png` | **構図ガイド**（必須）。キャンバス・握り・刃先・手首・袖の範囲・刃側と峰側の矢印 |
+| `docs/review/player-parts/knife/slash/pose13-brief/pose3_orientation_reference.png` | **刃の向きの参照図**。待機 → ポーズ1 → ポーズ2 → ポーズ3で、刃側・峰側がどうつながるか |
+| `Assets/Game/Art/Weapons/Knife/knife_candidate.png` | **画風・配色の基準**（待機）。グローブ・手首の帯・袖・ナイフの色とデザイン |
+| `Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass_extended.png` | **直前のポーズの基準**（ポーズ2）。握り方・見える面・配色・刃の向き。ポーズ3はこの続き |
+| `Assets/Game/Art/Weapons/Knife/Poses/knife_pose1_windup_v3.png` | **補助の参考**（ポーズ1）。ナイフ・手の大きさと画風だけ。グローブが明るすぎるので、**配色の基準にはしない** |
+| `docs/review/player-parts/knife/slash/multipose_timeline.png` | 参考：3ポーズの時間割（どの時間に表示されるか） |
 
 ## 完成画像の保存先
 
-`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png`
+`Assets/Game/Art/Weapons/Knife/Poses/knife_pose3_follow_through.png`
 
 ## 依頼文
 

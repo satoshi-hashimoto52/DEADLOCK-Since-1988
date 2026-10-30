@@ -69,7 +69,7 @@
 - 背景は透明、半透明のピクセルは使わない。ガイドの線・文字・色は描かない。
 ```
 
-保存名：`/Users/hashimoto/vscode/_game/DEADLOCK/DEADLOCK-Since-1988/Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass.png`（届いたら、今の画像は `knife_pose2_center_pass_v1.png` として残す）。
+保存名：`Assets/Game/Art/Weapons/Knife/Poses/knife_pose2_center_pass.png`（届いたら、今の画像は `knife_pose2_center_pass_v1.png` として残す）。
 
 ## 4．残り2ポーズの制作
 
