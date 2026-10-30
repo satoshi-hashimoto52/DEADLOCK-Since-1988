@@ -37,7 +37,7 @@ MonoBehaviour:
       - region: 1
         hue: 95
         saturation: 0.22
-    sideView: {fileID: 0}
+    sideView: {fileID: 21300000, guid: 0afc4f74ab62b443b819a435efa647d7, type: 3}
     sideViewRegions: {fileID: 0}
   - weaponId: proto_knife
     label: "\u30CA\u30A4\u30D5"

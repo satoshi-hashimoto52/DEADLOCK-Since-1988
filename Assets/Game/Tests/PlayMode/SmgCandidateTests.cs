@@ -240,14 +240,18 @@ namespace Deadlock.Tests
             Assert.AreEqual(0f, Region(hip, SkinRegion.WeaponBody).z, "the rifle keeps its standard look");
             Assert.AreEqual(1f, Region(hip, SkinRegion.GloveBody).z, "the hands keep theirs");
 
-            // Equipment screen: the SMG has no side view yet, the rifle's is never shown in its place.
+            // Equipment screen: the SMG shows its own registered side view, never the rifle's.
             selection.Select(Smg);
             menu.OpenSkinSettings();
             yield return null;
             var preview = menu.transform.Find("MenuLayer/SkinSettingsPanel/SafeArea/Window/WeaponPreview");
             StringAssert.Contains("SMG（候補）", preview.Find("Caption").GetComponent<Text>().text);
-            StringAssert.Contains("画像なし", preview.Find("Caption").GetComponent<Text>().text);
-            Assert.IsNull(preview.Find("Image"), "no side view image for the SMG");
+            StringAssert.DoesNotContain("画像なし", preview.Find("Caption").GetComponent<Text>().text);
+            StringAssert.DoesNotContain("未制作", preview.Find("Caption").GetComponent<Text>().text);
+            Assert.IsNotNull(preview.Find("Image"), "the SMG's side view image");
+            var smgSide = menu.Skins.WeaponSet(Smg).sideView;
+            Assert.AreSame(smgSide, preview.Find("Image").GetComponent<Image>().sprite);
+            Assert.AreNotSame(menu.Skins.WeaponSet(Rifle).sideView, smgSide);
             Assert.IsNotNull(GameObject.Find("WeaponSkin_proto_smg_test_green"), "SMG skin choice");
             menu.CloseSkinSettings();
             selection.Select(Rifle);

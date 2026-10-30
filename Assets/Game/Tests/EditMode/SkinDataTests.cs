@@ -146,6 +146,70 @@ namespace Deadlock.Tests
             }
         }
 
+        /// <summary>
+        /// The SMG side view is the image registered by AssetPipeline (weapon.smg.side): byte for byte the approved file
+        /// (SHA-256), the common weapon side-view standard (1440 x 800), imported like the rifle's (crisp, full size), and
+        /// drawn in its own colours (no region map).
+        /// </summary>
+        [Test]
+        public void SmgSideView_IsTheRegisteredImage_Unchanged_ImportedLikeTheRifles()
+        {
+            var smg = Catalog.weapons.Single(w => w.weaponId == "proto_smg");
+            Assert.IsNotNull(smg.sideView, "the SMG has a side view");
+            Assert.AreEqual(SkinSetup.SmgSidePath, AssetDatabase.GetAssetPath(smg.sideView));
+            Assert.AreEqual("Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png", SkinSetup.SmgSidePath);
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            using (var stream = System.IO.File.OpenRead(SkinSetup.SmgSidePath))
+                Assert.AreEqual("b3bb6aa9714e5f2986ba7d1ee18ea952ff640c759032b94a70c5776a08cbc7fe",
+                    System.BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant(), "the approved file, unchanged");
+            Assert.AreEqual((1440, 800), (smg.sideView.texture.width, smg.sideView.texture.height), "the standard, not downscaled");
+            Assert.AreEqual(new Rect(0f, 0f, 1440f, 800f), smg.sideView.rect, "the whole canvas");
+            Assert.IsNull(smg.sideViewRegions, "no region map: its drawn colours");
+            var importer = (TextureImporter)AssetImporter.GetAtPath(SkinSetup.SmgSidePath);
+            var rifle = (TextureImporter)AssetImporter.GetAtPath(SkinSetup.RifleSidePath);
+            Assert.AreEqual(TextureImporterType.Sprite, importer.textureType);
+            Assert.AreEqual(FilterMode.Point, importer.filterMode, "crisp pixels");
+            Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
+            Assert.IsFalse(importer.mipmapEnabled);
+            Assert.IsTrue(importer.alphaIsTransparency);
+            Assert.AreEqual(rifle.spritePixelsPerUnit, importer.spritePixelsPerUnit, "as the rifle's");
+            Assert.AreEqual(rifle.spritePivot, importer.spritePivot);
+            var rifleSet = Catalog.weapons.Single(w => w.weaponId == "proto_rifle");
+            Assert.AreEqual(SkinSetup.RifleSidePath, AssetDatabase.GetAssetPath(rifleSet.sideView), "the rifle's side view is unchanged");
+
+            // One scale in the ammo panel: both pictures fill its height (PlayMode), so the drawn guns' heights, as parts
+            // of their canvases, must be close (the SMG a little smaller, never larger than the rifle by much).
+            float rifleGun = DrawnHeightPart(SkinSetup.RifleSidePath), smgGun = DrawnHeightPart(SkinSetup.SmgSidePath);
+            TestContext.WriteLine($"drawn gun height: rifle {rifleGun:0.000}, SMG {smgGun:0.000} of the canvas");
+            Assert.AreEqual(1f, smgGun / rifleGun, 0.15f, "the SMG drawn at the rifle's scale");
+        }
+
+        /// <summary>Height of the drawn pixels (alpha &gt; 0), as a part of the canvas height (read from the file).</summary>
+        static float DrawnHeightPart(string path)
+        {
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                Assert.IsTrue(t.LoadImage(File.ReadAllBytes(path)), path);
+                var px = t.GetPixels32();
+                int top = -1, bottom = -1;
+                for (int y = 0; y < t.height; y++)
+                    for (int x = 0; x < t.width; x++)
+                        if (px[y * t.width + x].a > 0)
+                        {
+                            if (bottom < 0)
+                                bottom = y;
+                            top = y;
+                            break;
+                        }
+                return (top - bottom + 1) / (float)t.height;
+            }
+            finally
+            {
+                Object.DestroyImmediate(t);
+            }
+        }
+
         [Test]
         public void EquipmentDerivatives_ChangeOnlyAlpha_OriginalsKept()
         {

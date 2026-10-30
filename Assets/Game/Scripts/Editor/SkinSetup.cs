@@ -13,7 +13,8 @@ namespace Deadlock.Editor
     /// refresh its material references and the equipment-screen images, and never overwrite the skins in it.
     /// Equipment-screen images (rifle side view, player front view) are shown whole: the displayed image is the
     /// alpha-cleaned derivative of the delivered original (the original is only read), with a region map from
-    /// Tools/pixelart/make_image_regions.py. Same import as the first-person art: Point, uncompressed, no mip maps, never
+    /// Tools/pixelart/make_image_regions.py; the SMG side view is the registered image itself, without a region map.
+    /// Same import as the first-person art: Point, uncompressed, no mip maps, never
     /// downscaled; region maps as R8 data.
     /// </summary>
     public static class SkinSetup
@@ -25,6 +26,10 @@ namespace Deadlock.Editor
         public const string UiMaterialPath = "Assets/Game/Art/Skins/Mat_SkinnedUI.mat";
         public const string RifleSidePath = "Assets/Game/Art/Weapons/Rifle/Side/rifle_side_design_opaque.png";
         public const string RifleSideRegionsPath = "Assets/Game/Art/Weapons/Rifle/Side/rifle_side_skin_regions.png";
+        // SMG side view: the image registered by AssetPipeline (weapon.smg.side, 2026-10-30; the common weapon side-view
+        // standard 1440 x 800, docs/WEAPON_SIDE_ASSET_SPEC.md), shown as delivered: no derivative, no region map (its
+        // drawn colours).
+        public const string SmgSidePath = "Assets/Game/Art/Weapons/SMG/Side/smg_side_design.png";
         // Player front view: the adopted glove colour (2026-10-21; a recolour of player_front_design.png inside the glove
         // mask, docs/review/equipment-art/glove-review). The delivered original and its first derivative are kept.
         public const string PlayerFrontPath = "Assets/Game/Art/Player/Front/player_front_gloves_adopted_opaque.png";
@@ -68,7 +73,7 @@ namespace Deadlock.Editor
             catalog.playerFront = EquipmentSprite(PlayerFrontPath);
             catalog.playerFrontRegions = EquipmentRegions(PlayerFrontRegionsPath, catalog.playerFront);
             // The SMG candidate (development test choice): its own set with one test colour, next to the rifle. Added once
-            // to the hand-edited catalog; no side view yet (the equipment screen shows its caption only).
+            // to the hand-edited catalog; its side view is set below.
             if (catalog.WeaponSet(SmgId) == null)
             {
                 var list = new System.Collections.Generic.List<WeaponSkinSet>(catalog.weapons);
@@ -82,15 +87,24 @@ namespace Deadlock.Editor
             }
             foreach (var set in catalog.weapons)
             {
-                if (set == null || set.weaponId != RifleId)
-                    continue;
-                set.sideView = EquipmentSprite(RifleSidePath);
-                set.sideViewRegions = EquipmentRegions(RifleSideRegionsPath, set.sideView);
+                if (set != null && set.weaponId == RifleId)
+                {
+                    set.sideView = EquipmentSprite(RifleSidePath);
+                    set.sideViewRegions = EquipmentRegions(RifleSideRegionsPath, set.sideView);
+                }
+                else if (set != null && set.weaponId == SmgId)
+                {
+                    set.sideView = EquipmentSprite(SmgSidePath);
+                    set.sideViewRegions = null;
+                }
             }
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();
             return catalog;
         }
+
+        /// <summary>Batch mode (-executeMethod): refreshes the catalog's images and materials only (no scene is rebuilt).</summary>
+        public static void PrepareFromCommandLine() => Prepare();
 
         static Material LoadOrCreateMaterial(string shaderPath, string materialPath)
         {
