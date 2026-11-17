@@ -1,6 +1,6 @@
 # 開発環境・起動・検証手順
 
-最終更新：2026-10-19（入力修正の反映）
+最終更新：2026-11-05（16. Stage 38 の武器画像の一括統合の手順）、2026-10-19（入力修正の反映）
 
 ## 1. 開発環境（2026-10-19 確認）
 
@@ -398,6 +398,8 @@ open -n Builds/Mac/DEADLOCK.app      # 画面付きで1つ起動（もう1つ起
 
 ### 自動確認（2プロセス・2端末）
 
+> 2026-11-01 から、`--build` は macOS ビルドで書き換わる3つのファイル（URP の設定2つと ProjectSettings）をビルド前に退避し、iOS に戻したあとで復元・照合する（`Tools/lib/protect-build-settings.sh`、12. を参照）。
+
 起動引数 `-netCheck host` / `-netCheck client -netHost <ホストのアドレス>` を付けると、ホストが決まった手順（移動・姿勢・ダッシュ・ジャンプ・スライディング・持ち替え・射撃・近接・壁・不正な射撃要求・死亡・リスポーン・メニュー中・PvPvE（ゾンビの同期・双方の攻撃・同時撃破・弾薬箱の同時取得・対象の切り替え・メニュー中の被弾・終了・再開始）・退出と再接続・ホスト終了）を実行し、両側で見えた結果をログに `NETCHECK PASS|FAIL` として出す。引数がなければ何もしない。
 
 ```sh
@@ -421,3 +423,224 @@ xcrun devicectl device process launch --device <iPhoneのID> --terminate-existin
 ```
 
 端末同士（iPhoneがホスト、iPadがクライアント）は、iPhoneに `{"DEADLOCK_NETCHECK":"host"}`、iPadに `{"DEADLOCK_NETCHECK":"client","DEADLOCK_NETHOST":"<iPhoneのアドレス>"}` を渡す。端末はロックを解除し（自動ロックで止まるので確認中は「なし」が確実）、同じWi-Fiに接続し、ローカルネットワークの許可をオンにしておく。端末のアドレスは `--console` のログ先頭の「Found N interfaces」で分かる。
+
+## 12. 専用サーバーの検証（Stage 37B、このMacのローカル通信・LAN だけ）
+
+2人の LAN 試作（11.）とは別の、専用サーバーと最大8人のクライアントの基盤（D-070、PROGRESS 12-72）。シーン `Online_Dedicated`（ビルド設定のシーン一覧には入れていない）、UDP 7790、プロトコル `deadlock-online-proto-1`。外部サービスは使わない。
+
+### 必要なもの
+
+- Unity Hub のモジュール「Mac Dedicated Server Build Support」（`mac-server`、2026-10-31 追加）。Linux 用（`linux-server`）は外部ホスティングの段階まで不要で、入れていない。
+
+### ビルド（Unity Editor を閉じてから。出力は Git 対象外の `Builds/`）
+
+```sh
+Tools/online-ds-build.sh [--scene]   # --scene：シーン・プレハブ・NPC 用 NavMesh も作り直す
+```
+
+専用サーバー（`Builds/OnlineServer/`）とクライアント（`Builds/OnlineClient/`）をビルドし、iOS に切り戻す。**macOS 向けのビルドをすると、Unity が `Assets/Settings/UniversalRenderPipelineGlobalSettings.asset`・`Assets/Settings/PC_RPAsset.asset`・`ProjectSettings/ProjectSettings.asset` を書き換え、iOS に切り戻しても戻らない**（2026-10-31 に確認）。そのため `online-ds-build.sh` と `net-check-local.sh --build` は共通の保護処理（`Tools/lib/protect-build-settings.sh`）を使う：
+
+- ビルド前に3つの実ファイル（Git HEAD ではなく、未コミットの変更を含む今の内容）を `Logs/build-protect/<日時>_<種類>_<pid>/` に写し、SHA-256 を `manifest.sha256` に記録する。写しは消さない（復元に成功した写しには `RESTORED_OK` が付く）。
+- 成功・失敗・Ctrl-C・TERM・HUP のどの終わり方でも復元し、SHA-256 で照合する。復元できなければエラーを出して止まり、ロック（`Logs/build-protect/lock`、`FAILED` 付き）を残すので、次のビルドは始まらない。
+- ロックで同時に1つのビルドだけにする（2つ目は開始を拒否する）。
+- `kill -9` や電源断で復元が走らなかった場合も、次のビルドが開始を拒否して写しの場所を示す。手動の復旧：Unity を閉じてから `Tools/restore-build-settings.sh [写しのフォルダ]`（省略時はロックに記録された写し。写しだけを使い、SHA-256 を照合してからロックを外す）。
+
+### 自動確認（サーバー1つ＋クライアント複数、このMac）
+
+```sh
+python3 -B Tools/online-ds-check.py --clients 1
+python3 -B Tools/online-ds-check.py --clients 2 --windowed 1 --desync
+python3 -B Tools/online-ds-check.py --clients 4 --attack --refusals --leave
+python3 -B Tools/online-ds-check.py --clients 8 --windowed 2 --drop
+```
+
+- `--windowed N`：N 台をウィンドウ表示（描画あり、プレイ8秒の画面を保存）。ほかはヘッドレス（描画なし）。どちらも実際の Unity のクライアントで、通信シミュレーターではない。
+- `--attack`：サーバーが拒否すべき要求を送るクライアントを1台足す。`--refusals`：拒否されるべき接続（同名・不明な武器・LAN 試作のプロトコル・参加チケット・確定後の参加）を足す。`--leave`：最後のクライアントがプレイ12秒で退出。`--drop`：最後のクライアントをプレイ8秒で強制終了（通信の途絶）。`--desync`：最初のクライアントの予測を一度3mずらす。
+- 結果は `Logs/online-ds/<日時>_<人数>c/`（各プロセスのログと報告、`summary.json`）。`--fight` を付けない場合は、サーバーの開発用のダメージ確認（`-dev-scenario`）を使う。
+- 戦闘（Stage 37C）：`--fight`（クライアントが見えている相手を撃つ・リロード・持ち替え・ナイフ。メイン武器はライフル・SMG・ショットガン・LMG・EPIC SMG を順に割り当て）、`--fight-after 秒`（撃ち始めるまでの時間、既定3秒）、`--match-seconds 秒`（開発用に試合時間を短くする。本来は300秒）、`--no-lag-comp`（遅延補償を切る比較用）、`--npc-hold-fire`。最後に試合結果と全8枠の最終状態をサーバーと各クライアントで比べる。
+- 遅延・パケットロス：`--netem 遅延ms,ゆらぎms,ロス率`（片道ごと。`Tools/udp-netem-proxy.py` の中継を通す。設定値と、中継が実際に落とした割合・加えた遅延は `netem.json` に分けて記録。クライアントが測った往復時間は各報告の `rttAvgMs`）。例：`python3 -B Tools/online-ds-check.py --clients 4 --fight --netem 50,10,0.02 --match-seconds 45 --run 85`
+
+### 手で動かす
+
+```sh
+SERVER="Builds/OnlineServer/DeadlockServer/DEADLOCK: Since 1988"
+CLIENT="Builds/OnlineClient/DeadlockOnlineClient.app/Contents/MacOS/DEADLOCK: Since 1988"
+"$SERVER" -batchmode -nographics -allow-dev-join -logFile "$PWD/Logs/online-server.log" &
+"$CLIENT" -screen-fullscreen 0 -screen-width 1280 -screen-height 720   # 接続画面でアドレスと開発用の名前を入れる
+```
+
+- 開発用の接続（名前だけ）は、サーバーを `-allow-dev-join` で起動したときだけ受け付ける。参加チケットは、サーバーを `-economy-key-file` 付きで起動したときだけ、経済サービスが発行したものを受け付ける（13.。鍵がなければ常に拒否）。開発用の名前で参加した人は報酬の対象外。
+- 操作：W/A/S/D 移動、Q/E 旋回、R/F 上下を見る、左 Shift ダッシュ、右 Shift 構え、Space ジャンプ、C しゃがみ、Z 伏せ、Enter 発射、T リロード、1/2/3 で持ち替え（手で操作する接続画面とキーボード操作は動かして確認していない。自動確認は `-bot` のクライアントで行った）。最初の参加から15秒（8人なら即時）で試合が確定し、足りない枠は NPC。
+- 別の端末から LAN 越しにつなぐ場合はサーバーの Mac のアドレスを入れる（macOS のファイアウォールの許可が要ることがある）。Stage 37B では LAN 越しの接続は未検証。
+
+## 13. アカウント・経済サービス（Stage 37D、このMacのローカル通信だけ）
+
+正式オンラインのポイント・ガチャ・所持品・交換ショップ・試合報酬を確定するサービス（D-072、PROGRESS 12-74）。専用サーバーと同じビルド（`Builds/OnlineServer/`）を `-economy-service` で起動すると、試合サーバーではなく経済サービスとして動く。プロトコル `deadlock-economy-1`、HTTP、**127.0.0.1:7791 だけで待ち受け（ほかのアドレスは拒否）**。外部サービス・課金・公開は使わない。
+
+### 鍵とデータベース（どちらも Git に入れない。`Logs/` は Git 対象外）
+
+```sh
+python3 -I Tools/economy-db.py newkey Logs/economy/service.key   # 試合サーバーと共有する鍵（32バイト、0600）
+```
+
+- DB は `-economy-db` で指定した SQLite ファイル（無ければ作る）。Unity のセーブデータ（ガチャ・報酬・PlayerPrefs）とは別の場所に置く。作ったときのモード（`development`／`official`）とカタログ（`dev-test`／`official`）は固定で、違う指定では起動しない。
+- 1つの DB を使えるサービスは1つだけ（`<DB>.service-lock` のロック。2つ目は終了コード4）。起動時に整合性（SQLite の検査・外部キー・残高＝取引の合計）を確かめ、合わなければ起動しない。
+
+### 起動
+
+```sh
+SERVER="Builds/OnlineServer/DeadlockServer/DEADLOCK: Since 1988"
+# 開発用（試験用アカウント・開発用サインイン・テスト用アイテム）
+"$SERVER" -batchmode -nographics -economy-service -economy-db "$PWD/Logs/economy/dev.db" -economy-mode development \
+  -economy-catalog dev-test -economy-key-file "$PWD/Logs/economy/service.key" -dev-auth -logFile "$PWD/Logs/economy/service.log"
+# 試合サーバーから結果を送る（参加チケットも受け付ける）
+"$SERVER" -batchmode -nographics -online-server -allow-dev-join -economy-url http://127.0.0.1:7791 \
+  -economy-key-file "$PWD/Logs/economy/service.key" -server-id local-ds-1 -logFile "$PWD/Logs/online-server.log"
+```
+
+- 開発用の機能（`-dev-auth`：開発用サインイン・ポイント付与・イベント登録、`-economy-fault`：故障注入、`-economy-clock-offset-hours`）は、`DEADLOCK_ECONOMY_DEV` 付きでビルドしたもの（`online-ds-build.sh` のサーバー。ProjectSettings は変えずにビルドの時だけ渡す）と Editor にだけコンパイルされる（ほかのビルドにはコードが無い）。正式（`-economy-mode official`）の DB では開発用サインインを拒否し、試験用アカウント・開発用セッション・テスト用アイテムは DB の制約でも入らない。**開発用の機能を有効にした状態で外部ネットワークへ公開しないこと**（サービス自体もループバック以外では起動しない）。
+- 試合サーバーは試合が終わると結果を `-economy-outbox`（既定 `Logs/online-ds/outbox/`）に書いてから署名付きで送り、確定するまで同じ内容で送り直す（サービスが止まっていても、次の起動後に送る）。拒否された結果は `outbox/refused/` に移して送り直さない。
+- 主な経路：`GET /v1/health`、`POST /v1/match-results`（試合サーバーの署名）、`/v1/accounts/<id>/wallet|shop|gacha/draw|gacha/draws/<要求ID>|gacha/history|gacha/reveal|exchange|join-ticket`（そのアカウントのセッションだけ。他人のアカウントは 403）、開発用 `POST /dev/session|grant-points|event`。
+
+### バックアップ・確認・復元
+
+```sh
+python3 -I Tools/economy-db.py verify  Logs/economy/dev.db
+python3 -I Tools/economy-db.py backup  Logs/economy/dev.db Logs/economy/backup/dev_$(date +%Y%m%d_%H%M%S).db   # 稼働中でもよい
+python3 -I Tools/economy-db.py restore Logs/economy/backup/<写し>.db Logs/economy/dev.db                        # サービスを止めてから
+```
+
+- バックアップは SQLite のオンラインバックアップで写し、検査してから `.sha256` を書く。既にある写しは上書きしない。
+- 復元はサービスが動いている間は拒否する。写しの SHA-256 と検査に合格してから、今の DB（`-wal`・`-shm` も）を `<DB>.before-restore-<日時>` に移して残し（消さない）、写しを置いて再検査する。
+
+### 自動確認（実プロセス）
+
+```sh
+python3 -B Tools/economy-check.py service            # サインイン・他人のアカウント・同時実行・取引中の強制終了・再起動後の冪等性など
+python3 -B Tools/economy-check.py match --clients 4  # 参加チケットで入った4人＋開発用1人の試合の結果が DB に入るか
+python3 -B Tools/economy-check.py match --clients 2 --late   # 試合の終了時にサービスが止まっていても後で届くか
+```
+
+結果は `Logs/economy-check/<日時>_<種類>/summary.json`。鍵と DB は実行ごとのフォルダに作る。
+
+### 接続が成立しない問題の故障注入（Stage 37C からの持ち越し、経済サービスとは別）
+
+```sh
+python3 -B Tools/connect-fault-check.py blackhole --seconds 15   # 最初の接続の通信をすべて落とす
+python3 -B Tools/connect-fault-check.py up --after 2 --count 400 # 接続確立後の参加要求を落とす
+python3 -B Tools/connect-fault-check.py down --after 2 --count 400 # 接続確立後のサーバーからの返事を落とす
+```
+
+`Tools/udp-netem-proxy.py` の `--blackhole-seconds`・`--drop-up-after/--drop-up-count`・`--drop-down-after/--drop-down-count`・`--fault-clients` を使う。結果は `Logs/connect-fault/<日時>_<種類>/summary.json`。
+
+## 14. オンライン観戦・ロード診断・接続の再試行・ガチャ画面の開発用接続（Stage 37E、このMacのローカル通信だけ）
+
+D-073、PROGRESS 12-75。ビルドは 12.（`Tools/online-ds-build.sh`、設定ファイルの保護つき）。
+
+### 10秒遅延観戦（実プロセス）
+
+```sh
+python3 -B Tools/online-ds-check.py --clients 4 --fight --fight-after 30 --npc-hold-fire --spectate 8 --spectate-watched-after 8 --match-seconds 55 --run 100
+```
+
+- `--spectate 秒`：サーバー（開発用 `-dev-kill-human-at`）が最初に参加した人をその時点で倒し、`--spectate-watched-after` 秒後にその人が観戦している相手を倒す（`-dev-kill-watched-at`）。観戦中のボットは `-spectate-probe` でサーバーが拒否すべき要求（自分の枠・存在しない枠・現在・未来・2秒前の時刻・射撃）と、答えるべき要求（11秒前）を送り、6秒ごとに前／次を切り替える。
+- `summary.json` の各クライアントの `spectate`：受け取ったサンプルの新しさ（`maxSampleLeadSeconds`：受信時のサーバー時刻の推定との差）、表示の遅れ、観戦中に届いた現在のデータ（`liveDataWhileSpectating`、すべて0であること。死亡したフレームの出来事は `deathFrameEvents` に別に数える）、自動切り替え、音声イベントの遅れ、終了から結果までの時間、サーバーの記録との位置の差。サーバーの `spectateMaxSentAge`（送ったサンプルの時刻－送った時刻）は −10 秒以下であること。
+- 観戦の HUD（ウィンドウ表示のクライアント）：右上に対象名・HP・武器・キル・残り時間と「前の対象」「次の対象」「退出」。手で操作しての確認はしていない。
+
+### オンラインのロード診断
+
+- クライアントは `-load-diag-dir フォルダ` で診断ログの保存先を変えられる（確認用。各クライアントで別にする。指定が無ければアプリの保存領域の `diagnostics/`）。確認ツールはすべて実行フォルダ内の `diag-<名前>/` を使う。
+- `online-ds-build.sh` のクライアントはリリース設定のビルドなので、成功の記録は残らない（`SLOW_LOAD`・失敗・タイムアウトは残る）。各段階の時間はボットの報告の `loadTrace`（ログとは別）に出る。開発ビルドの動作（成功の記録・JSON 書き出し）は Editor のテストで確認する。
+
+### 接続の再試行と故障注入
+
+```sh
+python3 -B Tools/connect-fault-check.py down --after 0 --count 1                 # サーバーの最初の1パケット（接続応答）を落とす
+python3 -B Tools/connect-fault-check.py blackhole --seconds 15                   # 応答なし（通信層が約10秒で切断）
+python3 -B Tools/connect-fault-check.py down --after 0 --count 1 --every-attempt # 毎回落とす：3回で止まること
+python3 -B Tools/connect-fault-check.py blackhole --seconds 15 --every-attempt
+python3 -B Tools/connect-fault-check.py rejoin                                   # 試合確定後に落ちた人の再参加は拒否されること
+```
+
+- 中継は `--trace` で、故障を入れた接続の最初のパケットの種類（接続要求・接続応答・データ・切断・ハートビートなど。中身は記録しない）を `trace.json` に書く。
+- クライアントの報告 `connectAttempts`（`試行|結果|秒`）、サーバーの報告 `pendingDropped`（参加の判断に至らずに閉じた接続）・`replacedConnections`（同じ参加IDの再試行で置き換えた接続）。
+- `-join-id ID`（確認用）で参加IDを固定できる。通常は起動ごとに作る。
+
+### ガチャ画面と経済サービス（開発ビルド・Editor だけ）
+
+- ガチャ画面の開発用の欄の「サーバー接続（開発用・このMac）」で、開発用サインインした経済サービスの値に切り替える（もう一度押すと端末のデータに戻る）。接続先は `-economy-url`（既定 `http://127.0.0.1:7791`、ループバックアドレスだけ）、アカウントは `-economy-account`（既定 `dev-local`）。サービスは 13. の開発用（`-dev-auth`）で起動しておく。
+- 表示はサーバーが確定した値だけ。端末のガチャのデータ（`gacha/`）は読み書きしない。応答のなかった取引の要求IDは `economy_dev/pending_<アカウント>.json`（アプリの保存領域、ガチャのデータとは別）に残し、次に開いたときに要求IDで照会する。
+
+```sh
+python3 -B Tools/economy-check.py ui   # サービスを別プロセスで起動し、Editor（batchmode）のガチャ画面のテストをそれにつなぐ（Editor は閉じておく）
+```
+
+
+## 15. iPhone・iPad 実機でのオンライン検証（Stage 37F、同じ LAN だけ・開発用）
+
+PROGRESS 12-76。外部への公開はしない（このMacのサーバーは LAN のアドレスで待ち受け、インターネットには出さない）。経済サービスは今までどおりループバックアドレスだけで、端末からは接続しない。
+
+### 別アプリとしての開発ビルド
+
+```sh
+Tools/ios-online-build.sh compile                  # 書き出し＋署名なしのコンパイル（端末へは入れない）
+Tools/ios-online-build.sh install <端末名またはID>  # 書き出し＋その端末向けの署名ビルド＋インストール＋起動
+Tools/ios-online-build.sh --skip-export install <端末>   # 直前の書き出しを使う（--skip-export は先頭に置く）
+```
+
+- 開発ビルド・オンラインのシーン入り・**別アプリ**（バンドルIDの末尾 `.devcheck`、ホーム画面の名前「DEADLOCK検証」）。既存のアプリとは別の保存領域になり、既存のアプリと保存データには触れない。末尾が `.devcheck` でないビルドはインストールしない。
+- 書き出しは保護つき（`Tools/lib/protect-build-settings.sh`。ProjectSettings と URP の設定を復元し SHA-256 で照合）。チームとバンドルIDはプロジェクトの Player Settings から読む（スクリプトに固定値を書かない）。ログは `Logs/ios-devcheck/`。
+- 端末へのインストールは、その端末に入れてよいと利用者が決めた場合だけ。端末はロックを解除し、開発者モードを有効にしておく。初回の接続で iOS が「ローカルネットワーク」の許可を聞くので許可する。
+
+### アプリでの操作（開発用）
+
+- ホームの設定の「オンライン検証（開発用・LAN）」でオンラインのシーンを開く。接続画面でサーバーのアドレス（このMacの LAN のアドレス）と名前を入力して参加する。入力した値はアプリの保存領域の `online_dev/settings.json` に残る。
+- 操作はゲーム本体のタッチ操作（保存した配置・設定）。HUD・一人称の武器画像・照準・ADS・観戦・結果・退出の確認はゲーム本体と同じ部品。
+
+### 自動の実機確認
+
+```sh
+python3 -B Tools/ios-device-check.py <端末> play --bots 3 --match-seconds 60 --run 130 [--background-at 32]
+python3 -B Tools/ios-device-check.py <端末> spectate --bots 3 --match-seconds 60 --run 110
+python3 -B Tools/ios-device-check.py <端末> down-first --bots 1 --match-seconds 45 --run 100
+python3 -B Tools/ios-device-check.py <端末> blackhole --bots 1 --match-seconds 45 --run 100
+python3 -B Tools/ios-device-check.py <端末> every --bots 1 --match-seconds 45 --run 70
+python3 -B Tools/ios-device-check.py <端末> lost --bots 2 --match-seconds 60 --run 110 --lose-after 2500 --calm
+python3 -B Tools/ios-device-check.py <端末> play --bots 3 --match-seconds 0 --run 360 --calm   # 正式の300秒
+```
+
+- 端末にはコマンドラインが無いので、確認の引数をアプリの保存領域の `Documents/online_dev/args.txt` に書き込んでアプリを起動する（開発ビルドのモバイルだけが読む）。終わったら報告（`report.json`）・画面ごとのスクリーンショット（`shots/`）・ロード診断（`diag/`）を持ち帰り、`args.txt` を空に戻す。端末のほかのものには触れない。
+- Mac 側はこのMacのビルド（12.）のサーバーとボット。故障の入るモード（down-first・blackhole・every・lost）は `udp-netem-proxy.py --listen-host <LANのアドレス>` を通す。
+- 開始前に UDP 7790・7792 が空いていることを確かめる（前の実行の残りがあれば止めてから）。途中で失敗しても、サーバー・ボット・中継は必ず止める。端末がロック中だと起動できない（理由を表示して止まる）。検証の間は端末の自動ロックを切っておく。
+- 出力：`Logs/ios-device/<時刻>_<モード>/summary.json`（Git 対象外）。端末の機種・OS・画面・Safe Area・フレーム時間（1秒ごとの fps・95%点・最大）・メモリ・RTT・中断（バックグラウンド）・ロードの段階・接続の試行・画面の記録。
+
+### 手動のタッチ操作の確認（Stage 37F 補完、PROGRESS 12-77）
+
+```sh
+python3 -B Tools/ios-device-check.py <端末> manual --bots 0 --match-seconds 150 --run 230
+```
+
+- ボット無し、NPC は撃たない。端末は利用者が操作する。利用者が端末を持ち、ロックを解除してから始める（試合はアプリの起動から約20秒で始まる。5秒以上アプリを離れると切断の判定で外れる）。
+- サーバーの報告の `inputUsage` に、その枠の入力の使われ方（移動・視点・ダッシュ・ジャンプ・しゃがみ・伏せ・射撃・ADS・リロード・武器の選択の回数、姿勢と持ち替えの変化、枠ごとの射撃数、ナイフの振り）が残る。`summary.json` の `manual.checks` に16項目を PASS／not seen で出す。伏せは姿勢ボタンの長押し（約0.5秒）。
+- フレーム時間の `firstFrameMs` は、シーンの最初のフレーム（アプリの起動・前のシーンの読み込みを含む）を分けて記録したもの。最大値（`worstMs`）には含めない。
+- 観戦の報告の `soundsArrivedLate`・`soundArrivalLateMax`：表示の待ち（`ViewBuffer`）より遅れて届いた音声イベントの件数と最大の遅れ（`online-ds-check.py` の要約にも出る）。
+
+### Mac でのゲーム画面の確認
+
+- `online-ds-check.py --game-view --screen 2622x1206` で、Mac のクライアントをゲーム画面（タッチ操作・HUD・一人称）で動かし、スクリーンショットを撮る。
+
+## 16. 武器画像の一括統合（Stage 38、D-074）
+
+1. 画像を `../AssetPipeline/_inbox/` に置き、1枚ずつ受け付けて素材ID を付ける（`./assetpipe scan --only <ファイル>` → `./assetpipe classify <受付ID> weapon.<武器>.<side|hip|ads>`）。一人称の画像は分類 `weapon_fp_hip`／`weapon_fp_ads`（EPIC SMG の発光は `weapon_fp_emission`・`weapon_fp_glow`）で検査され、差は要確認（NEEDS_REVIEW）になる。
+2. **承認はユーザーが行う**（`./assetpipe approve <受付ID>`）。
+3. 統合ブランチに配置する。登録先の名前を明示しないと実行されない。
+   - 確認：`./assetpipe register <受付ID> --no-commit --dry-run`（登録先・ブランチ・作業ツリー・remote を表示するだけ）
+   - 配置：`./assetpipe register <受付ID> --no-commit --target weapons_integration --yes`
+4. 配置ファイル（`Assets/Game/Art/Weapons/<フォルダ>/<素材>_hip.placement.json`・`_ads.placement.json`）を手で書く（銃口・握り・照星の画素座標）。
+5. Unity で取り込む（Editor を閉じてから、1回に1つのバッチ。先に `Library/ilpp.pid` を消す）。
+   `-batchmode -quit -executeMethod Deadlock.Editor.WeaponArtSetup.PrepareFromBatch`
+   - 登録された画像だけで定義を作り（未納品の見た目は `hipNotDelivered`／`adsNotDelivered`）、取り込み・側面図（装備画面・HUD）・武器カタログの作り直しまで行う。
+6. 3つの画面比率の撮影：環境変数 `DEADLOCK_CAPTURE_DIR`（プロジェクトの外のフォルダ）を付けて `-executeMethod Deadlock.Editor.WeaponViewCapture.CaptureFromBatch`。
+7. 原本の格子がそろっていない画像の派生画像：`python3 Tools/pixelart/restore_grid.py 原本.png 派生.png`（原本は変えない。採用するかはユーザーが決める）。
+8. EditMode・PlayMode の全件テスト、`./assetpipe inbox --asset <素材ID> --save` での後片付け（CLAUDE.md）。
+
