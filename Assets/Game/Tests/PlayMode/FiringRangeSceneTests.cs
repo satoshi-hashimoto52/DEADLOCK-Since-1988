@@ -245,14 +245,15 @@ namespace Deadlock.Tests
             yield return Wait(0.3f);
             Assert.IsTrue(pickup.IsConsumed);
             Assert.IsFalse(pickup.gameObject.activeSelf);
-            Assert.AreEqual(reserve + pickup.Amount, gun.Ammo.Reserve);
+            int box = gun.Definition.magazineSize; // one magazine for the gun (D-054)
+            Assert.AreEqual(reserve + box, gun.Ammo.Reserve);
             Assert.AreEqual(loaded, gun.Ammo.Loaded, "Pickups go to reserve, not the magazine");
 
             Teleport(new Vector3(0f, 0.05f, 0f));
             yield return Wait(0.2f);
             Teleport(pickupPosition);
             yield return Wait(0.3f);
-            Assert.AreEqual(reserve + pickup.Amount, gun.Ammo.Reserve, "A consumed pickup must not add again");
+            Assert.AreEqual(reserve + box, gun.Ammo.Reserve, "A consumed pickup must not add again");
         }
 
         [UnityTest]

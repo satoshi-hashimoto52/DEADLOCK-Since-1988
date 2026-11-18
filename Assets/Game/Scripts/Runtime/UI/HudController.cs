@@ -24,8 +24,17 @@ namespace Deadlock.UI
     /// ├──────────────┤
     /// │ [side view]  │
     /// └──────────────┘
+    /// ┌────┬────┬────┐
+    /// │1 ▭ │2 ▭ │3 ▭ │   loadout slots (Stage 32): main gun, sub gun, knife
+    /// │30/60│12/24│ —  │
+    /// └────┴────┴────┘
     ///          立ち
     /// </code>
+    /// The loadout strip (<see cref="SlotStrip"/>) hangs under the ammo panel, or over it when the panel is placed in the
+    /// lower half of the screen, so it moves, scales and fades with the panel (one layout item, saved as before) and never
+    /// leaves the screen. Each slot shows its number, the gun's side view (or its name marked "（仮）" while it has no
+    /// approved art, <see cref="WeaponArtStatus"/>; the knife's name), and that gun's own "loaded/reserve"; the weapon in
+    /// hand is highlighted; an empty slot reads "空き". The posture line hangs under the panel, or under the strip.
     /// </summary>
     public sealed class HudController : MonoBehaviour
     {
@@ -69,6 +78,32 @@ namespace Deadlock.UI
         Text ammoCaption;
         string ammoArtId;
         SkinCatalog skins;
+        RectTransform slotStrip;
+        readonly SlotCell[] slotCells = new SlotCell[3];
+        bool slotStripBelow = true;
+
+        /// <summary>One loadout slot of the strip.</summary>
+        sealed class SlotCell
+        {
+            public LoadoutSlot slot;
+            public RectTransform root;
+            public Image plate;
+            public Outline outline;
+            public Text number;
+            public RectTransform artHost;
+            public Image art;
+            public Text caption;
+            public Text ammo;
+            public string artKey;
+            public bool selected;
+            public bool empty;
+        }
+
+        /// <summary>Height of the loadout strip and its gap to the ammo panel (canvas units, at the panel's scale 1).</summary>
+        public const float SlotStripHeight = 64f;
+        public const float SlotStripGap = 6f;
+        /// <summary>Label of an empty loadout slot.</summary>
+        public const string EmptySlotLabel = "空き";
 
         // Damage flash: short and faint. A hit during a running flash does not brighten it again, so several
         // zombies hitting in quick succession never strobe the screen.
@@ -86,6 +121,21 @@ namespace Deadlock.UI
         public Image AmmoArt { get; private set; }
         /// <summary>Shown instead of the side view: the gun's name when it has none, or empty.</summary>
         public Text AmmoCaption => ammoCaption;
+
+        /// <summary>The loadout strip (slots 1–3) under or over the ammo panel.</summary>
+        public RectTransform SlotStrip => slotStrip;
+        /// <summary>The strip hangs under the panel (false: over it, the panel being in the lower half).</summary>
+        public bool SlotStripBelow => slotStripBelow;
+        public RectTransform SlotCellRect(LoadoutSlot slot) => Cell(slot).root;
+        /// <summary>The slot's "loaded/reserve" ("—" for the knife, empty for an empty slot).</summary>
+        public Text SlotAmmo(LoadoutSlot slot) => Cell(slot).ammo;
+        /// <summary>The slot's name label: a gun without approved side view (marked "（仮）"), the knife, or "空き".</summary>
+        public Text SlotCaption(LoadoutSlot slot) => Cell(slot).caption;
+        /// <summary>The slot's side view, or null when it shows a label.</summary>
+        public Image SlotArt(LoadoutSlot slot) => Cell(slot).art;
+        public bool SlotSelected(LoadoutSlot slot) => Cell(slot).selected;
+        public bool SlotEmpty(LoadoutSlot slot) => Cell(slot).empty;
+        SlotCell Cell(LoadoutSlot slot) => slotCells[(int)slot - 1];
 
         /// <summary>Size of the ammo count (canvas units; the count used to be 56 / 64), and the height of its row.</summary>
         public const int AmmoCountFont = 40;
@@ -182,6 +232,135 @@ namespace Deadlock.UI
             ammoPanel.anchorMin = ammoPanel.anchorMax = item.center;
             ammoPanel.anchoredPosition = Vector2.zero;
             ammoPanel.localScale = new Vector3(item.scale, item.scale, 1f);
+            PlaceSlotStrip(StripBelow(item.center));
+        }
+
+        /// <summary>The strip goes under the panel, or over it when the panel's centre is in the lower half.</summary>
+        public static bool StripBelow(Vector2 panelCenter) => panelCenter.y >= 0.5f;
+
+        void PlaceSlotStrip(bool below)
+        {
+            slotStripBelow = below;
+            if (slotStrip == null)
+                return;
+            slotStrip.anchorMin = new Vector2(0f, below ? 0f : 1f);
+            slotStrip.anchorMax = new Vector2(1f, below ? 0f : 1f);
+            slotStrip.pivot = new Vector2(0.5f, below ? 1f : 0f);
+            slotStrip.anchoredPosition = new Vector2(0f, below ? -SlotStripGap : SlotStripGap);
+            slotStrip.sizeDelta = new Vector2(0f, SlotStripHeight);
+            if (stanceText != null)
+                stanceText.rectTransform.anchoredPosition = new Vector2(0f, below ? -6f - SlotStripGap - SlotStripHeight : -6f);
+        }
+
+        /// <summary>
+        /// The loadout strip: three cells side by side, as wide as the panel. Display only (no touches), inside the
+        /// panel's CanvasGroup, so it takes the controls' transparency like the rest of the panel.
+        /// </summary>
+        void BuildSlotStrip()
+        {
+            slotStrip = UiBuild.Rect("LoadoutSlots", ammoPanel);
+            const float gap = 4f;
+            float cellWidth = (TouchLayout.AmmoBaseSize.x - 2f * gap) / 3f;
+            for (int i = 0; i < 3; i++)
+            {
+                var c = new SlotCell { slot = (LoadoutSlot)(i + 1) };
+                c.root = UiBuild.Rect("Slot" + (i + 1), slotStrip);
+                c.root.anchorMin = new Vector2(0f, 0f);
+                c.root.anchorMax = new Vector2(0f, 1f);
+                c.root.pivot = new Vector2(0f, 0.5f);
+                c.root.anchoredPosition = new Vector2(i * (cellWidth + gap), 0f);
+                c.root.sizeDelta = new Vector2(cellWidth, 0f);
+                c.plate = UiBuild.Image(c.root, new Color(0f, 0f, 0f, 0.28f), false);
+                c.outline = c.plate.gameObject.AddComponent<Outline>();
+                c.outline.effectColor = new Color(1f, 0.8f, 0.35f, 0.9f);
+                c.outline.effectDistance = new Vector2(2f, -2f);
+                c.outline.enabled = false;
+                c.number = UiBuild.Text(UiBuild.Place(UiBuild.Rect("Number", c.root), new Vector2(0f, 1f), new Vector2(2f, -3f), new Vector2(20f, 30f)),
+                    (i + 1).ToString(), 20, TextAnchor.MiddleCenter);
+                c.artHost = UiBuild.Rect("ArtArea", c.root);
+                c.artHost.anchorMin = new Vector2(0f, 1f);
+                c.artHost.anchorMax = new Vector2(1f, 1f);
+                c.artHost.pivot = new Vector2(0.5f, 1f);
+                c.artHost.offsetMin = new Vector2(22f, -34f);
+                c.artHost.offsetMax = new Vector2(-3f, -3f);
+                c.caption = UiBuild.Text(UiBuild.Stretch(UiBuild.Rect("Caption", c.artHost)), "", 14, TextAnchor.MiddleCenter);
+                c.caption.resizeTextForBestFit = true;
+                c.caption.resizeTextMinSize = 8;
+                c.caption.resizeTextMaxSize = 14;
+                c.caption.horizontalOverflow = HorizontalWrapMode.Wrap;
+                c.caption.verticalOverflow = VerticalWrapMode.Truncate;
+                var ammoRect = UiBuild.Rect("Ammo", c.root);
+                ammoRect.anchorMin = new Vector2(0f, 0f);
+                ammoRect.anchorMax = new Vector2(1f, 0f);
+                ammoRect.pivot = new Vector2(0.5f, 0f);
+                ammoRect.anchoredPosition = new Vector2(0f, 2f);
+                ammoRect.sizeDelta = new Vector2(-6f, 26f);
+                c.ammo = UiBuild.Text(ammoRect, "", 20, TextAnchor.MiddleCenter);
+                c.ammo.resizeTextForBestFit = true;
+                c.ammo.resizeTextMinSize = 10;
+                c.ammo.resizeTextMaxSize = 20;
+                c.ammo.horizontalOverflow = HorizontalWrapMode.Wrap;
+                c.ammo.verticalOverflow = VerticalWrapMode.Truncate;
+                foreach (var t in c.root.GetComponentsInChildren<Text>())
+                    t.raycastTarget = false;
+                slotCells[i] = c;
+            }
+            PlaceSlotStrip(slotStripBelow);
+        }
+
+        static readonly Color SelectedPlate = new Color(1f, 0.72f, 0.25f, 0.42f);
+        static readonly Color NormalPlate = new Color(0f, 0f, 0f, 0.28f);
+        static readonly Color EmptyPlate = new Color(0f, 0f, 0f, 0.14f);
+        static readonly Color PlaceholderText = new Color(1f, 0.82f, 0.5f, 1f);
+        static readonly Color EmptyText = new Color(1f, 1f, 1f, 0.45f);
+
+        /// <summary>Each slot's picture or label, its rounds and the highlight of the weapon in hand.</summary>
+        void UpdateSlotStrip(bool meleeOut)
+        {
+            LoadoutSlot inHand = meleeOut ? LoadoutSlot.Knife : gun.ActiveSlot;
+            foreach (var c in slotCells)
+            {
+                WeaponDefinition def = c.slot == LoadoutSlot.Knife ? null : gun.Inventory.Gun(c.slot);
+                bool empty = c.slot != LoadoutSlot.Knife && def == null || c.slot == LoadoutSlot.Knife && melee == null;
+                bool selected = !empty && c.slot == inHand;
+                c.empty = empty;
+                c.selected = selected;
+                c.plate.color = selected ? SelectedPlate : empty ? EmptyPlate : NormalPlate;
+                c.outline.enabled = selected;
+                c.number.color = empty ? EmptyText : Color.white;
+
+                string artKey = empty ? "empty" : c.slot == LoadoutSlot.Knife ? "knife" : def.weaponId;
+                if (artKey != c.artKey)
+                {
+                    c.artKey = artKey;
+                    if (c.art != null)
+                        Destroy(c.art.gameObject);
+                    c.art = null;
+                    var set = def != null && skins != null ? skins.WeaponSet(def.weaponId) : null;
+                    if (def != null && WeaponArtStatus.Of(def, skins, WeaponArtView.Side) == WeaponArtState.Approved)
+                    {
+                        var art = UiBuild.Stretch(UiBuild.Rect("SideView_" + def.weaponId, c.artHost));
+                        art.gameObject.AddComponent<Image>();
+                        art.gameObject.AddComponent<SkinnedImage>().Init(skins, set.sideView, set.sideViewRegions, def.weaponId, false);
+                        c.art = art.GetComponent<Image>();
+                        c.caption.text = "";
+                    }
+                    else if (def != null)
+                    {
+                        c.caption.text = WeaponArtStatus.PlaceholderLabel(def); // no approved art yet: a marked stand-in
+                        c.caption.color = PlaceholderText;
+                    }
+                    else
+                    {
+                        c.caption.text = empty ? EmptySlotLabel : MeleeName;
+                        c.caption.color = empty ? EmptyText : Color.white;
+                    }
+                }
+
+                AmmoState rounds = def != null ? gun.Inventory.Ammo(c.slot) : null;
+                c.ammo.text = rounds != null ? $"{rounds.Loaded}/{(rounds.InfiniteReserve ? "∞" : rounds.Reserve.ToString())}"
+                    : empty ? "" : "—";
+            }
         }
 
         /// <summary>
@@ -231,6 +410,7 @@ namespace Deadlock.UI
                 stance.pivot = new Vector2(1f, 1f);
                 stance.anchoredPosition = new Vector2(0f, -6f);
             }
+            BuildSlotStrip();
             PlaceAmmo(TouchLayout.Defaults().Get(TouchLayout.Ammo));
         }
 
@@ -317,7 +497,7 @@ namespace Deadlock.UI
         const string DesktopHelp =
             "入力モード：PC（キーボード／マウス）　F2：タッチモードへ\n" +
             "Space：ジャンプ　／　WASD：移動　／　Shift：ダッシュ　／　マウス：視点\n" +
-            "C：しゃがみ（ダッシュ中はスライディング）　／　Z：伏せ　／　1：銃　／　2：ナイフ\n" +
+            "C：しゃがみ（ダッシュ中はスライディング）　／　Z：伏せ　／　1：メイン銃　／　2：ナイフ　／　3：サブ銃\n" +
             "左クリック：射撃　／　右クリック：ADS（長押し／切り替えは設定で変更）\n" +
             "R：リロード　／　Tab：メニュー　／　Esc：カーソル解放";
         const string DesktopNotCaptured = "\n▶ Game Viewをクリックすると操作できます";
@@ -393,6 +573,7 @@ namespace Deadlock.UI
             bool meleeOut = weapons != null && weapons.Current == WeaponSlot.Melee;
             ammoText.text = meleeOut ? melee.Definition.displayName : AmmoLine(ammo); // ∞: the firing range
             RefreshAmmoArt(meleeOut);
+            UpdateSlotStrip(meleeOut);
             ApplyControlsAlpha();
 
             if (meleeOut)

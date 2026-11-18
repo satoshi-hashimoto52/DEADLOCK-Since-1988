@@ -3,20 +3,18 @@ using UnityEngine;
 namespace Deadlock.Combat
 {
     /// <summary>
-    /// Manually placed ammo box. Adds rounds to the gun's reserve (never directly to the magazine) and is consumed once.
-    /// Prototype rule (provisional): a full reserve leaves the box in place; otherwise the box is consumed
-    /// and any excess over the reserve cap is discarded.
+    /// Manually placed ammo box. Gives every carried gun one of its own magazines into reserve (D-054; never directly to
+    /// the magazine) and is consumed once. Prototype rule (provisional): when every reserve is full the box stays in
+    /// place; otherwise the box is consumed and any excess over each gun's reserve cap is discarded.
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public sealed class AmmoPickup : MonoBehaviour
     {
-        [SerializeField, Min(1)] int amount = 30;
         [SerializeField] Transform visual;
         [SerializeField] float spinDegreesPerSecond = 90f;
 
         bool consumed;
 
-        public int Amount => amount;
         public bool IsConsumed => consumed;
 
         void Reset()
@@ -41,7 +39,7 @@ namespace Deadlock.Combat
             var gun = other.GetComponentInParent<GunController>();
             if (gun == null)
                 return;
-            if (gun.AddReserveAmmo(amount) <= 0)
+            if (gun.ApplyAmmoBox() <= 0)
                 return;
 
             consumed = true;

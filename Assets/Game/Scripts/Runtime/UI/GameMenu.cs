@@ -62,6 +62,10 @@ namespace Deadlock.UI
         public Button HomeButton { get; private set; }
         public bool IsHomeConfirmOpen => homeConfirm != null && homeConfirm.activeSelf;
         GameObject homeConfirm;
+        /// <summary>Menu → サウンド (Stage 39): the volume settings.</summary>
+        public Button SoundButton { get; private set; }
+        public SoundSettingsPanel SoundPanel { get; private set; }
+        public bool IsSoundSettingsOpen => SoundPanel != null && SoundPanel.gameObject.activeSelf;
 
         public event Action Opened;
         public event Action Closed;
@@ -118,6 +122,7 @@ namespace Deadlock.UI
             IsOpen = false;
             panel.SetActive(false);
             controlsPanel.SetActive(false);
+            SoundPanel.gameObject.SetActive(false);
             if (homeConfirm != null)
                 homeConfirm.SetActive(false);
             bool skinOpen = IsSkinSettingsOpen;
@@ -175,6 +180,21 @@ namespace Deadlock.UI
                 Open();
             panel.SetActive(false);
             layoutEditor.Open(() => panel.SetActive(true));
+        }
+
+        public void OpenSoundSettings()
+        {
+            if (!IsOpen)
+                Open();
+            panel.SetActive(false);
+            SoundPanel.gameObject.SetActive(true);
+        }
+
+        public void CloseSoundSettings()
+        {
+            SoundPanel.gameObject.SetActive(false);
+            if (IsOpen)
+                panel.SetActive(true);
         }
 
         /// <summary>
@@ -465,6 +485,9 @@ namespace Deadlock.UI
                 ((RectTransform)HomeButton.transform).pivot = new Vector2(0f, 1f);
                 BuildHomeConfirm();
             }
+            // Sound: top right of the window, opposite the home button (the button list below is already full in some scenes).
+            SoundButton = UiBuild.Button(window, "SoundButton", "サウンド", new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(140f, 60f), OpenSoundSettings, 24);
+            ((RectTransform)SoundButton.transform).pivot = new Vector2(1f, 1f);
 
             float y = -120f;
             Vector2 size = new Vector2(480f, 76f);
@@ -509,10 +532,12 @@ namespace Deadlock.UI
                 Add("DevGunButton", "", () => { devGun.Select(devGun.Next().weaponId); RefreshDevGun(); });
                 devGunLabel = window.Find("DevGunButton").GetComponentInChildren<Text>();
                 devGunLabel.fontSize = 24;
+                devGun.Changed += RefreshDevGun; // also after the development equipment (Stage 33) changes the gun
                 RefreshDevGun();
             }
             panel.SetActive(false);
             BuildControlSettings();
+            SoundPanel = SoundSettingsPanel.Build(layer, CloseSoundSettings);
             if (skins != null)
             {
                 BuildSkinSettings();

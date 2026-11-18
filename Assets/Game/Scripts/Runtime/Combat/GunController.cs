@@ -7,7 +7,9 @@ namespace Deadlock.Combat
 {
     /// <summary>
     /// Combat state of the equipped gun: fire timing, ammo, reload and ADS. Has no rendering code;
-    /// the view (weapon sprites, HUD) observes the public state and events.
+    /// the view (weapon sprites, HUD) observes the public state and events. The guns carried (Slot 1 main gun, Slot 2
+    /// handgun, D-052) and the ammunition of each are kept in <see cref="Inventory"/>; the gun in hand is
+    /// <see cref="ActiveSlot"/>. A scene starts with its gun in its slot and nothing else.
     /// </summary>
     public sealed class GunController : MonoBehaviour
     {
@@ -18,6 +20,7 @@ namespace Deadlock.Combat
         [SerializeField] Transform aimOrigin;
         [SerializeField] ProjectileSystem projectiles;
 
+        readonly GunInventory inventory = new GunInventory();
         AmmoState ammo;
         float nextFireTime;
         float reloadStartTime;
@@ -27,6 +30,9 @@ namespace Deadlock.Combat
 
         public WeaponDefinition Definition => definition;
         public AmmoState Ammo => ammo;
+        /// <summary>The carried guns and the ammunition of each (every gun keeps its own rounds, D-054).</summary>
+        public GunInventory Inventory => inventory;
+        public LoadoutSlot ActiveSlot { get; private set; } = LoadoutSlot.Primary;
         public bool IsReloading { get; private set; }
         /// <summary>False while the melee weapon is out or a switch is in progress (set by <see cref="WeaponSwitcher"/>).</summary>
         public bool IsEquipped { get; private set; } = true;
@@ -34,7 +40,11 @@ namespace Deadlock.Combat
         /// <summary>0 = hip, 1 = fully aimed.</summary>
         public float AdsBlend { get; private set; }
         public bool AdsRequested { get; private set; }
-        public float CurrentSpreadDegrees => Mathf.Lerp(definition.hipSpreadDegrees, definition.adsSpreadDegrees, AdsBlend);
+        public float CurrentSpreadDegrees => Mathf.Lerp(definition.hipSpreadDegrees, definition.adsSpreadDegrees, AdsBlend)
+            * Mathf.Lerp(1f, definition.movingSpreadMultiplier, MoveFactor);
+
+        /// <summary>0 = standing still, 1 = walking speed or faster (scales <see cref="WeaponDefinition.movingSpreadMultiplier"/>).</summary>
+        float MoveFactor => motor == null || motor.WalkSpeed <= 0f ? 0f : Mathf.Clamp01(motor.PlanarSpeed / motor.WalkSpeed);
 
         public event Action Fired;
         public event Action DryFired;
@@ -60,7 +70,9 @@ namespace Deadlock.Combat
 
         void Awake()
         {
-            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve) { InfiniteReserve = infiniteReserve };
+            ActiveSlot = WeaponSlotRules.SlotFor(definition.category);
+            inventory.Replace(ActiveSlot, definition, GunInventory.Fresh(definition, infiniteReserve));
+            ammo = inventory.Ammo(ActiveSlot);
         }
 
         /// <summary>
@@ -120,7 +132,7 @@ namespace Deadlock.Combat
             // Applied by the motor next frame.
             bool recentlyFired = now - lastFireTime < 0.3f;
             motor.SprintBlocked = AdsRequested || frame.FireHeld || recentlyFired;
-            motor.MoveSpeedMultiplier = Mathf.Lerp(1f, definition.adsMoveSpeedMultiplier, AdsBlend);
+            motor.MoveSpeedMultiplier = Mathf.Lerp(1f, definition.adsMoveSpeedMultiplier, AdsBlend) * definition.moveSpeedMultiplier;
             motor.LookSensitivityMultiplier = Mathf.Lerp(1f, definition.adsLookSensitivityMultiplier, AdsBlend);
         }
 
@@ -133,10 +145,11 @@ namespace Deadlock.Combat
             AmmoChanged?.Invoke();
         }
 
-        /// <summary>Back to a fresh gun (respawn): full magazine, starting reserve, no reload, no ADS.</summary>
+        /// <summary>Back to fresh guns (respawn): every carried gun has a full magazine and its starting reserve; no reload, no ADS.</summary>
         public void ResetState()
         {
-            ammo.Set(definition.magazineSize, definition.startReserve);
+            inventory.ResetAll();
+            ammo = inventory.Ammo(ActiveSlot);
             IsReloading = false;
             AdsBlend = 0f;
             nextFireTime = 0f;
@@ -155,8 +168,7 @@ namespace Deadlock.Combat
             set
             {
                 infiniteReserve = value;
-                if (ammo != null)
-                    ammo.InfiniteReserve = value;
+                inventory.SetInfiniteReserve(value);
                 AmmoChanged?.Invoke();
             }
         }
@@ -167,20 +179,58 @@ namespace Deadlock.Combat
         public void ResetShotSequence() => shotIndex = 0;
 
         /// <summary>
-        /// Swaps the gun (development test choice, <see cref="DevGunSelection"/>): the new definition starts fresh —
-        /// full magazine and starting reserve, no reload, no ADS, trigger released first. Same rig, same everything else.
+        /// Swaps the gun (development test choice, <see cref="DevGunSelection"/>): the new definition goes in its own slot
+        /// and into the hand, and starts fresh — full magazine and starting reserve, no reload, no ADS, trigger released
+        /// first. Same rig, same everything else.
         /// </summary>
         public void SetDefinition(WeaponDefinition next)
         {
             if (next == null || next == definition)
+                return;
+            var slot = WeaponSlotRules.SlotFor(next.category);
+            inventory.Replace(slot, next, GunInventory.Fresh(next, infiniteReserve));
+            Draw(slot);
+        }
+
+        /// <summary>
+        /// Puts a gun in a loadout slot with fresh ammunition (D-052: a handgun only in Slot 2, the other guns only in
+        /// Slot 1). Refused (false, nothing changes) for a slot the gun may not use. Equipping the slot in hand draws it.
+        /// </summary>
+        public bool EquipGun(LoadoutSlot slot, WeaponDefinition gun)
+        {
+            if (!inventory.TryEquip(slot, gun, infiniteReserve))
+                return false;
+            if (slot == ActiveSlot)
+                Draw(slot, force: true);
+            return true;
+        }
+
+        /// <summary>
+        /// Takes another carried gun in hand. Each gun keeps its own magazine and reserve; a reload in progress is
+        /// canceled without moving rounds (as when putting the gun away). False when no gun is in that slot.
+        /// </summary>
+        public bool SelectGun(LoadoutSlot slot)
+        {
+            if (!inventory.Has(slot))
+                return false;
+            if (slot != ActiveSlot)
+                Draw(slot);
+            return true;
+        }
+
+        void Draw(LoadoutSlot slot, bool force = false)
+        {
+            var next = inventory.Gun(slot);
+            if (!force && slot == ActiveSlot && next == definition)
                 return;
             if (IsReloading)
             {
                 IsReloading = false;
                 ReloadCanceled?.Invoke();
             }
+            ActiveSlot = slot;
             definition = next;
-            ammo = new AmmoState(definition.magazineSize, definition.reserveMax, definition.magazineSize, definition.startReserve) { InfiniteReserve = infiniteReserve };
+            ammo = inventory.Ammo(slot);
             AdsBlend = 0f;
             nextFireTime = 0f;
             shotIndex = 0;
@@ -202,14 +252,27 @@ namespace Deadlock.Combat
             definition = next;
             ammo = new AmmoState(definition.magazineSize, definition.reserveMax, Mathf.Min(ammo.Loaded, definition.magazineSize),
                 Mathf.Min(ammo.Reserve, definition.reserveMax)) { InfiniteReserve = infiniteReserve };
+            inventory.Replace(ActiveSlot, definition, ammo);
             AmmoChanged?.Invoke();
             DefinitionChanged?.Invoke();
         }
 
-        /// <summary>Adds rounds to reserve (pickups). Returns the amount actually added.</summary>
+        /// <summary>Adds rounds to the reserve of the gun in hand. Returns the amount actually added.</summary>
         public int AddReserveAmmo(int amount)
         {
             int added = ammo.AddReserve(amount);
+            if (added > 0)
+                AmmoChanged?.Invoke();
+            return added;
+        }
+
+        /// <summary>
+        /// One ammo box (D-054): every carried gun gets one of its own magazines into reserve, capped at its maximum; the
+        /// magazines are not filled. Returns the rounds added over all guns (0: every reserve was already full).
+        /// </summary>
+        public int ApplyAmmoBox()
+        {
+            int added = inventory.ApplyAmmoBox();
             if (added > 0)
                 AmmoChanged?.Invoke();
             return added;
@@ -253,12 +316,14 @@ namespace Deadlock.Combat
             nextFireTime = (now - nextFireTime <= Time.deltaTime ? nextFireTime : now) + definition.fireInterval;
             lastFireTime = now;
 
-            Vector3 direction = ApplySpread(aimOrigin.forward, CurrentSpreadDegrees);
+            float spread = CurrentSpreadDegrees;
             if (ShotOverride != null)
-                ShotOverride(aimOrigin.position, direction);
+                ShotOverride(aimOrigin.position, ApplySpread(aimOrigin.forward, spread)); // online: one projectile per shot (the host's rule)
             else
-                projectiles.Fire(aimOrigin.position, direction, definition.projectileSpeed, definition.maxRange, definition.damage, gameObject,
-                    definition.damageFalloff);
+                // One round, several projectiles for a shotgun: each has its own spread and hits on its own.
+                for (int i = 0; i < Mathf.Max(1, definition.projectilesPerShot); i++)
+                    projectiles.Fire(aimOrigin.position, ApplySpread(aimOrigin.forward, spread), definition.projectileSpeed, definition.maxRange,
+                        definition.damage, gameObject, definition.damageFalloff);
 
             // An enabled, valid recoil profile sets direction and strength (no randomness); otherwise the earlier recoil.
             float pitch, yaw;

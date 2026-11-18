@@ -28,9 +28,14 @@ namespace Deadlock.Input
         public bool CrouchPressed;
         /// <summary>Go prone (from prone: stand).</summary>
         public bool PronePressed;
+        /// <summary>Take the main gun (Slot 1).</summary>
         public bool SelectGunPressed;
         public bool SelectMeleePressed;
+        /// <summary>Take the sub gun (Slot 2; refused when none is carried).</summary>
+        public bool SelectSecondaryPressed;
         /// <summary>Switch to the other weapon (mobile single button).</summary>
         public bool ToggleWeaponPressed;
+        /// <summary>Main gun ⇄ sub gun (mobile sub-gun button; refused when no sub gun is carried).</summary>
+        public bool SwapGunPressed;
     }
 }

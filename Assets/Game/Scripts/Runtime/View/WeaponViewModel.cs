@@ -10,11 +10,17 @@ namespace Deadlock.View
     /// Hip and ADS use separate sprites pre-rendered from the same model (<see cref="WeaponViewProfile"/>):
     /// the hip weapon swings toward the centre while the sight picture rises into place, with a short crossfade,
     /// and the world camera FOV narrows at the same time.
+    /// A gun without art yet (no view profile: the provisional weapons of Stage 31, whose images are made and approved
+    /// separately) shows no weapon image at all: never another gun's images. Hip and ADS images come from the profile
+    /// independently (<see cref="WeaponViewProfile.hipSprite"/>, <see cref="WeaponViewProfile.adsSprite"/>); a profile
+    /// with only one of them draws nothing in the other view.
+    /// Stage 38: the pose itself (place, kick, reload, switch, cross-fade, flashes, glow layers) is
+    /// <see cref="WeaponViewPresenter"/>, shared with the online views; this component feeds it from the local gun.
     /// </summary>
     public sealed class WeaponViewModel : MonoBehaviour
     {
         // The view-model camera renders sprites at z = 1 with a fixed vertical FOV of 50°.
-        const float SpriteDepth = 1f;
+        const float SpriteDepth = WeaponViewPresenter.SpriteDepth;
         static readonly float HalfHeight = Mathf.Tan(25f * Mathf.Deg2Rad);
         /// <summary>
         /// The hip weapon (gun and hands together) sits this much further left than its profile places it: 5 % of the
@@ -68,15 +74,15 @@ namespace Deadlock.View
             point = default;
             if (!TryGetMuzzleScreenPoint(out _) || profile == null)
                 return false;
-            var sprite = lastAdsAlpha >= 0.5f ? adsSprite.transform : hipSprite.transform;
-            Vector2 hold = lastAdsAlpha >= 0.5f ? profile.adsHoldOffset : profile.hipHoldOffset;
+            var sprite = ShowsAdsImage ? adsSprite.transform : hipSprite.transform;
+            Vector2 hold = ShowsAdsImage ? profile.adsHoldOffset : profile.hipHoldOffset;
             point = viewCamera.WorldToScreenPoint(sprite.parent.TransformPoint(new Vector3(MuzzleLocal(sprite).x + hold.x, MuzzleLocal(sprite).y + hold.y, SpriteDepth)));
             return true;
         }
 
         Vector2 MuzzleLocal(Transform sprite)
         {
-            var muzzle = lastAdsAlpha >= 0.5f ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
+            var muzzle = ShowsAdsImage ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
             Vector3 local = sprite.parent.InverseTransformPoint(muzzle.position);
             return new Vector2(local.x, local.y);
         }
@@ -98,15 +104,16 @@ namespace Deadlock.View
         WeaponViewProfile profile;
         readonly Vector4[] skinColours = new Vector4[SkinCatalog.TableSize];
         WeaponSwitcher switcher;
-        float kick;
         float bobPhase;
-        float flashUntil;
-        float lastAdsAlpha;
         Camera viewCamera;
         Material hipDefaultMaterial, adsDefaultMaterial;
+        WeaponViewPresenter presenter;
+
+        /// <summary>The shared pose of the sprites (Stage 38; the online views use the same).</summary>
+        public WeaponViewPresenter Presenter => presenter;
 
         /// <summary>The ADS image is the one shown (aimed down the sights): the muzzle is under the sights, mid-screen.</summary>
-        public bool ShowsAdsImage => lastAdsAlpha >= 0.5f;
+        public bool ShowsAdsImage => presenter != null && presenter.AdsAlpha >= 0.5f;
 
         /// <summary>The camera of the world (shots and tracers live there).</summary>
         public Camera WorldCamera => worldCamera;
@@ -124,7 +131,10 @@ namespace Deadlock.View
                         viewCamera = c;
             if (viewCamera == null || !hipSprite.enabled && !adsSprite.enabled)
                 return false;
-            var muzzle = lastAdsAlpha >= 0.5f ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
+            // A gun with only one of its images: no muzzle in the view that has none.
+            if ((ShowsAdsImage ? adsSprite.sprite : hipSprite.sprite) == null)
+                return false;
+            var muzzle = ShowsAdsImage ? adsMuzzleFlash.transform : hipMuzzleFlash.transform;
             point = viewCamera.WorldToScreenPoint(muzzle.position);
             return true;
         }
@@ -134,6 +144,7 @@ namespace Deadlock.View
             switcher = gun.GetComponent<WeaponSwitcher>();
             hipDefaultMaterial = hipSprite.sharedMaterial;
             adsDefaultMaterial = adsSprite.sharedMaterial;
+            presenter = new WeaponViewPresenter(hipSprite, adsSprite, hipMuzzleFlash, adsMuzzleFlash);
             ApplyProfile();
         }
 
@@ -141,18 +152,9 @@ namespace Deadlock.View
         void ApplyProfile()
         {
             profile = gun.Definition.viewProfile;
-            hipSprite.sprite = profile.hipSprite;
-            adsSprite.sprite = profile.adsSprite;
-            if (profile.muzzleFlashSprite != null)
-                hipMuzzleFlash.sprite = adsMuzzleFlash.sprite = profile.muzzleFlashSprite;
-            // Flashes sit on the muzzle of the sprite they belong to (hip pivot = muzzle).
-            hipMuzzleFlash.transform.localPosition = new Vector3(0f, 0f, -0.01f);
-            hipMuzzleFlash.transform.localScale = Vector3.one * profile.hipMuzzleFlashScale;
-            adsMuzzleFlash.transform.localPosition = new Vector3(profile.adsMuzzleOffset.x, -Mathf.Min(-profile.adsMuzzleOffset.y, AdsFlashMaxBelowSight), 0.01f);
-            adsMuzzleFlash.transform.localScale = Vector3.one * (profile.adsMuzzleFlashScale * AdsFlashBehindScale);
-            // ADS: behind the gun (it shows around the front sight, from the muzzle beyond it); hip: in front, on the muzzle tip.
-            adsMuzzleFlash.sortingOrder = adsSprite.sortingOrder - 1;
-            hipMuzzleFlash.sortingOrder = hipSprite.sortingOrder + 1;
+            presenter.SetProfile(profile); // no profile (no art yet): nothing drawn
+            if (profile == null)
+                return;
             ApplySkin();
         }
 
@@ -191,39 +193,24 @@ namespace Deadlock.View
             renderer.SetPropertyBlock(null);
         }
 
-        void OnFired()
-        {
-            kick = 1f;
-            flashUntil = Time.time + profile.muzzleFlashTime;
-            float angle = Random.Range(0f, 360f);
-            hipMuzzleFlash.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-            adsMuzzleFlash.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
-        }
+        void OnFired() => presenter.Fire(Time.time);
 
         void LateUpdate()
         {
             float dt = Time.deltaTime;
             WeaponDefinition def = gun.Definition;
             WeaponViewProfile p = profile;
-            float t = Smooth(gun.AdsBlend);
+            float t = WeaponViewPresenter.Smooth(gun.AdsBlend);
 
             worldCamera.fieldOfView = Mathf.Lerp(def.hipFov, def.adsFov, t);
 
             // Put away / drawn while switching to the melee weapon.
             float presence = switcher != null ? switcher.Presence(WeaponSlot.Gun) : 1f;
-            if (presence <= 0.001f)
+            if (presence <= 0.001f || p == null)
             {
-                hipSprite.enabled = adsSprite.enabled = hipMuzzleFlash.enabled = adsMuzzleFlash.enabled = false;
+                presenter.Hide();
                 return;
             }
-            Vector2 holster = new Vector2(0.05f, -0.45f) * (1f - Smooth(presence));
-
-            // Keep the hip weapon in the lower right on narrower (iPad 4:3) and wider (tall-phone) screens.
-            float aspect = worldCamera.aspect;
-            float follow = aspect < p.referenceAspect ? p.hipRightEdgeFollowNarrow : p.hipRightEdgeFollow;
-            float edgeShift = (aspect - p.referenceAspect) * HalfHeight * follow;
-            float narrow = Mathf.InverseLerp(p.referenceAspect, 4f / 3f, aspect);
-            float hipScale = Mathf.Lerp(1f, p.hipScaleAt4x3, narrow);
 
             // Small walk bob, nearly off while aiming.
             Vector3 v = motor.Velocity;
@@ -240,55 +227,17 @@ namespace Deadlock.View
                 bob = bob * (1f - 0.6f * cameraBob.Blend) + new Vector2(side * p.sprintBob.y, -down * p.sprintBob.x) * k;
             }
 
-            // Fire: pushed down/back toward the player, then springs back.
-            kick = Mathf.MoveTowards(kick, 0f, p.kickRecoverSpeed * dt);
-            float kickWeight = kick * kick * Mathf.Lerp(1f, p.adsKickMultiplier, t);
-            Vector2 kickOffset = p.kickOffset * kickWeight;
-
-            // Reload: lowered and rolled over the real reload time.
-            float reloadCurve = gun.IsReloading ? Mathf.Sin(gun.ReloadProgress * Mathf.PI) : 0f;
-            Vector2 reloadOffset = new Vector2(0.02f, -p.reloadDrop) * reloadCurve;
-            Quaternion rotation = Quaternion.Euler(0f, 0f, p.reloadRollDegrees * reloadCurve + p.kickRollDegrees * kickWeight);
-            float scale = 1f + p.kickScale * kickWeight;
-
-            Vector2 shared = bob + kickOffset + reloadOffset + holster;
-
-            Vector2 hipRest = p.hipMuzzlePosition + new Vector2(edgeShift - HipShiftLeft, -(HipShiftDownAt(aspect) + HipShiftDownForComparison) * 2f * HalfHeight);
-            Vector2 hipTarget = p.hipToAdsRelative ? hipRest + p.hipToAdsMuzzlePosition : p.hipToAdsMuzzlePosition;
-            Vector2 hip = Vector2.Lerp(hipRest, hipTarget, t) + shared;
-            Place(hipSprite.transform, hip, p.hipHoldOffset * hipScale, rotation, hipScale * scale);
-
-            Vector2 ads = Vector2.Lerp(p.adsStartOffset, Vector2.zero, t) + shared;
-            Place(adsSprite.transform, ads, p.adsHoldOffset, rotation, scale);
-
-            float adsAlpha = Mathf.InverseLerp(p.crossfadeStart, p.crossfadeEnd, t);
-            lastAdsAlpha = adsAlpha;
-            SetAlpha(hipSprite, 1f - adsAlpha);
-            SetAlpha(adsSprite, adsAlpha);
-
-            bool flash = Time.time < flashUntil;
-            hipMuzzleFlash.enabled = flash && adsAlpha < 0.5f;
-            adsMuzzleFlash.enabled = flash && adsAlpha >= 0.5f;
-        }
-
-        /// <summary>Positions a sprite so that it turns around its hold point (hands) instead of its pivot (muzzle / sight).</summary>
-        static void Place(Transform sprite, Vector2 pivotPosition, Vector2 holdOffset, Quaternion rotation, float scale)
-        {
-            Vector2 rotatedHold = rotation * holdOffset;
-            Vector2 position = pivotPosition + holdOffset - rotatedHold;
-            sprite.localPosition = new Vector3(position.x, position.y, SpriteDepth);
-            sprite.localRotation = rotation;
-            sprite.localScale = Vector3.one * scale;
-        }
-
-        static float Smooth(float x) => x * x * (3f - 2f * x);
-
-        static void SetAlpha(SpriteRenderer renderer, float alpha)
-        {
-            renderer.enabled = alpha > 0.001f;
-            Color c = renderer.color;
-            c.a = alpha;
-            renderer.color = c;
+            presenter.Update(new WeaponViewPresenter.Input
+            {
+                Ads = t,
+                Presence = presence,
+                Aspect = worldCamera.aspect,
+                Bob = bob,
+                Reloading = gun.IsReloading,
+                ReloadProgress = gun.ReloadProgress,
+                DeltaTime = dt,
+                Time = Time.time,
+            });
         }
     }
 }

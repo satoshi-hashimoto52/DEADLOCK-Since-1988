@@ -68,7 +68,7 @@ namespace Deadlock.UI
             colors.pressedColor = new Color(1f, 0.85f, 0.4f, 1f);
             colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
             button.colors = colors;
-            button.onClick.AddListener(() => onClick());
+            button.onClick.AddListener(() => { Audio.GameAudio.Ui(Audio.SoundCatalog.UiSubmit); onClick(); });
             Text(Stretch(Rect("Label", rect)), label, fontSize, TextAnchor.MiddleCenter);
             return button;
         }

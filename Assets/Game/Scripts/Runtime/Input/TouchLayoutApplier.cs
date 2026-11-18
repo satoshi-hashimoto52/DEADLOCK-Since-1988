@@ -23,6 +23,7 @@ namespace Deadlock.Input
             { TouchLayout.Jump, "JumpButton" },
             { TouchLayout.Posture, "PostureButton" },
             { TouchLayout.Weapon, "WeaponButton" },
+            { TouchLayout.SubGun, TouchControls.SubGunButtonName },
         };
 
         readonly Dictionary<string, RectTransform> widgets = new Dictionary<string, RectTransform>();
@@ -82,6 +83,9 @@ namespace Deadlock.Input
 
         void Awake()
         {
+            var controls = GetComponent<TouchControls>();
+            if (controls != null)
+                controls.EnsureSubGunButton(); // made at runtime: must exist before the widgets are looked up
             foreach (var pair in WidgetNames)
             {
                 var found = FindDeep(transform, pair.Value);
@@ -110,6 +114,10 @@ namespace Deadlock.Input
             lastSafeSize = safeArea.rect.size;
             Vector2 safe = lastSafeSize;
             Vector2 room = SideRoom;
+            // A layout saved before a widget existed: the new widget goes to a free place (in memory only, not saved).
+            TouchLayout.FitAddedItems(saved, safe, room);
+            TouchLayout.FitAddedItems(shown, safe, room);
+            layout = shown;
 
             var zone = TouchLayout.ClampZone(layout.Get(TouchLayout.MoveZone), safe, room);
             var zoneRect = widgets[TouchLayout.MoveZone];
@@ -147,6 +155,7 @@ namespace Deadlock.Input
         public void Commit(TouchLayoutData layout)
         {
             saved = layout.Clone();
+            saved.added.Clear(); // part of the saved layout from now on
             TouchLayout.Save(saved);
             Apply(saved);
         }

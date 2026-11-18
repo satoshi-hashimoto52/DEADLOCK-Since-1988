@@ -233,7 +233,8 @@ namespace Deadlock.Tests
             Assert.IsNull(events[1].open, "no game mode is started for Assault");
             var survival = HomeMenu.SurvivalEntries();
             Assert.IsTrue(survival.Where(e => e.status == HomeEntryStatus.ComingSoon).All(e => e.open == null));
-            Assert.AreEqual(1, survival.Count(e => e.status == HomeEntryStatus.Test));
+            // Stage 35: Deadline (the normal match, offline check) and the LAN check.
+            Assert.AreEqual(2, survival.Count(e => e.status == HomeEntryStatus.Test));
             Assert.AreEqual(2, HomeMenu.TrainingEntries().Length);
         }
     }

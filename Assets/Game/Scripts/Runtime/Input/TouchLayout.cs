@@ -26,9 +26,15 @@ namespace Deadlock.Input
         public int version = 1;
         public List<TouchLayoutItem> items = new List<TouchLayoutItem>();
 
+        /// <summary>
+        /// Items a saved layout did not have yet (added by a later version, e.g. the sub-gun button), filled in from the
+        /// defaults by <see cref="TouchLayout.Load"/>. Not saved; see <see cref="TouchLayout.FitAddedItems"/>.
+        /// </summary>
+        [NonSerialized] public List<string> added = new List<string>();
+
         public TouchLayoutData Clone()
         {
-            return new TouchLayoutData { version = version, items = new List<TouchLayoutItem>(items) };
+            return new TouchLayoutData { version = version, items = new List<TouchLayoutItem>(items), added = new List<string>(added ?? new List<string>()) };
         }
 
         public int IndexOf(string id) => items.FindIndex(i => i.id == id);
@@ -58,6 +64,8 @@ namespace Deadlock.Input
         public const string Jump = "jump";
         public const string Posture = "posture";
         public const string Weapon = "weapon";
+        /// <summary>Main gun ⇄ sub gun (Stage 32).</summary>
+        public const string SubGun = "sub_gun";
         /// <summary>The ammo panel (reserve / loaded and the gun's side view): a HUD box, moved like the buttons.</summary>
         public const string Ammo = "ammo";
 
@@ -83,10 +91,10 @@ namespace Deadlock.Input
             MoveStick => 280f,
             Fire => 240f,
             Ads => 160f,
-            _ => id == Posture || id == Weapon ? 130f : 140f,
+            _ => id == Posture || id == Weapon || id == SubGun ? 130f : 140f,
         };
 
-        public static readonly string[] Circles = { MoveStick, Fire, Ads, Reload, Jump, Posture, Weapon };
+        public static readonly string[] Circles = { MoveStick, Fire, Ads, Reload, Jump, Posture, Weapon, SubGun };
         /// <summary>Rectangular HUD items placed by the layout (shown, not touched: controls may cover them).</summary>
         public static readonly string[] Boxes = { Ammo };
         /// <summary>Base size of the ammo panel (canvas units): the count on top, the gun's side view under it.</summary>
@@ -107,6 +115,7 @@ namespace Deadlock.Input
             Jump => "ジャンプ",
             Posture => "姿勢",
             Weapon => "武器切り替え",
+            SubGun => "サブ銃切り替え",
             Ammo => "弾数表示",
             _ => id,
         };
@@ -123,6 +132,8 @@ namespace Deadlock.Input
             data.items.Add(Circle(Jump, 0.755f, 0.398f));
             data.items.Add(Circle(Posture, 0.602f, 0.139f));
             data.items.Add(Circle(Weapon, 0.911f, 0.676f));
+            // Left of the weapon button, same height (clear of it, R and JUMP down to 4:3, also with notch-side margins).
+            data.items.Add(Circle(SubGun, 0.795f, 0.676f));
             // Top right, where the ammo counter always was (48 / 24 units in from the corner on a 1920 x 1080 Safe Area).
             data.items.Add(new TouchLayoutItem { id = Ammo, center = new Vector2((1920f - 48f - 140f) / 1920f, (1080f - 24f - 67f) / 1080f), scale = 1f });
             return data;
@@ -233,10 +244,12 @@ namespace Deadlock.Input
         }
 
         /// <summary>Loads the saved layout; missing or broken entries fall back to the defaults.</summary>
-        public static TouchLayoutData Load()
+        public static TouchLayoutData Load() => FromJson(PlayerPrefs.GetString(PrefsKey, null));
+
+        /// <summary>A saved layout's text read back (<see cref="Load"/>); missing or broken entries fall back to the defaults.</summary>
+        public static TouchLayoutData FromJson(string json)
         {
             var defaults = Defaults();
-            string json = PlayerPrefs.GetString(PrefsKey, null);
             if (string.IsNullOrEmpty(json))
                 return defaults;
             TouchLayoutData saved;
@@ -250,15 +263,62 @@ namespace Deadlock.Input
             }
             if (saved == null || saved.version != defaults.version)
                 return defaults;
+            saved.added = new List<string>();
             foreach (var item in defaults.items)
             {
                 int index = saved.IndexOf(item.id);
                 if (index < 0)
+                {
                     saved.items.Add(item);
+                    saved.added.Add(item.id);
+                }
                 else if (saved.items[index].scale <= 0f)
                     saved.items[index] = item;
             }
             return saved;
+        }
+
+        /// <summary>
+        /// A layout saved before an item existed gets that item at its default place, which may sit on a button the player
+        /// moved there. When the layout is not usable that way, each added circle moves to the nearest free place (right
+        /// half of the screen first, then anywhere) for this Safe Area size. Only the layout in memory changes: nothing is
+        /// saved until the player applies a layout in the editor. Returns true when something moved.
+        /// </summary>
+        public static bool FitAddedItems(TouchLayoutData data, Vector2 safeSize, Vector2 sideRoom = default)
+        {
+            if (data.added == null || data.added.Count == 0 || safeSize.x <= 1f || safeSize.y <= 1f)
+                return false;
+            if (IsUsable(data, safeSize, out _, sideRoom))
+                return false;
+            bool moved = false;
+            foreach (string id in data.added)
+            {
+                if (Array.IndexOf(Circles, id) < 0 || id == MoveStick)
+                    continue;
+                var item = data.Get(id);
+                Vector2 start = item.center;
+                Vector2 best = start;
+                float bestDistance = float.MaxValue;
+                for (float x = 0.02f; x < 0.99f; x += 0.02f)
+                for (float y = 0.05f; y < 0.96f; y += 0.02f)
+                {
+                    var candidate = new Vector2(x, y);
+                    float distance = (candidate - start).sqrMagnitude + (x < 0.5f ? 4f : 0f); // right half first
+                    if (distance >= bestDistance)
+                        continue;
+                    item.center = candidate;
+                    data.Set(item);
+                    if (IsUsable(data, safeSize, out _, sideRoom))
+                    {
+                        best = candidate;
+                        bestDistance = distance;
+                    }
+                }
+                item.center = best;
+                data.Set(item);
+                moved |= best != start;
+            }
+            return moved;
         }
 
         public static void Save(TouchLayoutData data)

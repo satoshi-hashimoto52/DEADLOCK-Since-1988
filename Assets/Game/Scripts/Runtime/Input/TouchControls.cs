@@ -13,6 +13,11 @@ namespace Deadlock.Input
     /// never reaches the look area (buttons sit above it in the UI hierarchy).
     /// Initial (provisional) layout: posture button tap = stand ⇄ crouch, hold = prone ⇄ stand; weapon button toggles
     /// gun ⇄ melee; FIRE fires or swings depending on the weapon; ADS / R are disabled while the melee weapon is out.
+    /// The sub-gun button (Stage 32, <see cref="SubGunButtonName"/>) toggles main gun ⇄ sub gun (Slot 1 ⇄ Slot 2); it is
+    /// greyed out and ignores presses while no sub gun is carried. Not a long press: a button of its own, placed and
+    /// saved by the touch layout like the others (<see cref="TouchLayout.SubGun"/>). It is made at runtime from the
+    /// weapon button (same plate and ring), so every scene has it without being rebuilt; it shows a text label until
+    /// an approved icon exists.
     /// ADS is hold or toggle as set in Menu → Settings → Controls (touch setting, <see cref="ControlSettings"/>).
     /// ADS has two independent requests: the ADS button and FIRE in ADS-linked mode; ADS is on while either asks, and
     /// letting go of one never clears the other. Fingers on FIRE (and on ADS when "aim with the ADS button" is on)
@@ -28,6 +33,12 @@ namespace Deadlock.Input
         [SerializeField] TouchButton jumpButton;
         [SerializeField] TouchButton postureButton;
         [SerializeField] TouchButton weaponButton;
+        TouchButton subGunButton;
+
+        /// <summary>Name of the sub-gun button made at runtime (found by the layout like the scene's buttons).</summary>
+        public const string SubGunButtonName = "SubGunButton";
+        /// <summary>Text label of the sub-gun button (no approved icon yet).</summary>
+        public const string SubGunLabel = "サブ銃";
 
         [Header("State display")]
         [SerializeField] PostureController posture;
@@ -69,9 +80,46 @@ namespace Deadlock.Input
         public bool AdsFromFire => fireAds;
         public bool SprintLatched => sprintLatched;
         public float LongPressTime => longPressTime;
+        /// <summary>
+        /// Whether the player has a sub gun, for controls without a local gun (the online client: the loadout is the
+        /// server's). Null: the local gun decides (offline).
+        /// </summary>
+        public System.Func<bool> SubGunAvailable { get; set; }
+
+        public TouchButton SubGunButton => EnsureSubGunButton();
+
+        /// <summary>
+        /// The sub-gun button: the scene's own if it has one, else a copy of the weapon button (beside it) with a text
+        /// label instead of the swap icon. Called by the layout applier before it looks the widgets up.
+        /// </summary>
+        public TouchButton EnsureSubGunButton()
+        {
+            if (subGunButton != null)
+                return subGunButton;
+            var existing = weaponButton.transform.parent.Find(SubGunButtonName);
+            if (existing != null)
+                return subGunButton = existing.GetComponent<TouchButton>();
+            var copy = Instantiate(weaponButton.gameObject, weaponButton.transform.parent);
+            copy.name = SubGunButtonName;
+            copy.transform.SetSiblingIndex(weaponButton.transform.GetSiblingIndex() + 1);
+            subGunButton = copy.GetComponent<TouchButton>();
+            if (subGunButton.Icon != null)
+            {
+                subGunButton.Icon.sprite = null;
+                subGunButton.Icon.enabled = false;
+            }
+            var oldLabel = copy.transform.Find("Label");
+            if (oldLabel != null)
+                DestroyImmediate(oldLabel.gameObject);
+            var label = UI.UiBuild.Text(UI.UiBuild.Stretch(UI.UiBuild.Rect("Label", copy.transform)), SubGunLabel, 26, TextAnchor.MiddleCenter);
+            label.raycastTarget = false;
+            subGunButton.Release();
+            return subGunButton;
+        }
 
         void Awake()
         {
+            EnsureSubGunButton();
             if (sprintIndicator != null)
                 knobColor = sprintIndicator.color;
             if (posture != null)
@@ -104,7 +152,7 @@ namespace Deadlock.Input
             CancelAds();
             moveStick.Release();
             lookArea.Release();
-            foreach (var button in new[] { fireButton, adsButton, reloadButton, jumpButton, postureButton, weaponButton })
+            foreach (var button in new[] { fireButton, adsButton, reloadButton, jumpButton, postureButton, weaponButton, subGunButton })
                 if (button != null)
                     button.Release();
             sprintLatched = false;
@@ -116,6 +164,8 @@ namespace Deadlock.Input
             bool gunOut = weapons == null || (weapons.Current == WeaponSlot.Gun && !weapons.IsSwitching);
             adsButton.SetInteractable(gunOut);
             reloadButton.SetInteractable(gunOut);
+            var sub = EnsureSubGunButton();
+            sub.SetInteractable(SubGunAvailable != null ? SubGunAvailable() : gun != null && gun.Inventory.Has(LoadoutSlot.Secondary)); // no sub gun: refused
             // A finger that leaves the button keeps being tracked by it, so a hold ends wherever the finger lifts.
             bool buttonAds = ads.Update(ControlSettings.GetAdsMode(InputMode.Touch), adsButton.IsHeld, adsButton.ConsumePressed(), gunOut);
 
@@ -165,6 +215,7 @@ namespace Deadlock.Input
                 CrouchPressed = crouch,
                 PronePressed = prone,
                 ToggleWeaponPressed = weaponButton.ConsumePressed(),
+                SwapGunPressed = sub.ConsumePressed(),
             };
         }
 

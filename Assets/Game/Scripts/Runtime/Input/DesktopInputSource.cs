@@ -23,6 +23,8 @@ namespace Deadlock.Input
             public const string Prone = "<Keyboard>/z";
             public const string SelectGun = "<Keyboard>/1";
             public const string SelectMelee = "<Keyboard>/2";
+            /// <summary>The sub gun (Slot 2). 1 / 2 keep their earlier meaning (main gun / knife).</summary>
+            public const string SelectSecondary = "<Keyboard>/3";
             public const string ToggleMode = "<Keyboard>/f2";
             public const string ReleaseCursor = "<Keyboard>/escape";
             public const string Menu = "<Keyboard>/tab";
@@ -40,6 +42,7 @@ namespace Deadlock.Input
         readonly InputAction prone;
         readonly InputAction selectGun;
         readonly InputAction selectMelee;
+        readonly InputAction selectSecondary;
         readonly InputAction toggleMode;
         readonly InputAction releaseCursor;
         readonly InputAction menu;
@@ -67,6 +70,7 @@ namespace Deadlock.Input
             prone = map.AddAction("Prone", InputActionType.Button, Bindings.Prone);
             selectGun = map.AddAction("SelectGun", InputActionType.Button, Bindings.SelectGun);
             selectMelee = map.AddAction("SelectMelee", InputActionType.Button, Bindings.SelectMelee);
+            selectSecondary = map.AddAction("SelectSecondary", InputActionType.Button, Bindings.SelectSecondary);
             toggleMode = map.AddAction("ToggleMode", InputActionType.Button, Bindings.ToggleMode);
             releaseCursor = map.AddAction("ReleaseCursor", InputActionType.Button, Bindings.ReleaseCursor);
             menu = map.AddAction("Menu", InputActionType.Button, Bindings.Menu);
@@ -118,6 +122,7 @@ namespace Deadlock.Input
                 PronePressed = prone.WasPressedThisFrame(),
                 SelectGunPressed = selectGun.WasPressedThisFrame(),
                 SelectMeleePressed = selectMelee.WasPressedThisFrame(),
+                SelectSecondaryPressed = selectSecondary.WasPressedThisFrame(),
             };
         }
     }

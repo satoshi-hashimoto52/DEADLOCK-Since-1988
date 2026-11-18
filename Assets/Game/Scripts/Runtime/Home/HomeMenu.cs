@@ -127,6 +127,7 @@ namespace Deadlock.Home
         readonly Dictionary<string, GameObject> gearPages = new Dictionary<string, GameObject>();
         readonly Dictionary<string, Button> gearTabs = new Dictionary<string, Button>();
         Text messageText;
+        Text pointsText;
 
         public UiLayoutRoot Layout { get; private set; }
         public UiLayoutEditor Editor { get; private set; }
@@ -141,7 +142,8 @@ namespace Deadlock.Home
         /// <summary>Survival: match types (D-004 / D-005); only the LAN test exists.</summary>
         public static HomeEntry[] SurvivalEntries() => new[]
         {
-            new HomeEntry("Deadline（デッドライン）", "時間制の生存戦。順位で報酬。", HomeEntryStatus.ComingSoon),
+            new HomeEntry("Deadline（デッドライン）", "通常対戦：8枠・最大5分・順位でポイント（オフライン検証：人間はあなただけ、ほかは NPC）。",
+                HomeEntryStatus.Test, () => Deadlock.Match.MatchFlow.Begin()),
             new HomeEntry("Last Stand（ラストスタンド）", "最後の1人を目指すイベント戦。", HomeEntryStatus.ComingSoon),
             new HomeEntry("オンライン検証（LAN）", "同じWi-Fiの2人で試す検証用の対戦（試作）。", HomeEntryStatus.Test, () => HomeScreen.Load(GameScenes.Online)),
         };
@@ -191,9 +193,17 @@ namespace Deadlock.Home
                 Debug.LogError($"[DEADLOCK][home] panel images missing (panelFrame={(panelFrame != null ? panelFrame.name : "null")}, panelFill={(panelFill != null ? panelFill.name : "null")}): showing the Unity-drawn panels instead. Rebuild the home scene (HomeSceneBuilder).");
         }
 
-        void OnEnable() => HomePanelLook.Changed += RefreshPanels;
+        void OnEnable()
+        {
+            HomePanelLook.Changed += RefreshPanels;
+            Deadlock.Gacha.GachaAccount.Changed += RefreshPoints;
+        }
 
-        void OnDisable() => HomePanelLook.Changed -= RefreshPanels;
+        void OnDisable()
+        {
+            HomePanelLook.Changed -= RefreshPanels;
+            Deadlock.Gacha.GachaAccount.Changed -= RefreshPoints;
+        }
 
         /// <summary>Every home panel (buttons, windows, rows), shown or not.</summary>
         public HomePanelPart[] PanelParts => GetComponentsInChildren<HomePanelPart>(true);
@@ -211,7 +221,33 @@ namespace Deadlock.Home
                 part.Refresh();
         }
 
-        void Start() => Layout.Load();
+        void Start()
+        {
+            Layout.Load();
+            // Match rewards still pending from an earlier run (a failed save, the app stopped): given now, never twice.
+            var recovered = Deadlock.Match.MatchRewardAccount.RecoverPending();
+            if (recovered.Count > 0 && messageText != null)
+                messageText.text = string.Join("\n", recovered);
+            RefreshPoints();
+        }
+
+        /// <summary>The point balance of the gacha data (Stage 34); "－ PT" while there is no gacha data at all.</summary>
+        void RefreshPoints()
+        {
+            if (pointsText == null)
+                return;
+            var gacha = Deadlock.Gacha.GachaAccount.Service;
+            pointsText.text = gacha.HasSavedData && gacha.LoadError == null
+                ? gacha.State.points.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " PT"
+                : "－ PT";
+        }
+
+        /// <summary>Crate's sub-screen buttons: the gacha screen on one of its pages.</summary>
+        public void OpenGacha(GachaScreen.Page page)
+        {
+            ClosePanel();
+            GachaScreen.Open(page);
+        }
 
         void Build()
         {
@@ -302,7 +338,7 @@ namespace Deadlock.Home
             colors.colorMultiplier = 1.15f;
             colors.fadeDuration = 0.06f;
             button.colors = colors;
-            button.onClick.AddListener(() => onClick());
+            button.onClick.AddListener(() => { Audio.GameAudio.Ui(Audio.SoundCatalog.UiSubmit); onClick(); });
             return button;
         }
 
@@ -392,8 +428,9 @@ namespace Deadlock.Home
             value.anchorMin = new Vector2(0.08f, 0.12f);
             value.anchorMax = new Vector2(0.92f, 0.88f);
             value.offsetMin = value.offsetMax = Vector2.zero;
-            // No point balance exists yet: no number is shown (the design's "100 PT" is an example).
-            FitText(UiBuild.Text(value, "－ PT", 34, TextAnchor.MiddleRight, Cream), 34, FontStyle.Bold);
+            // The gacha data's balance (Stage 34); "－ PT" while there is none (the design's "100 PT" is an example).
+            pointsText = UiBuild.Text(value, "－ PT", 34, TextAnchor.MiddleRight, Cream);
+            FitText(pointsText, 34, FontStyle.Bold);
             return rect;
         }
 
@@ -527,15 +564,20 @@ namespace Deadlock.Home
             BuildGear();
 
             w = Window("CratePanel", "Crate", new Vector2(760f, 330f), out _);
-            Body(w, "準備中です。\nCrate（ガチャ：スキン・武器・スキル）は未実装です。ポイントの消費や抽選は行いません。");
+            Body(w, "ガチャ（スキン・武器・スキル）・交換ショップ・抽選履歴。\n引く前に必ず消費ポイントを確認します。");
+            Style(UiBuild.Button(w, "CrateGacha", "ガチャ", new Vector2(0.5f, 1f), new Vector2(-240f, -190f), new Vector2(220f, 64f), () => OpenGacha(GachaScreen.Page.Gacha), 24));
+            Style(UiBuild.Button(w, "CrateShop", "交換ショップ", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(220f, 64f), () => OpenGacha(GachaScreen.Page.Shop), 24));
+            Style(UiBuild.Button(w, "CrateHistory", "抽選履歴", new Vector2(0.5f, 1f), new Vector2(240f, -190f), new Vector2(220f, 64f), () => OpenGacha(GachaScreen.Page.History), 24));
 
             w = Window("PointsPanel", "ポイント", new Vector2(760f, 300f), out _);
-            Body(w, "ポイントの獲得・保存はまだありません（未実装）。\n表示は「－ PT」です。");
+            Body(w, "ガチャに使うポイントです。試合の報酬でポイントを得る仕組みはまだありません（Stage 35）。\nポイントと交換メダルの残高は Crate の画面に表示します。");
 
             w = Window("SettingsPanel", "設定", new Vector2(760f, 470f), out _);
             Body(w, "ゲーム中の操作設定・操作レイアウトは、射撃場などのゲーム中のメニュー → 設定 から変更できます。");
             Style(UiBuild.Button(w, "ホームのレイアウト編集", "ホームのレイアウト編集", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(460f, 64f), OpenLayoutEditor, 24));
             Style(UiBuild.Button(w, "ホームの配置を初期配置に戻す", "ホームの配置を初期配置に戻す", new Vector2(0.5f, 1f), new Vector2(0f, -270f), new Vector2(460f, 64f), ResetLayoutAsk, 22));
+            Style(UiBuild.Button(w, "サウンド設定", "サウンド設定", new Vector2(0.5f, 1f), new Vector2(0f, -350f), new Vector2(460f, 64f), OpenSoundSettings, 24));
+            SoundPanel = UI.SoundSettingsPanel.Build(panelLayer, CloseSoundSettings, Style);
 
             // Status line shared by the sub-screens ("… は準備中です", reset confirmation).
             var msgRect = UiBuild.Place(UiBuild.Rect("Message", panelLayer), new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(900f, 44f));
@@ -635,6 +677,7 @@ namespace Deadlock.Home
         public void OpenPanel(string name)
         {
             ClosePanel();
+            Audio.GameAudio.Ui(Audio.SoundCatalog.MenuOpen);
             panels[name].SetActive(true);
             panels[name].transform.SetAsLastSibling();
             messageText.transform.SetAsLastSibling();
@@ -643,6 +686,8 @@ namespace Deadlock.Home
 
         public void ClosePanel()
         {
+            if (OpenPanelName != null)
+                Audio.GameAudio.Ui(Audio.SoundCatalog.MenuClose);
             foreach (var p in panels.Values)
                 p.SetActive(false);
             OpenPanelName = null;
@@ -652,6 +697,22 @@ namespace Deadlock.Home
         }
 
         public GameObject PanelObject(string name) => panels[name];
+
+        /// <summary>Settings → サウンド設定 (Stage 39): the volume settings, the same panel as the game menu's.</summary>
+        public UI.SoundSettingsPanel SoundPanel { get; private set; }
+
+        public void OpenSoundSettings()
+        {
+            ClosePanel();
+            SoundPanel.gameObject.SetActive(true);
+            SoundPanel.transform.SetAsLastSibling();
+        }
+
+        public void CloseSoundSettings()
+        {
+            SoundPanel.gameObject.SetActive(false);
+            OpenPanel("SettingsPanel");
+        }
 
         public void OpenLayoutEditor()
         {

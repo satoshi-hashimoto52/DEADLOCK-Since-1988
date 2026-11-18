@@ -17,6 +17,8 @@ namespace Deadlock.Tests
     public class LayoutEdgesAndAmmoPanelTests : FiringRangeTestBase
     {
         const float PhoneInset = 186f / 2622f;
+        /// <summary>The ADS muzzle's allowed difference between two reads of the same pose (screen pixels; single-precision rounding only).</summary>
+        const float AdsStillPixels = 0.01f;
 
         GameMenu menu;
         TouchLayoutEditor editor;
@@ -684,9 +686,19 @@ namespace Deadlock.Tests
                             WeaponViewModel.HipShiftDownForComparison = 0f;
                             yield return Wait(0.3f);
                             Vector2 now = Muzzle();
-                            TestContext.WriteLine($"{weapon} {size} {(ads ? "ADS" : "hip")}: muzzle {before} -> {now}");
+                            TestContext.WriteLine($"{weapon} {size} {(ads ? "ADS" : "hip")}: muzzle {before} -> {now} " +
+                                $"(px {before.x * size.x:R}, {before.y * size.y:R} -> {now.x * size.x:R}, {now.y * size.y:R}; ads blend {gun.AdsBlend:R}, alpha {view.Presenter.AdsAlpha:R}, frame {Time.frameCount}, dt {Time.deltaTime:R})");
                             if (ads)
-                                Assert.AreEqual(before, now, $"{weapon} {size}: ADS not moved");
+                            {
+                                // Compared on the screen's pixels: the ADS picture must not move at all with the hip
+                                // shift. The same settled pose is computed again each frame through the body, camera and
+                                // sprite transforms in single precision, which can differ in the last digits (measured:
+                                // 0.00014 px); a hundredth of a pixel is far above that and far below any real move (a
+                                // shift of 1 px, or even 0.01 px, fails).
+                                Assert.AreEqual(1f, gun.AdsBlend, $"{weapon} {size}: fully aimed when compared");
+                                Assert.AreEqual(before.x * size.x, now.x * size.x, AdsStillPixels, $"{weapon} {size}: ADS not moved (x, px)");
+                                Assert.AreEqual(before.y * size.y, now.y * size.y, AdsStillPixels, $"{weapon} {size}: ADS not moved (y, px)");
+                            }
                             else
                             {
                                 Assert.AreEqual(size.x == 2622 ? 0.05f : 0f, before.y - now.y, 0.0015f, $"{weapon} {size}: 5 % lower than before on the iPhone, unchanged on the iPad");
@@ -987,10 +999,10 @@ namespace Deadlock.Tests
         /// <summary>
         /// ADS: the flash shows just past the front sight (at most <see cref="WeaponViewModel.AdsFlashMaxBelowSight"/> under
         /// its tip, mid-screen) and is drawn behind the ADS image, never on the gun's top; at the hip it stays on the muzzle
-        /// tip, in front. Rifle and SMG (each gun's own place after a switch).
+        /// tip, behind the hip image too (Stage 38: every flash behind its gun). Rifle and SMG (each gun's own place after a switch).
         /// </summary>
         [UnityTest]
-        public IEnumerator Flash_Ads_JustPastTheFrontSight_BehindTheGun_Hip_OnTheMuzzle_RifleAndSmg()
+        public IEnumerator Flash_Ads_JustPastTheFrontSight_BehindTheGun_Hip_OnTheMuzzleBehindTheGun_RifleAndSmg()
         {
             DevGunSelection.ClearSelection();
             yield return Load(InputMode.Desktop, false);
@@ -1009,7 +1021,7 @@ namespace Deadlock.Tests
                 {
                     Assert.IsTrue(sel.Select(weapon));
                     Assert.Less(adsFlash.sortingOrder, ads.sortingOrder, weapon + ": ADS flash behind the gun");
-                    Assert.Greater(hipFlash.sortingOrder, hip.sortingOrder, weapon + ": hip flash in front, on the muzzle tip");
+                    Assert.Less(hipFlash.sortingOrder, hip.sortingOrder, weapon + ": hip flash behind the gun, on the muzzle tip");
                     foreach (bool aimed in new[] { true, false })
                     {
                         router.ExternalSource = () => new PlayerInputFrame { AdsActive = aimed };
