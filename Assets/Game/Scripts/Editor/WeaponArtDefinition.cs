@@ -38,6 +38,18 @@ namespace Deadlock.Editor
         public Sprite muzzleFlash;
         public ViewArt hip = new ViewArt();
         public ViewArt ads = new ViewArt();
+        [Tooltip("On: the hip image has not been delivered and approved yet (hip must then be empty). The game draws no hip image for this gun (never another gun's); ADS is imported as usual.")]
+        public bool hipNotDelivered;
+        [Tooltip("On: the ADS image has not been delivered and approved yet (ads must then be empty). The game keeps the hip image while aiming (never another gun's ADS image).")]
+        public bool adsNotDelivered;
+        [Tooltip("Optional emission core over the hip image (approved, registered): same pixel size as the hip image; imported with its pivot and size so it follows every move.")]
+        public Texture2D hipEmission;
+        [Tooltip("Optional glow around the emission core (may be semi-transparent): same pixel size as the hip image.")]
+        public Texture2D hipGlow;
+        [Tooltip("Optional emission core over the ADS image (approved, registered): same pixel size as the ADS image; imported with the ADS pivot (aim) and size.")]
+        public Texture2D adsEmission;
+        [Tooltip("Optional glow around the ADS emission core (may be semi-transparent): same pixel size as the ADS image.")]
+        public Texture2D adsGlow;
 
         public string WeaponId => weapon != null ? weapon.weaponId : null;
     }

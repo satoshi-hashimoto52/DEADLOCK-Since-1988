@@ -1,0 +1,24 @@
+{
+  "note": "Placement of the approved epic_smg ADS image (Stage 38, registered by AssetPipeline). Image 1774x887, pixel coordinates from the top-left. aim = top of the centre front-sight post silhouette (x 872-899, top row y 388) = screen centre. muzzle = flash reference at the front-sight base, on the bore line below the post (the muzzle itself is hidden), as the rifle's (aim + 46). screenHeightPixels 772 and hold = aim + 0.3 units: the rifle ADS values. Written by hand. 2026-11-07 (v3, optical sight): the ADS image was replaced by the dedicated optical-sight design v3 (AssetPipeline receipt R20261107-022033-4133c1, same canvas, the .meta GUID kept). Its aim is no front-sight tip but the green dot (pixels x 880-895, y 432-443, 4 x 3 dots on the grid), so aim = its centre (888, 438) (was the old post's top (886, 388)); hold keeps its offset from the aim (aim + 248.33 px: the same turn point for kick and reload in units as before). The flash: the glass is clear, so a flash held just under the aim (as behind a front sight) burst over the dot in the middle of the glass (Editor capture); muzzle is now (888, 540), under the glass (its lower edge is y 511) behind the housing, with adsMuzzleFlashUnderSight so it stays there (the star's rays reach about 54 px, so only a burst at the glass's lower edge shows; its tips stop about 42 px under the dot). The ADS emission core and glow (epic_smg_ads_emission.png / _glow.png, the same canvas and pivot) have their own settings, apart from the hip's: the glow is added through WeaponGlowAdditiveAds.mat at glowGain 1.0 and glowIntensity 0.20 (in a linear additive model no pixel of the sight window clips on dark, bright or near-white backgrounds up to 0.35), breathing 30 percent over 2.4 s (glowPulse 0.3); the core at emissionIntensity 1.0 breathes 15 percent (emissionPulse 0.15). The core's amber pixels are the image's own colours, so only the green dot brightens. 2026-11-08 (new design): the ADS image was replaced by the recreated design on the 4 x 4 grid (AssetPipeline receipt R20261108-102548-86e04d, same canvas, aim and .meta GUID kept); its thicker octagonal frame raises the glass's lower edge to y 503 (v3: 511) and narrows the window's lower corners, so the flash under the glass barely showed: muzzle moves up by the same 8 px to (888, 532), keeping v3's relation to the glass's lower edge (the star's tips stop about 35 px under the dot). Still behind the ADS image (its sorting order below the image's), as every gun's flash.",
+  "aim": [
+    888,
+    438
+  ],
+  "muzzle": [
+    888,
+    532
+  ],
+  "hold": [
+    888,
+    686.33
+  ],
+  "screenHeightPixels": 772,
+  "adsMuzzleFlashUnderSight": true,
+  "glowAdditive": true,
+  "glowGain": 1.0,
+  "glowIntensity": 0.2,
+  "emissionIntensity": 1.0,
+  "glowPulse": 0.3,
+  "emissionPulse": 0.15,
+  "glowPulseSeconds": 2.4
+}

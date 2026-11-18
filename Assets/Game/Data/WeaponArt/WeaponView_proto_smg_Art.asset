@@ -16,9 +16,26 @@ MonoBehaviour:
   adsSprite: {fileID: 21300000, guid: dfdb697513cba479ab9bf556ad578663, type: 3}
   adsMuzzleOffset: {x: 0, y: -0.11355679}
   muzzleFlashSprite: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hipEmissionSprite: {fileID: 0}
+  hipGlowSprite: {fileID: 0}
+  emissionIntensity: 1
+  glowIntensity: 1
+  glowMaterial: {fileID: 0}
+  glowPulse: 0
+  emissionPulse: 0
+  glowPulseSeconds: 2.4
+  adsEmissionSprite: {fileID: 0}
+  adsGlowSprite: {fileID: 0}
+  adsEmissionIntensity: 1
+  adsGlowIntensity: 1
+  adsGlowMaterial: {fileID: 0}
+  adsGlowPulse: 0
+  adsEmissionPulse: 0
+  adsGlowPulseSeconds: 2.4
   hipSkinRegions: {fileID: 2800000, guid: efbf1a89de90747a5a7434760df080d0, type: 3}
   adsSkinRegions: {fileID: 2800000, guid: b039c62c56534448aa9a92e726f37b21, type: 3}
   hipMuzzlePosition: {x: 0.19981076, y: -0.06383307}
+  hipRollDegrees: 0
   referenceAspect: 1.7777778
   hipRightEdgeFollow: 1
   hipRightEdgeFollowNarrow: 0
@@ -38,7 +55,12 @@ MonoBehaviour:
   adsKickMultiplier: 0.35
   muzzleFlashTime: 0.045
   hipMuzzleFlashScale: 0.4
+  hipMuzzleFlashOffset: {x: 0, y: 0}
+  hipMuzzleFlashAlongBarrel: 0
+  hipMuzzleFlashBarrelDegrees: 180
+  hipMuzzleFlashStretch: {x: 1, y: 1}
   adsMuzzleFlashScale: 0.25
+  adsMuzzleFlashUnderSight: 0
   reloadDrop: 0.1
   reloadRollDegrees: 14
   hipHoldOffset: {x: 0.26595154, y: -0.34448758}

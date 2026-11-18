@@ -177,6 +177,9 @@ namespace Deadlock.Editor
             MeleeDefinition melee = LoadOrCreate<MeleeDefinition>(WeaponSpriteBaker.MeleePath);
             melee.viewProfile = PixelWeaponArt.PrepareKnife(AssetDatabase.LoadAssetAtPath<MeleeViewProfile>(WeaponSpriteBaker.MeleeProfilePath));
             EditorUtility.SetDirty(melee);
+            // Stage 31: the rifle's reserve rule (other values untouched) and the provisional weapons that are missing.
+            WeaponCatalogSetup.ApplyRifleRules(weapon);
+            WeaponCatalogSetup.PrepareProvisional(weapon);
             // The SMG candidate (development test choice only) joins the registry's candidates before the import.
             smgCandidate = SmgCandidateSetup.Prepare();
             // Registered art (guns and melee) last: it replaces the provisional profiles above.
@@ -758,6 +761,19 @@ namespace Deadlock.Editor
             BuildTouchControls(canvasRect, player);
             BuildHud(canvasRect, player, projectiles);
             return canvasGo;
+        }
+
+        /// <summary>
+        /// The game's touch controls for another scene (Stage 37F: the online client), the same widgets, icons and saved
+        /// layout as the offline player's, driving <paramref name="input"/>. No body or weapons of their own: the
+        /// posture and weapon icons stay at their defaults.
+        /// </summary>
+        internal static TouchControls BuildTouchControlsFor(RectTransform canvas, PlayerInputRouter input)
+        {
+            if (uiIcons == null)
+                uiIcons = UiArtSetup.Prepare();
+            BuildTouchControls(canvas, new PlayerParts { Input = input });
+            return canvas.Find("TouchControls").GetComponent<TouchControls>();
         }
 
         static void BuildTouchControls(RectTransform canvas, PlayerParts player)

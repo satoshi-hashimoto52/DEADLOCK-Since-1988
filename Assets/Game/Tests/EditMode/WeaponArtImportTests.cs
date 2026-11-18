@@ -28,11 +28,15 @@ namespace Deadlock.Tests
         }
 
         [Test]
-        public void Registry_ListsOnlyFinishedWeapons_TheRifle()
+        public void Registry_ListsOnlyFinishedWeapons_TheRifleThenTheStage38Guns()
         {
             var registry = AssetDatabase.LoadAssetAtPath<WeaponArtRegistry>(PixelWeaponArt.RegistryPath);
             Assert.IsNotNull(registry);
-            CollectionAssert.AreEqual(new[] { "proto_rifle" }, registry.weapons.Select(w => w.WeaponId).ToArray());
+            // The rifle first (as before), then the Stage 38 guns with registered first-person images (WeaponArtSetup).
+            Assert.AreEqual("proto_rifle", registry.weapons[0].WeaponId);
+            var planned = WeaponCatalogSetup.PlannedArts
+                .Where(p => System.IO.File.Exists(p.HipPath) || System.IO.File.Exists(p.AdsPath)).Select(p => p.WeaponId).ToArray();
+            CollectionAssert.AreEquivalent(planned, registry.weapons.Skip(1).Select(w => w.WeaponId).ToArray());
             var rifle = registry.weapons[0];
             Assert.AreEqual("Assets/Game/Data/WeaponView_ProtoRifle_Pixel.asset", AssetDatabase.GetAssetPath(rifle.viewProfile), "Existing profile (and its GUID) kept");
             Assert.AreSame(rifle.viewProfile, rifle.weapon.viewProfile, "The weapon uses the profile written from its definition");

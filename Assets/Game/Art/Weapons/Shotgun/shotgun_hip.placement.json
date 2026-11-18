@@ -1,0 +1,36 @@
+{
+  "note": "Placement of the approved shotgun hip image (Stage 38, registered by AssetPipeline; read by PixelWeaponArt through its WeaponArtDefinition). Image 1774x887 (Stage 38 spec 4, provisional standard), pixel coordinates from the top-left. muzzle = centre of the barrel's front face (outline x 960, face y 460-487); hold = the right hand on the grip, read from the image. The other values are the approved rifle hip's (same dot size, 1045 px per screen height; image bottom-right on the screen's bottom-right lowered by 0.05, right-edge follow on wider screens, 4:3 keeps the place, hip -> ADS straight down). Written by hand. 2026-11-06 (Stage 38 aim fix): offset moved from [0, -0.05] to [0.0982, 0.0259] so the muzzle sits on screen where the rifle's does (canvas (1074, 389) at the rifle's anchoring; this image's muzzle (964, 474) is 110 px left and 85 px lower): the shots then leave the lower right toward the crosshair as the rifle's, instead of almost straight up. The clear zone stays empty (nearest drawn pixel 237-240 px from the centre points) and the cut edges stay off screen. The image is unchanged. 2026-11-06 (flash): the barrel is drawn near level, so a flash centred on the muzzle in front of the gun covered the barrel; it is drawn behind the gun (hipMuzzleFlashBehind) and centred 16 px beyond the muzzle along the barrel (hipMuzzleFlashOffset, image pixels): it bursts out of the muzzle without painting over the gun. The rifle and SMG keep theirs. 2026-11-06 (barrel angle): the barrel is drawn flatter than the line from the muzzle to the crosshair (barrel 14.5 deg in the image, the line about 30.6 deg on the iPhone), so the shots seemed to leave at another angle than the barrel points. The image is turned 14 deg clockwise around the hold (hipRoll -14) and the offset moved from [0.0982, 0.0259] to [0.0362, -0.0704]: on the iPhone the barrel is at 28.5 deg and the line at 30.5 deg, the muzzle on the barrel's line toward the crosshair; no cut edge comes on any screen at rest, mid-reload or kicked (the bottom-left arm rises when turned, so the gun sits further into the corner), and about as much of the gun shows as the rifle's. The image pixels are unchanged (the sprite is turned when drawn). 2026-11-06 (flash from the bore): the flash was the round star centred 16 px beyond the muzzle and 3 px up (hipMuzzleFlashOffset [-16, -3]); behind the gun only its part over the gun was hidden, so its rays stood out above and around the muzzle instead of coming out of it. It is now a jet out of the bore along the drawn barrel: hipMuzzleFlashRoot [961, 475] = the centre of the bore opening (front of the outline, middle of the face; measured), hipMuzzleFlashBarrel 14.5 = the drawn barrel's angle above the left horizontal, hipMuzzleFlashReach 12 = the jet's centre 12 px beyond the bore, hipMuzzleFlashStretch [0.7, 0.35] = along / across the barrel. Still behind the gun (its back half and root are hidden in the muzzle). It turns with the image (hipRoll), so it stays on the barrel's line on every screen and pose. 2026-11-07 (flash order): every gun's hip and ADS flash is now drawn behind its gun image (one rule in WeaponViewPresenter), so hipMuzzleFlashBehind is gone; this flash was already behind, nothing changes for it.",
+  "muzzle": [
+    964,
+    474
+  ],
+  "hold": [
+    1390,
+    820
+  ],
+  "screenHeightPixels": 1045,
+  "anchorAspect": 0,
+  "offset": [
+    0.0362,
+    -0.0704
+  ],
+  "hipRightEdgeFollow": 1.0,
+  "hipRightEdgeFollowNarrow": 0.0,
+  "hipScaleAt4x3": 1.0,
+  "hipMuzzleFlashScale": 0.4,
+  "hipToAds": [
+    0,
+    -0.2
+  ],
+  "hipRoll": -14,
+  "hipMuzzleFlashRoot": [
+    961,
+    475
+  ],
+  "hipMuzzleFlashBarrel": 14.5,
+  "hipMuzzleFlashReach": 12,
+  "hipMuzzleFlashStretch": [
+    0.7,
+    0.35
+  ]
+}

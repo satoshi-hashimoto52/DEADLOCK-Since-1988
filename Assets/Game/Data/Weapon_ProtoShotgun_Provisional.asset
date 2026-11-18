@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 826172c5c8e6340fb96f89aeda997e00, type: 3}
+  m_Name: Weapon_ProtoShotgun_Provisional
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponDefinition
+  weaponId: proto_shotgun
+  displayName: SHOTGUN (PROVISIONAL)
+  viewProfile: {fileID: 11400000, guid: 682fb1a1d380043cfb9bffe3c8017c17, type: 2}
+  category: 2
+  ammoType: 3
+  damage: 12
+  fireInterval: 0.9
+  automatic: 0
+  projectilesPerShot: 8
+  magazineSize: 6
+  startReserve: 12
+  reserveMax: 18
+  reloadTime: 2.6
+  projectileSpeed: 250
+  maxRange: 40
+  hipSpreadDegrees: 6
+  adsSpreadDegrees: 4.5
+  recoilPitchDegrees: 0.7
+  recoilYawDegrees: 0.25
+  adsRecoilMultiplier: 0.55
+  hipFov: 75
+  adsFov: 55
+  adsTime: 0.18
+  adsMoveSpeedMultiplier: 0.6
+  adsLookSensitivityMultiplier: 0.65
+  moveSpeedMultiplier: 1
+  movingSpreadMultiplier: 1
+  switchTime: 0
+  recoilProfile:
+    enabled: 0
+    axis: 0
+    vertical: 1
+    horizontal: 0
+    strength: 1
+    pitchDegrees: 0.7
+    yawDegrees: 0.25
+    adsMultiplier: 0.55
+    recoveryFraction: 0.5
+    recoverySpeed: 9
+  damageFalloff:
+    points: []

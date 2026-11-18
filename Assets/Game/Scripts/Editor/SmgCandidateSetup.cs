@@ -7,10 +7,12 @@ using UnityEngine;
 namespace Deadlock.Editor
 {
     /// <summary>
-    /// The SMG candidate for the development test choice (not adopted): its weapon definition, its first-person art
+    /// The SMG candidate for the development test choice (art not adopted): its weapon definition, its first-person art
     /// definition (hip candidate v2, ADS comparison candidate gap3, the SMG-only review placements, the region maps)
-    /// and its place in the registry's candidates. Performance values: the rifle's, copied again on every build and named
-    /// as such — for checking the display only, not an SMG balance decision. The rifle's own definition is only read.
+    /// and its place in the registry's candidates. Performance: the confirmed SMG values (D-053: 17 damage, 900 RPM,
+    /// 35 rounds; reserve two / three magazines, D-054) are written on every build. Every other value (spread, recoil,
+    /// reload time, ADS, ...) is provisional: copied from the rifle only when the asset is first created, and from then on
+    /// left as tuned — a rebuild never puts the rifle's values back. The rifle's own definition is only read.
     /// </summary>
     public static class SmgCandidateSetup
     {
@@ -21,27 +23,16 @@ namespace Deadlock.Editor
         const string RifleArtPath = "Assets/Game/Data/WeaponArt/WeaponArt_ProtoRifle.asset";
         const string Smg = "Assets/Game/Art/Weapons/SMG";
 
+        public const float Damage = 17f;
+        public const float Rpm = 900f;
+        public const int MagazineSize = 35;
+
         public static WeaponDefinition Prepare()
         {
-            var rifle = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RiflePath);
             var rifleArt = AssetDatabase.LoadAssetAtPath<WeaponArtDefinition>(RifleArtPath);
-            if (rifle == null || rifleArt == null)
-                throw new InvalidOperationException($"[DEADLOCK] SMG candidate needs {RiflePath} and {RifleArtPath}");
-
-            var smg = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WeaponPath);
-            if (smg == null)
-            {
-                smg = ScriptableObject.CreateInstance<WeaponDefinition>();
-                AssetDatabase.CreateAsset(smg, WeaponPath);
-            }
-            // Rifle-equivalent performance (every value copied), own identity; the view profile comes from the art import.
-            var view = smg.viewProfile;
-            EditorUtility.CopySerialized(rifle, smg);
-            smg.name = System.IO.Path.GetFileNameWithoutExtension(WeaponPath);
-            smg.weaponId = WeaponId;
-            smg.displayName = "SMG CANDIDATE (RIFLE VALUES)";
-            smg.viewProfile = view;
-            EditorUtility.SetDirty(smg);
+            if (rifleArt == null)
+                throw new InvalidOperationException($"[DEADLOCK] SMG candidate needs {RifleArtPath}");
+            var smg = PreparePerformance();
 
             var art = AssetDatabase.LoadAssetAtPath<WeaponArtDefinition>(ArtPath);
             if (art == null)
@@ -71,6 +62,45 @@ namespace Deadlock.Editor
             }
             AssetDatabase.SaveAssets();
             return smg;
+        }
+
+        /// <summary>
+        /// The SMG's weapon definition: created from a copy of the rifle when missing, then the confirmed values written.
+        /// Values not confirmed are kept as they are in the asset.
+        /// </summary>
+        public static WeaponDefinition PreparePerformance()
+        {
+            var smg = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WeaponPath);
+            if (smg == null)
+            {
+                var rifle = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RiflePath);
+                if (rifle == null)
+                    throw new InvalidOperationException($"[DEADLOCK] SMG candidate needs {RiflePath}");
+                smg = ScriptableObject.CreateInstance<WeaponDefinition>();
+                AssetDatabase.CreateAsset(smg, WeaponPath);
+                // The starting point of the values not confirmed; the view profile comes from the art import.
+                EditorUtility.CopySerialized(rifle, smg);
+                smg.name = System.IO.Path.GetFileNameWithoutExtension(WeaponPath);
+                smg.viewProfile = null;
+            }
+            ApplyConfirmedValues(smg);
+            EditorUtility.SetDirty(smg);
+            return smg;
+        }
+
+        /// <summary>Writes the SMG's identity and confirmed values (D-053, D-054) and nothing else.</summary>
+        public static void ApplyConfirmedValues(WeaponDefinition smg)
+        {
+            smg.weaponId = WeaponId;
+            smg.displayName = "SMG CANDIDATE";
+            smg.category = WeaponCategory.Smg;
+            smg.ammoType = AmmoType.Pistol; // label only, provisional (Q-012)
+            smg.damage = Damage;
+            smg.fireInterval = 60f / Rpm;
+            smg.automatic = true;
+            smg.projectilesPerShot = 1;
+            smg.magazineSize = MagazineSize;
+            AmmoRules.Apply(smg);
         }
 
         static T Load<T>(string path) where T : UnityEngine.Object

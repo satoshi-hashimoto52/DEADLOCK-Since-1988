@@ -862,8 +862,8 @@ namespace Deadlock.Tests
         }
 
         /// <summary>
-        /// Rifle → SMG → rifle from the drop-down, with a test only on the SMG (values unlike the official ones, which
-        /// are the same for both guns): the gun in hand fires, holds and reloads as its own definition says, the
+        /// Rifle → SMG → rifle from the drop-down, with a test only on the SMG (values unlike the official ones; the SMG's
+        /// official values are its confirmed ones since Stage 31): the gun in hand fires, holds and reloads as its own definition says, the
         /// range's endless reserve stays, and neither gun's values leak into the other.
         /// </summary>
         [UnityTest]
@@ -880,7 +880,7 @@ namespace Deadlock.Tests
             var smgOfficial = gun.Definition;
             Assert.AreEqual("proto_smg", smgOfficial.weaponId);
             var b = lab.Edited("proto_smg");
-            b.rpm = 900f;
+            b.rpm = 800f;
             b.magazineSize = 20;
             b.reloadTime = 1f;
             b.damage = 28f;
@@ -889,18 +889,19 @@ namespace Deadlock.Tests
             var smgTest = gun.Definition;
             TestContext.WriteLine(RecoilState("SMG test applied"));
             Assert.AreNotSame(smgOfficial, smgTest, "a runtime clone");
-            Assert.AreEqual(60f / 900f, smgTest.fireInterval, 1e-5f);
+            Assert.AreEqual(60f / 800f, smgTest.fireInterval, 1e-5f);
             Assert.AreEqual(20, smgTest.magazineSize);
             Assert.AreEqual(1f, smgTest.reloadTime);
             Assert.AreEqual(28f, smgTest.damage);
             Assert.AreEqual(20, gun.Ammo.Loaded, "rounds cut to the test magazine, not refilled");
-            Assert.AreEqual(30, smgOfficial.magazineSize, "the SMG asset unchanged");
+            Assert.AreEqual(35, smgOfficial.magazineSize, "the SMG asset unchanged (its confirmed 35)");
+            Assert.AreEqual(60f / 900f, smgOfficial.fireInterval, 1e-5f, "and its confirmed 900 rpm");
 
             yield return QuickClick("QFold");
             var smgShots = new List<float>();
             yield return Burst(0.6f, smgShots);
             TestContext.WriteLine($"SMG: {smgShots.Count} shots, every {MeanInterval(smgShots):0.000} s, ammo {gun.Ammo.Loaded}");
-            Assert.AreEqual(60f / 900f, MeanInterval(smgShots), 0.012f, "the SMG test's 900 rpm");
+            Assert.AreEqual(60f / 800f, MeanInterval(smgShots), 0.012f, "the SMG test's 800 rpm");
             Assert.AreEqual(20 - smgShots.Count, gun.Ammo.Loaded);
             Assert.IsTrue(gun.InfiniteReserve);
             var took = new float[1];

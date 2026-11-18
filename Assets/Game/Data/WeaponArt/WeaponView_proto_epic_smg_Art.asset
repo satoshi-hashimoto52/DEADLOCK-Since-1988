@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 964a4c6bc2e74999a3d70a0d1d66b213, type: 3}
+  m_Name: WeaponView_proto_epic_smg_Art
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.View.WeaponViewProfile
+  hipSprite: {fileID: 21300000, guid: be0a9c204dd3e4457bf50a0f109b770c, type: 3}
+  adsSprite: {fileID: 21300000, guid: e0cdd8a48b65b484daf3479696a1a33f, type: 3}
+  adsMuzzleOffset: {x: 0, y: -0.11355679}
+  muzzleFlashSprite: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hipEmissionSprite: {fileID: 21300000, guid: 4579cd2d13fef4e55934bb2bd986b917, type: 3}
+  hipGlowSprite: {fileID: 21300000, guid: 0a6d55bca441f4043a238ff5f830ce5c, type: 3}
+  emissionIntensity: 1
+  glowIntensity: 1
+  glowMaterial: {fileID: 2100000, guid: e5109e4e6bd5e4ef1b79c1f176ab8573, type: 2}
+  glowPulse: 0.9
+  emissionPulse: 0.7
+  glowPulseSeconds: 2.4
+  adsEmissionSprite: {fileID: 21300000, guid: c7f90f0937d5f4d7fb991d6f4f413ce3, type: 3}
+  adsGlowSprite: {fileID: 21300000, guid: 48a965afceb9c4c5fa017a8c585238b3, type: 3}
+  adsEmissionIntensity: 1
+  adsGlowIntensity: 0.2
+  adsGlowMaterial: {fileID: 2100000, guid: 6475965a129e54b098c658445f47f99a, type: 2}
+  adsGlowPulse: 0.3
+  adsEmissionPulse: 0.15
+  adsGlowPulseSeconds: 2.4
+  hipSkinRegions: {fileID: 0}
+  adsSkinRegions: {fileID: 0}
+  hipMuzzlePosition: {x: 0.2500388, y: -0.17452765}
+  hipRollDegrees: -16
+  referenceAspect: 1.7777778
+  hipRightEdgeFollow: 1
+  hipRightEdgeFollowNarrow: 0
+  hipScaleAt4x3: 1
+  hipToAdsMuzzlePosition: {x: 0, y: -0.2}
+  hipToAdsRelative: 1
+  adsStartOffset: {x: 0, y: -0.1}
+  crossfadeStart: 0.45
+  crossfadeEnd: 0.62
+  bobAmount: 0.006
+  sprintBob: {x: 0.03, y: 0.014}
+  bobFrequency: 1.8
+  kickOffset: {x: 0.008, y: -0.022}
+  kickRollDegrees: -2.5
+  kickScale: 0.03
+  kickRecoverSpeed: 12
+  adsKickMultiplier: 0.35
+  muzzleFlashTime: 0.045
+  hipMuzzleFlashScale: 0.4
+  hipMuzzleFlashOffset: {x: -0.015067529, y: -0.0011868984}
+  hipMuzzleFlashAlongBarrel: 1
+  hipMuzzleFlashBarrelDegrees: 172
+  hipMuzzleFlashStretch: {x: 0.7, y: 0.35}
+  adsMuzzleFlashScale: 0.35
+  adsMuzzleFlashUnderSight: 1
+  reloadDrop: 0.1
+  reloadRollDegrees: 14
+  hipHoldOffset: {x: 0.23560807, y: -0.26773646}
+  adsHoldOffset: {x: 0, y: -0.2999953}

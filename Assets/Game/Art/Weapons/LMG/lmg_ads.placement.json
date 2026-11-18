@@ -1,0 +1,16 @@
+{
+  "note": "Placement of the approved lmg ADS image (Stage 38, registered by AssetPipeline). Image 1774x887, pixel coordinates from the top-left. aim = top of the centre front-sight post (post x 884-891, top row y 388) = screen centre. muzzle = flash reference at the front-sight base, on the bore line below the post (the muzzle itself is hidden), as the rifle's (aim + 46). screenHeightPixels 772 and hold = aim + 0.3 units: the rifle ADS values. Written by hand.",
+  "aim": [
+    888,
+    388
+  ],
+  "muzzle": [
+    888,
+    434
+  ],
+  "hold": [
+    888,
+    636.33
+  ],
+  "screenHeightPixels": 772
+}

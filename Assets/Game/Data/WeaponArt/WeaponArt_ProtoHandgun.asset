@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c87e56f70c4443891944abc4f8230a, type: 3}
+  m_Name: WeaponArt_ProtoHandgun
+  m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.WeaponArtDefinition
+  weapon: {fileID: 11400000, guid: c6e3b4651a04f4aa1932e8b32778d983, type: 2}
+  baseProfile: {fileID: 11400000, guid: 869f4a554e455488f8c0a1be473ee411, type: 2}
+  viewProfile: {fileID: 11400000, guid: c793c9e96ff234183af90175d6686f26, type: 2}
+  muzzleFlash: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hip:
+    source: {fileID: 0}
+    image: {fileID: 0}
+    placement: {fileID: 0}
+    skinRegions: {fileID: 0}
+  ads:
+    source: {fileID: 2800000, guid: eedd46eea69fd4b7395f2a24710d227c, type: 3}
+    image: {fileID: 2800000, guid: eedd46eea69fd4b7395f2a24710d227c, type: 3}
+    placement: {fileID: 4900000, guid: 0359990b19e5e4befaffa11c3398768e, type: 3}
+    skinRegions: {fileID: 0}
+  hipNotDelivered: 1
+  adsNotDelivered: 0
+  hipEmission: {fileID: 0}
+  hipGlow: {fileID: 0}
+  adsEmission: {fileID: 0}
+  adsGlow: {fileID: 0}

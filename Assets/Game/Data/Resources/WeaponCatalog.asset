@@ -1,0 +1,104 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cd72bb2e8fbc4acdb339a7fe7506b56, type: 3}
+  m_Name: WeaponCatalog
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponCatalog
+  entries:
+  - weaponId: proto_rifle
+    displayName: "\u30E9\u30A4\u30D5\u30EB"
+    category: 0
+    rarity: 0
+    gun: {fileID: 11400000, guid: c95414bfbb6384434ade290dff5ccd24, type: 2}
+    knife: {fileID: 0}
+    provisional: 0
+    confirmedNote: "\u30C0\u30E1\u30FC\u30B825\u30FB600RPM\u30FB30\u767A\uFF08\u73FE\u884C\u5024\u3092\u57FA\u6E96\u3068\u3057\u3066\u7DAD\u6301\uFF09\u30FBSlot
+      1\u30FB\u4E88\u5099 \u958B\u59CB60\uFF0F\u4E0A\u965090\u30FB\u5F3E\u85AC\u7BB130"
+    provisionalNote: "\u6B63\u5F0F\u540D\u79F0\u30FB\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: 
+    hipArt: 
+    adsArt: 
+  - weaponId: proto_smg
+    displayName: SMG
+    category: 1
+    rarity: 0
+    gun: {fileID: 11400000, guid: d3eb20bf39c5d4a9b874d6609274e92e, type: 2}
+    knife: {fileID: 0}
+    provisional: 1
+    confirmedNote: "\u30C0\u30E1\u30FC\u30B817\u30FB900RPM\u30FB35\u767A\u30FBSlot
+      1\u30FB\u4E88\u5099 \u958B\u59CB70\uFF0F\u4E0A\u9650105\u30FB\u5F3E\u85AC\u7BB135"
+    provisionalNote: "\u53CD\u52D5\u30FB\u96C6\u5F3E\u30FB\u5C04\u7A0B\u6E1B\u8870\u306A\u3069\u307B\u304B\u306E\u5024\u3001\u6B63\u5F0F\u540D\u79F0\u30FB\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: weapon.smg.side
+    hipArt: 
+    adsArt: 
+  - weaponId: proto_shotgun
+    displayName: "\u30B7\u30E7\u30C3\u30C8\u30AC\u30F3\uFF08\u4EEE\u79F0\uFF09"
+    category: 2
+    rarity: 0
+    gun: {fileID: 11400000, guid: b336c4d59cf424120a0e9c1d1b61d260, type: 2}
+    knife: {fileID: 0}
+    provisional: 1
+    confirmedNote: "1\u5C048\u30DA\u30EC\u30C3\u30C8\u30FB\u30D5\u30EB\u30DE\u30AC\u30B8\u30F3\u4E00\u62EC\u30EA\u30ED\u30FC\u30C9\u30FBSlot
+      1\u30FB\u4E88\u5099\u306F\u958B\u59CB2\uFF0F\u4E0A\u96503\u30DE\u30AC\u30B8\u30F3\u5206"
+    provisionalNote: "\u30C0\u30E1\u30FC\u30B812\uFF0F\u30DA\u30EC\u30C3\u30C8\u30FB0.9\u79D2\uFF0F\u5C04\u30FB6\u767A\u30FB\u30EA\u30ED\u30FC\u30C92.6\u79D2\u306A\u3069\u306E\u6570\u5024\uFF08\u4E88\u5099\u5F3E\u306E\u6570\u3082\u9023\u52D5\u3057\u3066\u4EEE\uFF09\u3001\u6B63\u5F0F\u540D\u79F0\u30FB\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: weapon.shotgun.side
+    hipArt: weapon.shotgun.hip
+    adsArt: weapon.shotgun.ads
+  - weaponId: proto_handgun
+    displayName: "\u30CF\u30F3\u30C9\u30AC\u30F3\uFF08\u4EEE\u79F0\uFF09"
+    category: 4
+    rarity: 0
+    gun: {fileID: 11400000, guid: c6e3b4651a04f4aa1932e8b32778d983, type: 2}
+    knife: {fileID: 0}
+    provisional: 1
+    confirmedNote: "Slot 2 \u5C02\u7528\u30FB\u4E88\u5099\u306F\u958B\u59CB2\uFF0F\u4E0A\u96503\u30DE\u30AC\u30B8\u30F3\u5206"
+    provisionalNote: "\u30C0\u30E1\u30FC\u30B830\u30FB\u534A\u81EA\u52D5 \u6700\u5927400RPM\u30FB12\u767A\u30FB\u30EA\u30ED\u30FC\u30C91.4\u79D2\u306A\u3069\u306E\u6570\u5024\uFF08\u4E88\u5099\u5F3E\u306E\u6570\u3082\u9023\u52D5\u3057\u3066\u4EEE\uFF09\u3001\u6B63\u5F0F\u540D\u79F0\u30FB\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: weapon.handgun.side
+    hipArt: weapon.handgun.hip
+    adsArt: weapon.handgun.ads
+  - weaponId: proto_lmg
+    displayName: "LMG\uFF08\u4EEE\u79F0\uFF09"
+    category: 3
+    rarity: 0
+    gun: {fileID: 11400000, guid: 6996a75d0bb754876a7d412b8f680ba1, type: 2}
+    knife: {fileID: 0}
+    provisional: 1
+    confirmedNote: "Slot 1\u30FB\u4E88\u5099\u306F\u958B\u59CB2\uFF0F\u4E0A\u96503\u30DE\u30AC\u30B8\u30F3\u5206"
+    provisionalNote: "\u30C0\u30E1\u30FC\u30B824\u30FB700RPM\u30FB75\u767A\u30FB\u30EA\u30ED\u30FC\u30C94\u79D2\u306A\u3069\u306E\u6570\u5024\uFF08\u4E88\u5099\u5F3E\u306E\u6570\u3082\u9023\u52D5\u3057\u3066\u4EEE\uFF09\u3001\u6B63\u5F0F\u540D\u79F0\u30FB\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: weapon.lmg.side
+    hipArt: weapon.lmg.hip
+    adsArt: weapon.lmg.ads
+  - weaponId: proto_epic_smg
+    displayName: "EPIC SMG\uFF08\u4EEE\u79F0\uFF09"
+    category: 1
+    rarity: 4
+    gun: {fileID: 11400000, guid: 87767b79b21f9440cbb9541b6a869a97, type: 2}
+    knife: {fileID: 0}
+    provisional: 1
+    confirmedNote: "EPIC\u30FBSMG\u30FBSlot 1 \u306E\u307F\u30FB950RPM\u30FB28\u767A\u30FB\u4E88\u5099
+      \u958B\u59CB56\uFF0F\u4E0A\u965084\u30FB\u5F3E\u85AC\u7BB128\u30FB\u4E00\u62EC\u30EA\u30ED\u30FC\u30C9\u30FB\u5165\u624B\u306F\u30AC\u30C1\u30E3\u3068\u4EA4\u63DB\u30B7\u30E7\u30C3\u30D7\uFF08Stage
+      34 \u4EE5\u964D\uFF09"
+    provisionalNote: "\u30C0\u30E1\u30FC\u30B818\u30FB\u30EA\u30ED\u30FC\u30C91.9\u79D2\u30FB\u53CD\u52D5\u30FB\u96C6\u5F3E\u30FB\u5C04\u7A0B\u6E1B\u8870\u3001\u6B63\u5F0F\u540D\u79F0"
+    sideArt: weapon.epic_smg.side
+    hipArt: weapon.epic_smg.hip
+    adsArt: weapon.epic_smg.ads
+  - weaponId: proto_knife
+    displayName: "\u30CA\u30A4\u30D5"
+    category: 5
+    rarity: 0
+    gun: {fileID: 0}
+    knife: {fileID: 11400000, guid: ce45bf6b80bce4639ab9a190eb568c3a, type: 2}
+    provisional: 1
+    confirmedNote: Slot 3
+    provisionalNote: "\u5A01\u529B\u30FB\u5C04\u7A0B\u306A\u3069\u306F\u8A66\u4F5C\u7528\u306E\u66AB\u5B9A\u3001\u30EC\u30A2\u30EA\u30C6\u30A3\u306F\u672A\u5B9A"
+    sideArt: 
+    hipArt: 
+    adsArt: 

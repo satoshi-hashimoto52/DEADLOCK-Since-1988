@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 826172c5c8e6340fb96f89aeda997e00, type: 3}
+  m_Name: Weapon_ProtoLMG_Provisional
+  m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponDefinition
+  weaponId: proto_lmg
+  displayName: LMG (PROVISIONAL)
+  viewProfile: {fileID: 11400000, guid: 61d6a76eb8b36436093f440806de7e95, type: 2}
+  category: 3
+  ammoType: 4
+  damage: 24
+  fireInterval: 0.08571429
+  automatic: 1
+  projectilesPerShot: 1
+  magazineSize: 75
+  startReserve: 150
+  reserveMax: 225
+  reloadTime: 4
+  projectileSpeed: 250
+  maxRange: 200
+  hipSpreadDegrees: 1.6
+  adsSpreadDegrees: 0.15
+  recoilPitchDegrees: 0.7
+  recoilYawDegrees: 0.25
+  adsRecoilMultiplier: 0.55
+  hipFov: 75
+  adsFov: 55
+  adsTime: 0.32
+  adsMoveSpeedMultiplier: 0.45
+  adsLookSensitivityMultiplier: 0.65
+  moveSpeedMultiplier: 1
+  movingSpreadMultiplier: 1
+  switchTime: 0
+  recoilProfile:
+    enabled: 0
+    axis: 0
+    vertical: 1
+    horizontal: 0
+    strength: 1
+    pitchDegrees: 0.7
+    yawDegrees: 0.25
+    adsMultiplier: 0.55
+    recoveryFraction: 0.5
+    recoverySpeed: 9
+  damageFalloff:
+    points: []

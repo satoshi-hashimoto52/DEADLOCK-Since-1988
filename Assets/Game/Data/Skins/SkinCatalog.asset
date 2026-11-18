@@ -44,6 +44,26 @@ MonoBehaviour:
     skins: []
     sideView: {fileID: 0}
     sideViewRegions: {fileID: 0}
+  - weaponId: proto_shotgun
+    label: "\u30B7\u30E7\u30C3\u30C8\u30AC\u30F3"
+    skins: []
+    sideView: {fileID: 21300000, guid: 4346570a97aa04622b35c7efffc4888e, type: 3}
+    sideViewRegions: {fileID: 0}
+  - weaponId: proto_handgun
+    label: "\u30CF\u30F3\u30C9\u30AC\u30F3"
+    skins: []
+    sideView: {fileID: 21300000, guid: 3adc19a8be7b84d898b58eac4f031b95, type: 3}
+    sideViewRegions: {fileID: 0}
+  - weaponId: proto_lmg
+    label: LMG
+    skins: []
+    sideView: {fileID: 21300000, guid: 4ebfb0d917d054a829fc42246622943a, type: 3}
+    sideViewRegions: {fileID: 0}
+  - weaponId: proto_epic_smg
+    label: EPIC SMG
+    skins: []
+    sideView: {fileID: 21300000, guid: 7950e7615933446f69defabf6a555acf, type: 3}
+    sideViewRegions: {fileID: 0}
   playerSkins:
   - skinId: test_navy
     label: "\u8272\u9055\u3044\uFF08\u8A66\u4F5C\uFF09"

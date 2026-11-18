@@ -89,17 +89,37 @@ namespace Deadlock.Editor
             public float hipRightEdgeFollowNarrow;
             public float hipScaleAt4x3;
             public float hipMuzzleFlashScale;
+            public float[] hipMuzzleFlashOffset; // optional: flash centre from the muzzle, image pixels (x right, y down)
+            public float[] hipMuzzleFlashRoot;    // optional: bore opening centre, image pixels; with hipMuzzleFlashBarrel the flash is a jet out of it
+            public float hipMuzzleFlashBarrel;    // optional: the drawn barrel's angle above the left horizontal, degrees (measured on the image)
+            public float hipMuzzleFlashReach;     // optional: the jet's centre this far from the bore along the barrel, image pixels
+            public float[] hipMuzzleFlashStretch; // optional: the jet's size against hipMuzzleFlashScale, along / across the barrel
             public float[] hipToAds;          // optional: hip move while raising the sights, offset in units (relative)
+            public float hipRoll;             // optional: lasting roll of the image around the hold point, degrees (+ = anticlockwise)
+            public bool glowAdditive;         // optional: the glow layer is added (GlowMaterialPath) instead of painted over
+            public float glowGain;            // optional: the additive glow's gain (0 = the material's default)
+            public float glowPulse;           // optional: the glow's slow pulse, share of its brightness (0 = steady)
+            public float emissionPulse;       // optional: the emission core's pulse with the glow, share of its brightness (0 = steady)
+            public float glowPulseSeconds;    // optional: length of one pulse (0 = the profile's default)
         }
 
         [Serializable]
         class AdsPlacement
         {
-            public float[] aim;               // front-sight tip = pivot = screen centre, pixels from the top-left
+            public float[] aim;               // aim point = pivot = screen centre (front-sight tip, or an optical sight's dot centre), pixels from the top-left
             public float[] muzzle;            // flash reference (the flash is drawn in front of the sprite)
             public float[] hold;              // optional: turn point for kick / reload, pixels from the top-left
             public float screenHeightPixels;  // image pixels per full screen height
             public float adsMuzzleFlashScale;
+            public bool adsMuzzleFlashUnderSight; // optional (optical sight): the flash stays at `muzzle`, under the sight glass, behind the housing
+            // The ADS image's own glow layers (optional; nothing here touches the hip's):
+            public bool glowAdditive;         // the ADS glow is added (AdsGlowMaterialPath, its own gain) instead of painted over
+            public float glowGain;            // the ADS glow material's gain (0 = the material's default)
+            public float glowIntensity = -1f; // the ADS glow's brightness 0..1 (-1 = the profile's default)
+            public float emissionIntensity = -1f; // the ADS emission core's brightness 0..1 (-1 = the profile's default)
+            public float glowPulse;           // the ADS glow's breathing, share of its brightness (0 = steady)
+            public float emissionPulse;       // the ADS emission core's breathing with it (0 = steady)
+            public float glowPulseSeconds;    // length of one breath (0 = the profile's default)
         }
 
         /// <summary>Imports every definition in the registry (Assets/Game/Data/WeaponArt/WeaponArtRegistry.asset). No registry = nothing to do.</summary>
@@ -149,8 +169,47 @@ namespace Deadlock.Editor
                 string label = $"[{id ?? "?"}] {where}";
                 if (d.baseProfile == null)
                     problems.Add($"{label}: 'baseProfile' is not set");
-                var hip = CheckView(d.hip, "hip", label, problems);
-                var ads = CheckView(d.ads, "ads", label, problems);
+                Texture2D hip = null;
+                if (d.hipNotDelivered)
+                {
+                    // Not delivered yet: nothing may stand in for it (never another gun's image).
+                    if (d.hip != null && (d.hip.image != null || d.hip.source != null || d.hip.placement != null || d.hip.skinRegions != null))
+                        problems.Add($"{label}: 'hipNotDelivered' is on but 'hip' is not empty");
+                    if (d.hipEmission != null || d.hipGlow != null)
+                        problems.Add($"{label}: 'hipEmission' / 'hipGlow' are set but there is no hip image");
+                }
+                else
+                    hip = CheckView(d.hip, "hip", label, problems);
+                Texture2D ads = null;
+                if (d.adsNotDelivered)
+                {
+                    if (d.ads != null && (d.ads.image != null || d.ads.source != null || d.ads.placement != null || d.ads.skinRegions != null))
+                        problems.Add($"{label}: 'adsNotDelivered' is on but 'ads' is not empty");
+                    if (d.hipNotDelivered)
+                        problems.Add($"{label}: neither hip nor ADS is delivered (leave the gun out of the registry)");
+                }
+                else
+                    ads = CheckView(d.ads, "ads", label, problems);
+                foreach (var (layer, field) in new[] { (d.hipEmission, "hipEmission"), (d.hipGlow, "hipGlow") })
+                {
+                    if (layer == null || d.hip?.image == null)
+                        continue;
+                    Size(layer, out int lw, out int lh);
+                    Size(d.hip.image, out int iw, out int ih);
+                    if (lw != iw || lh != ih)
+                        problems.Add($"{label}: '{field}' {AssetDatabase.GetAssetPath(layer)} is {lw}x{lh} but the hip image is {iw}x{ih} (a glow layer shares the hip canvas)");
+                }
+                if (d.adsNotDelivered && (d.adsEmission != null || d.adsGlow != null))
+                    problems.Add($"{label}: 'adsEmission' / 'adsGlow' are set but there is no ADS image");
+                foreach (var (layer, field) in new[] { (d.adsEmission, "adsEmission"), (d.adsGlow, "adsGlow") })
+                {
+                    if (layer == null || d.ads?.image == null)
+                        continue;
+                    Size(layer, out int lw, out int lh);
+                    Size(d.ads.image, out int iw, out int ih);
+                    if (lw != iw || lh != ih)
+                        problems.Add($"{label}: '{field}' {AssetDatabase.GetAssetPath(layer)} is {lw}x{lh} but the ADS image is {iw}x{ih} (a glow layer shares the ADS canvas)");
+                }
                 if (hip != null)
                 {
                     var place = Parse<HipPlacement>(d.hip.placement, "hip", label, problems);
@@ -262,10 +321,37 @@ namespace Deadlock.Editor
                 }
                 if (d.muzzleFlash != null)
                     view.muzzleFlashSprite = d.muzzleFlash;
-                ApplyHip(view, d.hip.image, hips[d]);
-                ApplyAds(view, d.ads.image, adss[d]);
-                view.hipSkinRegions = ConfigureSkinRegions(d.hip.skinRegions);
-                view.adsSkinRegions = ConfigureSkinRegions(d.ads.skinRegions);
+                view.hipEmissionSprite = view.hipGlowSprite = null;
+                view.adsEmissionSprite = view.adsGlowSprite = null;
+                view.adsGlowMaterial = null;
+                if (d.hipNotDelivered)
+                {
+                    // The base profile's (baked) hip sprite must never show for this gun.
+                    view.hipSprite = null;
+                    view.hipSkinRegions = null;
+                }
+                else
+                {
+                    ApplyHip(view, d.hip.image, hips[d]);
+                    view.hipEmissionSprite = ApplyHipLayer(d.hipEmission, hips[d]);
+                    view.hipGlowSprite = ApplyHipLayer(d.hipGlow, hips[d]);
+                    ApplyGlowLook(view, hips[d]);
+                    view.hipSkinRegions = ConfigureSkinRegions(d.hip.skinRegions);
+                }
+                if (d.adsNotDelivered)
+                {
+                    // The base profile's (baked) ADS sprite must never show for this gun.
+                    view.adsSprite = null;
+                    view.adsSkinRegions = null;
+                }
+                else
+                {
+                    ApplyAds(view, d.ads.image, adss[d]);
+                    view.adsEmissionSprite = ApplyAdsLayer(d.adsEmission, adss[d]);
+                    view.adsGlowSprite = ApplyAdsLayer(d.adsGlow, adss[d]);
+                    ApplyAdsGlowLook(view, adss[d]);
+                    view.adsSkinRegions = ConfigureSkinRegions(d.ads.skinRegions);
+                }
                 EditorUtility.SetDirty(view);
                 d.weapon.viewProfile = view;
                 EditorUtility.SetDirty(d.weapon);
@@ -518,6 +604,21 @@ namespace Deadlock.Editor
             view.hipScaleAt4x3 = place.hipScaleAt4x3;
             if (place.hipMuzzleFlashScale > 0f)
                 view.hipMuzzleFlashScale = place.hipMuzzleFlashScale;
+            view.hipMuzzleFlashOffset = place.hipMuzzleFlashOffset != null && place.hipMuzzleFlashOffset.Length == 2
+                ? new Vector2(place.hipMuzzleFlashOffset[0] / ppu, -place.hipMuzzleFlashOffset[1] / ppu) : Vector2.zero;
+            view.hipMuzzleFlashAlongBarrel = place.hipMuzzleFlashRoot != null && place.hipMuzzleFlashRoot.Length == 2;
+            if (view.hipMuzzleFlashAlongBarrel)
+            {
+                // A jet out of the bore along the drawn barrel: its centre a little beyond the bore, on the barrel's line.
+                float b = place.hipMuzzleFlashBarrel * Mathf.Deg2Rad;
+                var outOfMuzzle = new Vector2(-Mathf.Cos(b), -Mathf.Sin(b)); // image pixels, y down
+                var centre = new Vector2(place.hipMuzzleFlashRoot[0], place.hipMuzzleFlashRoot[1]) + outOfMuzzle * place.hipMuzzleFlashReach;
+                view.hipMuzzleFlashOffset = new Vector2((centre.x - place.muzzle[0]) / ppu, (place.muzzle[1] - centre.y) / ppu);
+                view.hipMuzzleFlashBarrelDegrees = 180f - place.hipMuzzleFlashBarrel; // sprite units, y up
+                view.hipMuzzleFlashStretch = place.hipMuzzleFlashStretch != null && place.hipMuzzleFlashStretch.Length == 2
+                    ? new Vector2(place.hipMuzzleFlashStretch[0], place.hipMuzzleFlashStretch[1]) : Vector2.one;
+            }
+            view.hipRollDegrees = place.hipRoll;
             if (place.hipToAds != null && place.hipToAds.Length == 2)
             {
                 view.hipToAdsMuzzlePosition = new Vector2(place.hipToAds[0], place.hipToAds[1]);
@@ -525,7 +626,99 @@ namespace Deadlock.Editor
             }
         }
 
-        /// <summary>ADS: pivot = aim point (front-sight tip), which sits on the screen centre when aimed.</summary>
+        /// <summary>
+        /// A glow layer of the hip image (emission core / glow): the hip's pivot (muzzle) and size, so as a child of the
+        /// hip sprite at its origin it covers the image exactly and follows kick, reload, switch and the ADS move.
+        /// </summary>
+        static Sprite ApplyHipLayer(Texture2D layer, HipPlacement place)
+        {
+            if (layer == null)
+                return null;
+            string path = AssetDatabase.GetAssetPath(layer);
+            Size(layer, out int width, out int height);
+            Configure(path, new Vector2(place.muzzle[0] / width, 1f - place.muzzle[1] / height), place.screenHeightPixels / (2f * HalfHeight), MaxSize(width, height));
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        /// <summary>The additive glow material (shared by every gun with an additive glow layer; made when missing).</summary>
+        public const string GlowMaterialPath = "Assets/Game/Art/Weapons/WeaponGlowAdditive.mat";
+        const string GlowShader = "Deadlock/Sprite Additive Glow";
+
+        /// <summary>How the glow layer is drawn: added (with its gain) or painted over, steady or with a slow pulse.</summary>
+        static void ApplyGlowLook(WeaponViewProfile view, HipPlacement place)
+        {
+            view.glowMaterial = null;
+            view.emissionPulse = Mathf.Clamp01(place.emissionPulse);
+            if (view.hipGlowSprite == null)
+                return;
+            if (place.glowAdditive)
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(GlowMaterialPath);
+                if (material == null)
+                {
+                    var shader = Shader.Find(GlowShader) ?? throw new InvalidOperationException($"[DEADLOCK] shader {GlowShader} not found");
+                    material = new Material(shader) { name = Path.GetFileNameWithoutExtension(GlowMaterialPath) };
+                    AssetDatabase.CreateAsset(material, GlowMaterialPath);
+                }
+                if (place.glowGain > 0f && !Mathf.Approximately(material.GetFloat("_Gain"), place.glowGain))
+                {
+                    material.SetFloat("_Gain", place.glowGain);
+                    EditorUtility.SetDirty(material);
+                }
+                view.glowMaterial = material;
+            }
+            view.glowPulse = Mathf.Clamp01(place.glowPulse);
+            if (place.glowPulseSeconds > 0f)
+                view.glowPulseSeconds = place.glowPulseSeconds;
+        }
+
+        /// <summary>
+        /// A glow layer of the ADS image (emission core / glow): the ADS pivot (aim) and size, so as a child of the ADS
+        /// sprite at its origin it covers the image exactly and follows kick, reload, switch and the hip ⇄ ADS move.
+        /// </summary>
+        static Sprite ApplyAdsLayer(Texture2D layer, AdsPlacement place)
+        {
+            if (layer == null)
+                return null;
+            string path = AssetDatabase.GetAssetPath(layer);
+            Size(layer, out int width, out int height);
+            Configure(path, new Vector2(place.aim[0] / width, 1f - place.aim[1] / height), place.screenHeightPixels / (2f * HalfHeight), MaxSize(width, height));
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        /// <summary>The ADS glow's additive material: its own asset and gain, so the hip glow's (gain 14) stays as it is.</summary>
+        public const string AdsGlowMaterialPath = "Assets/Game/Art/Weapons/WeaponGlowAdditiveAds.mat";
+
+        /// <summary>How the ADS glow layers are drawn (their own settings: the hip's are not read or changed).</summary>
+        static void ApplyAdsGlowLook(WeaponViewProfile view, AdsPlacement place)
+        {
+            view.adsGlowMaterial = null;
+            if (place.emissionIntensity >= 0f)
+                view.adsEmissionIntensity = Mathf.Clamp01(place.emissionIntensity);
+            if (place.glowIntensity >= 0f)
+                view.adsGlowIntensity = Mathf.Clamp01(place.glowIntensity);
+            view.adsEmissionPulse = Mathf.Clamp01(place.emissionPulse);
+            view.adsGlowPulse = Mathf.Clamp01(place.glowPulse);
+            if (place.glowPulseSeconds > 0f)
+                view.adsGlowPulseSeconds = place.glowPulseSeconds;
+            if (view.adsGlowSprite == null || !place.glowAdditive)
+                return;
+            var material = AssetDatabase.LoadAssetAtPath<Material>(AdsGlowMaterialPath);
+            if (material == null)
+            {
+                var shader = Shader.Find(GlowShader) ?? throw new InvalidOperationException($"[DEADLOCK] shader {GlowShader} not found");
+                material = new Material(shader) { name = Path.GetFileNameWithoutExtension(AdsGlowMaterialPath) };
+                AssetDatabase.CreateAsset(material, AdsGlowMaterialPath);
+            }
+            if (place.glowGain > 0f && !Mathf.Approximately(material.GetFloat("_Gain"), place.glowGain))
+            {
+                material.SetFloat("_Gain", place.glowGain);
+                EditorUtility.SetDirty(material);
+            }
+            view.adsGlowMaterial = material;
+        }
+
+        /// <summary>ADS: pivot = aim point (front-sight tip, or an optical sight's dot), which sits on the screen centre when aimed.</summary>
         static void ApplyAds(WeaponViewProfile view, Texture2D image, AdsPlacement place)
         {
             string path = AssetDatabase.GetAssetPath(image);
@@ -538,6 +731,7 @@ namespace Deadlock.Editor
                 view.adsHoldOffset = new Vector2((place.hold[0] - place.aim[0]) / ppu, (place.aim[1] - place.hold[1]) / ppu);
             if (place.adsMuzzleFlashScale > 0f)
                 view.adsMuzzleFlashScale = place.adsMuzzleFlashScale;
+            view.adsMuzzleFlashUnderSight = place.adsMuzzleFlashUnderSight;
         }
 
         /// <summary>Smallest import size limit that keeps the image at its own size (no downscaling).</summary>

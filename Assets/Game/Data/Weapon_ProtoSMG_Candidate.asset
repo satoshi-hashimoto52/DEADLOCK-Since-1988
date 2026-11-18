@@ -13,14 +13,17 @@ MonoBehaviour:
   m_Name: Weapon_ProtoSMG_Candidate
   m_EditorClassIdentifier: Deadlock.Runtime::Deadlock.Combat.WeaponDefinition
   weaponId: proto_smg
-  displayName: SMG CANDIDATE (RIFLE VALUES)
+  displayName: SMG CANDIDATE
   viewProfile: {fileID: 11400000, guid: a5303ea361ecd42af9971802f9dca810, type: 2}
-  damage: 25
-  fireInterval: 0.1
+  category: 1
+  ammoType: 2
+  damage: 17
+  fireInterval: 0.06666667
   automatic: 1
-  magazineSize: 30
-  startReserve: 90
-  reserveMax: 180
+  projectilesPerShot: 1
+  magazineSize: 35
+  startReserve: 70
+  reserveMax: 105
   reloadTime: 1.8
   projectileSpeed: 250
   maxRange: 200
@@ -34,6 +37,9 @@ MonoBehaviour:
   adsTime: 0.18
   adsMoveSpeedMultiplier: 0.6
   adsLookSensitivityMultiplier: 0.65
+  moveSpeedMultiplier: 1
+  movingSpreadMultiplier: 1
+  switchTime: 0
   recoilProfile:
     enabled: 0
     axis: 0

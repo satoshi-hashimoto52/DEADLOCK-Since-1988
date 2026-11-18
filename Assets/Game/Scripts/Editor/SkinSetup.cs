@@ -85,6 +85,24 @@ namespace Deadlock.Editor
                 });
                 catalog.weapons = list.ToArray();
             }
+            // New guns (Stage 32): a side view counts once its approved image is registered at the planned path; until
+            // then nothing is added (the HUD shows the name marked as a placeholder).
+            foreach (var plan in WeaponCatalogSetup.PlannedArts)
+            {
+                if (!File.Exists(plan.SidePath))
+                    continue;
+                if (catalog.WeaponSet(plan.WeaponId) == null)
+                {
+                    var list = new System.Collections.Generic.List<WeaponSkinSet>(catalog.weapons)
+                    {
+                        new WeaponSkinSet { weaponId = plan.WeaponId, label = plan.Label },
+                    };
+                    catalog.weapons = list.ToArray();
+                }
+                var planned = catalog.WeaponSet(plan.WeaponId);
+                planned.sideView = EquipmentSprite(plan.SidePath);
+                planned.sideViewRegions = null;
+            }
             foreach (var set in catalog.weapons)
             {
                 if (set != null && set.weaponId == RifleId)

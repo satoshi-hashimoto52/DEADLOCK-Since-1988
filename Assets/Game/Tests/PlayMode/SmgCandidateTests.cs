@@ -53,6 +53,7 @@ namespace Deadlock.Tests
             Assert.AreEqual(Rifle, gun.Definition.weaponId, "the rifle by default");
             var rifle = gun.Definition;
             float rifleInterval = rifle.fireInterval, rifleDamage = rifle.damage;
+            int rifleMagazine = rifle.magazineSize;
             var rifleView = rifle.viewProfile;
 
             menu.Open();
@@ -70,8 +71,17 @@ namespace Deadlock.Tests
             Assert.AreEqual(Smg, smg.weaponId);
             StringAssert.Contains("smg_hip_candidate_v2", hip.sprite.texture.name);
             StringAssert.Contains("smg_ads_front_sight_gap3", ads.sprite.texture.name);
-            Assert.AreEqual(rifleInterval, smg.fireInterval, "performance: the rifle's values (for checking)");
-            Assert.AreEqual(rifleDamage, smg.damage);
+            // Confirmed SMG values (D-053, D-054), no longer a copy of the rifle's.
+            Assert.AreEqual(17f, smg.damage, "SMG damage");
+            Assert.AreEqual(900f, 60f / smg.fireInterval, 0.01f, "SMG 900 RPM");
+            Assert.IsTrue(smg.automatic);
+            Assert.AreEqual(35, smg.magazineSize, "SMG magazine");
+            Assert.AreEqual(70, smg.startReserve, "two magazines in reserve");
+            Assert.AreEqual(105, smg.reserveMax, "three magazines at most");
+            Assert.AreEqual(WeaponCategory.Smg, smg.category);
+            Assert.AreEqual(rifleInterval, rifle.fireInterval, "the rifle keeps its own values");
+            Assert.AreEqual(rifleDamage, rifle.damage);
+            Assert.AreEqual(rifleMagazine, rifle.magazineSize);
             Assert.AreSame(rifleView, rifle.viewProfile, "the rifle's own definition is untouched");
             Assert.AreEqual(Rifle, rifle.weaponId);
             Assert.AreEqual(smg.magazineSize, gun.Ammo.Loaded, "fresh gun after the switch");

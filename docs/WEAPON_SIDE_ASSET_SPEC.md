@@ -34,6 +34,7 @@ AssetPipeline の分類 `weapon_side`（`AssetPipeline/config/assets.json`）が
 
 - 登録先：weaponlab の作業ツリー（`feature/weapon-balance-lab`）。
   - `AssetPipeline/config/pipeline.json` の `repositories.weapons` で設定している。
+  - **2026-11-05 追記（D-074）：** 統合ブランチ（`feature/integration-smg-dungeon`）用の登録先 `repositories.weapons_integration` を足した。武器の素材は、素材ごとに `assets.json` の `repository` で登録先を明示する（`weapon.smg.side` は `weapons`、Stage 38 の4武器は `weapons_integration`）。明示がない武器の素材は設定の読み込みで止まり、登録は `--target <登録先の名前>` を付けたときだけ行う（作業ツリーの位置・ブランチ・remote・二重登録も検査する）。
   - 書き込めるのは `Assets/Game/Art/Weapons/` の中だけ。
 - 素材IDと保存先：
 

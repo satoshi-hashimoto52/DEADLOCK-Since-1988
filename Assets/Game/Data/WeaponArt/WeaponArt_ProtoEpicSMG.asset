@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c87e56f70c4443891944abc4f8230a, type: 3}
+  m_Name: WeaponArt_ProtoEpicSMG
+  m_EditorClassIdentifier: Deadlock.Editor::Deadlock.Editor.WeaponArtDefinition
+  weapon: {fileID: 11400000, guid: 87767b79b21f9440cbb9541b6a869a97, type: 2}
+  baseProfile: {fileID: 11400000, guid: 869f4a554e455488f8c0a1be473ee411, type: 2}
+  viewProfile: {fileID: 11400000, guid: d1f79fce4a9e942dba1104c0f3eb5317, type: 2}
+  muzzleFlash: {fileID: 21300000, guid: a15d2a51dd57e48b291cb4feb2e00078, type: 3}
+  hip:
+    source: {fileID: 2800000, guid: be0a9c204dd3e4457bf50a0f109b770c, type: 3}
+    image: {fileID: 2800000, guid: be0a9c204dd3e4457bf50a0f109b770c, type: 3}
+    placement: {fileID: 4900000, guid: 400cac9c3d0dd4929a3f5543f0a43327, type: 3}
+    skinRegions: {fileID: 0}
+  ads:
+    source: {fileID: 2800000, guid: e0cdd8a48b65b484daf3479696a1a33f, type: 3}
+    image: {fileID: 2800000, guid: e0cdd8a48b65b484daf3479696a1a33f, type: 3}
+    placement: {fileID: 4900000, guid: 932fb460dabab42cba1e92cfbbd9c4a3, type: 3}
+    skinRegions: {fileID: 0}
+  hipNotDelivered: 0
+  adsNotDelivered: 0
+  hipEmission: {fileID: 2800000, guid: 4579cd2d13fef4e55934bb2bd986b917, type: 3}
+  hipGlow: {fileID: 2800000, guid: 0a6d55bca441f4043a238ff5f830ce5c, type: 3}
+  adsEmission: {fileID: 2800000, guid: c7f90f0937d5f4d7fb991d6f4f413ce3, type: 3}
+  adsGlow: {fileID: 2800000, guid: 48a965afceb9c4c5fa017a8c585238b3, type: 3}

@@ -15,12 +15,15 @@ MonoBehaviour:
   weaponId: proto_rifle
   displayName: PROTO RIFLE
   viewProfile: {fileID: 11400000, guid: e58b4586754724c98b7b53561486521a, type: 2}
+  category: 0
+  ammoType: 1
   damage: 25
   fireInterval: 0.1
   automatic: 1
+  projectilesPerShot: 1
   magazineSize: 30
-  startReserve: 90
-  reserveMax: 180
+  startReserve: 60
+  reserveMax: 90
   reloadTime: 1.8
   projectileSpeed: 250
   maxRange: 200
@@ -34,6 +37,9 @@ MonoBehaviour:
   adsTime: 0.18
   adsMoveSpeedMultiplier: 0.6
   adsLookSensitivityMultiplier: 0.65
+  moveSpeedMultiplier: 1
+  movingSpreadMultiplier: 1
+  switchTime: 0
   recoilProfile:
     enabled: 0
     axis: 0
